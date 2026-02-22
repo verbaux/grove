@@ -1,0 +1,9 @@
+# Build output
+grove
+dist/
+
+# Grove local state (machine-specific)
+.grove/
+
+# macOS
+.DS_Store
