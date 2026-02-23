@@ -61,6 +61,7 @@ func runRemove(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
+		force := removeForce
 		if status != "clean" && !removeForce {
 			fmt.Printf("Worktree %q has %s.\n", alias, status)
 			answer := prompt("Remove anyway? [y/N]", "n")
@@ -68,9 +69,10 @@ func runRemove(cmd *cobra.Command, args []string) error {
 				fmt.Println("Aborted.")
 				return nil
 			}
+			force = true
 		}
 
-		if err := git.RemoveWorktree(entry.Path, removeForce); err != nil {
+		if err := git.RemoveWorktree(entry.Path, force); err != nil {
 			return err
 		}
 		fmt.Printf("  ✓ removed worktree at %s\n", entry.Path)
