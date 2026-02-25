@@ -95,6 +95,12 @@ func runClean(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// User confirmed removal — force-remove dirty worktrees so git doesn't reject them.
+	force := cleanForce
+	if len(dirty) > 0 && !cleanForce {
+		force = true
+	}
+
 	// If one removal fails, keep going — state stays consistent with what was actually removed.
 	var removed int
 	for _, wt := range toRemove {
@@ -107,7 +113,7 @@ func runClean(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.alias)
 			continue
 		}
-		if err := git.RemoveWorktree(wt.path, cleanForce); err != nil {
+		if err := git.RemoveWorktree(wt.path, force); err != nil {
 			fmt.Printf("  failed to remove %q: %v\n", wt.alias, err)
 			continue
 		}
