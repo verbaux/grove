@@ -84,7 +84,11 @@ func Save(dir string, s State) error {
 		return err
 	}
 
-	return os.Rename(tmpName, filepath.Join(dirPath, fileName))
+	if err := os.Rename(tmpName, filepath.Join(dirPath, fileName)); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return nil
 }
 
 // Add registers a new worktree alias. Returns an error if the alias is taken.

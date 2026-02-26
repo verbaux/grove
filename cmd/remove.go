@@ -85,7 +85,9 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	git.PruneWorktrees()
+	if err := git.PruneWorktrees(); err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: git worktree prune failed: %v\n", err)
+	}
 
 	fmt.Printf("Worktree %q removed.\n", alias)
 	return nil

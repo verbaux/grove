@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -55,10 +56,17 @@ func runClean(cmd *cobra.Command, args []string) error {
 		status string
 	}
 
+	aliases := make([]string, 0, len(s.Worktrees))
+	for alias := range s.Worktrees {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+
 	var toRemove []worktreeInfo
 	var dirty []string
 
-	for alias, entry := range s.Worktrees {
+	for _, alias := range aliases {
+		entry := s.Worktrees[alias]
 		status, err := git.Status(entry.Path)
 		if err != nil {
 			status = "unknown"
@@ -95,6 +103,12 @@ func runClean(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// User confirmed removal of dirty worktrees — pass force to git.
+	force := cleanForce
+	if len(dirty) > 0 && !cleanForce {
+		force = true
+	}
+
 	// If one removal fails, keep going — state stays consistent with what was actually removed.
 	var removed int
 	for _, wt := range toRemove {
@@ -107,7 +121,7 @@ func runClean(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.alias)
 			continue
 		}
-		if err := git.RemoveWorktree(wt.path, cleanForce); err != nil {
+		if err := git.RemoveWorktree(wt.path, force); err != nil {
 			fmt.Printf("  failed to remove %q: %v\n", wt.alias, err)
 			continue
 		}
@@ -122,7 +136,9 @@ func runClean(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	git.PruneWorktrees()
+	if err := git.PruneWorktrees(); err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: git worktree prune failed: %v\n", err)
+	}
 
 	fmt.Printf("\nRemoved %d of %d worktree(s).\n", removed, len(toRemove))
 	return nil
