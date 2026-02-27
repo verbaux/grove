@@ -46,7 +46,12 @@ func runClean(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(s.Worktrees) == 0 {
-		fmt.Println("No worktrees to clean.")
+		fmt.Println("No managed worktrees to clean.")
+		if orphanRemoved, err := cleanOrphans(s, cleanForce); err != nil {
+			return err
+		} else if orphanRemoved > 0 {
+			fmt.Printf("Removed %d orphan worktree(s).\n", orphanRemoved)
+		}
 		return nil
 	}
 
@@ -141,5 +146,68 @@ func runClean(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("\nRemoved %d of %d worktree(s).\n", removed, len(toRemove))
+
+	// Phase 2: orphan worktrees (git knows, grove doesn't)
+	if orphanRemoved, err := cleanOrphans(s, cleanForce); err != nil {
+		return err
+	} else if orphanRemoved > 0 {
+		fmt.Printf("Removed %d orphan worktree(s).\n", orphanRemoved)
+	}
+
 	return nil
+}
+
+func cleanOrphans(s state.State, force bool) (int, error) {
+	orphans, err := findOrphans(s)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(orphans) == 0 {
+		return 0, nil
+	}
+
+	fmt.Printf("\nFound %d orphan worktree(s) not managed by grove:\n", len(orphans))
+
+	var dirty []string
+	for _, o := range orphans {
+		status, err := git.Status(o.Path)
+		if err != nil {
+			status = "unknown"
+		}
+		marker := ""
+		if status != "clean" {
+			marker = " (" + status + ")"
+			dirty = append(dirty, o.Branch)
+		}
+		fmt.Printf("  %s → %s%s\n", o.Branch, o.Path, marker)
+	}
+	fmt.Println()
+
+	if len(dirty) > 0 && !force {
+		answer := prompt("Some orphan worktrees have changes. Remove all anyway? [y/N]", "n")
+		if answer != "y" && answer != "Y" {
+			fmt.Println("Skipped orphan cleanup.")
+			return 0, nil
+		}
+		force = true
+	} else {
+		answer := prompt(fmt.Sprintf("Remove %d orphan worktree(s)? [y/N]", len(orphans)), "n")
+		if answer != "y" && answer != "Y" {
+			fmt.Println("Skipped orphan cleanup.")
+			return 0, nil
+		}
+	}
+
+	var removed int
+	for _, o := range orphans {
+		if err := git.RemoveWorktree(o.Path, force); err != nil {
+			fmt.Printf("  failed to remove orphan %q: %v\n", o.Branch, err)
+			continue
+		}
+		removed++
+		fmt.Printf("  ✓ removed orphan %s\n", o.Branch)
+	}
+
+	return removed, nil
 }

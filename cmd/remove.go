@@ -29,7 +29,7 @@ Use --force to skip the check.`,
 }
 
 func runRemove(cmd *cobra.Command, args []string) error {
-	alias := args[0]
+	query := args[0]
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -46,24 +46,32 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	entry, ok := s.Get(alias)
-	if !ok {
-		return fmt.Errorf("no worktree with alias %q — run 'grove list' to see available worktrees", alias)
+	resolved, err := resolveWorktree(query, s)
+	if err != nil {
+		return err
+	}
+	if resolved == nil {
+		return fmt.Errorf("no worktree matching %q — run 'grove list' to see available worktrees", query)
+	}
+
+	label := resolved.Alias
+	if label == "" {
+		label = resolved.Branch
 	}
 
 	// If the path no longer exists on disk, the worktree was removed manually.
 	// Skip git commands and just clean up state.
-	if _, err := os.Stat(entry.Path); os.IsNotExist(err) {
-		fmt.Printf("Worktree path %s no longer exists, cleaning up state.\n", entry.Path)
+	if _, err := os.Stat(resolved.Path); os.IsNotExist(err) {
+		fmt.Printf("Worktree path %s no longer exists, cleaning up state.\n", resolved.Path)
 	} else {
-		status, err := git.Status(entry.Path)
+		status, err := git.Status(resolved.Path)
 		if err != nil {
 			return err
 		}
 
 		force := removeForce
 		if status != "clean" && !removeForce {
-			fmt.Printf("Worktree %q has %s.\n", alias, status)
+			fmt.Printf("Worktree %q has %s.\n", label, status)
 			answer := prompt("Remove anyway? [y/N]", "n")
 			if answer != "y" && answer != "Y" {
 				fmt.Println("Aborted.")
@@ -72,23 +80,25 @@ func runRemove(cmd *cobra.Command, args []string) error {
 			force = true
 		}
 
-		if err := git.RemoveWorktree(entry.Path, force); err != nil {
+		if err := git.RemoveWorktree(resolved.Path, force); err != nil {
 			return err
 		}
-		fmt.Printf("  ✓ removed worktree at %s\n", entry.Path)
+		fmt.Printf("  ✓ removed worktree at %s\n", resolved.Path)
 	}
 
-	if err := s.Remove(alias); err != nil {
-		return err
-	}
-	if err := state.Save(root, s); err != nil {
-		return err
+	if resolved.InState {
+		if err := s.Remove(resolved.Alias); err != nil {
+			return err
+		}
+		if err := state.Save(root, s); err != nil {
+			return err
+		}
 	}
 
 	if err := git.PruneWorktrees(); err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: git worktree prune failed: %v\n", err)
 	}
 
-	fmt.Printf("Worktree %q removed.\n", alias)
+	fmt.Printf("Worktree %q removed.\n", label)
 	return nil
 }
