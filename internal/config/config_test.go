@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -71,5 +72,87 @@ func TestLoadInvalidJSON(t *testing.T) {
 	_, err := Load(dir)
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestFindRootWalkUp(t *testing.T) {
+	root := t.TempDir()
+	if err := Save(root, Default()); err != nil {
+		t.Fatal(err)
+	}
+
+	child := filepath.Join(root, "a", "b")
+	if err := os.MkdirAll(child, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := FindRoot(child)
+	if err != nil {
+		t.Fatal("FindRoot failed:", err)
+	}
+
+	// EvalSymlinks to normalize /tmp vs /private/tmp on macOS
+	want, _ := filepath.EvalSymlinks(root)
+	got, _ = filepath.EvalSymlinks(got)
+	if got != want {
+		t.Errorf("FindRoot = %q, want %q", got, want)
+	}
+}
+
+func TestFindRootWorktree(t *testing.T) {
+	root := t.TempDir()
+
+	run := func(dir, name string, args ...string) {
+		t.Helper()
+		cmd := exec.Command(name, args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s %v failed: %s\n%s", name, args, err, out)
+		}
+	}
+
+	run(root, "git", "init")
+	run(root, "git", "config", "user.email", "test@test.com")
+	run(root, "git", "config", "user.name", "Test")
+
+	// Commit a dummy file so the repo has a HEAD commit
+	os.WriteFile(filepath.Join(root, "README"), []byte("x"), 0644)
+	run(root, "git", "add", ".")
+	run(root, "git", "commit", "-m", "init")
+
+	// Create the worktree BEFORE adding .groverc.json, so the worktree
+	// won't have the config file (it's untracked in the main repo).
+	wtDir := filepath.Join(t.TempDir(), "worktree")
+	run(root, "git", "worktree", "add", wtDir, "-b", "test-branch")
+	t.Cleanup(func() {
+		cmd := exec.Command("git", "worktree", "remove", "--force", wtDir)
+		cmd.Dir = root
+		cmd.Run()
+	})
+
+	// Now place .groverc.json in the main repo (untracked)
+	if err := Save(root, Default()); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := FindRoot(wtDir)
+	if err != nil {
+		t.Fatal("FindRoot from worktree failed:", err)
+	}
+
+	want, _ := filepath.EvalSymlinks(root)
+	got, _ = filepath.EvalSymlinks(got)
+	if got != want {
+		t.Errorf("FindRoot = %q, want %q", got, want)
+	}
+}
+
+func TestFindRootNoConfig(t *testing.T) {
+	dir := t.TempDir()
+
+	_, err := FindRoot(dir)
+	if err == nil {
+		t.Fatal("expected error when no .groverc.json exists anywhere")
 	}
 }

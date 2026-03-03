@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 const FileName = ".groverc.json"
@@ -59,11 +61,44 @@ func FindRoot(dir string) (string, error) {
 
 		parent := filepath.Dir(current)
 		if parent == current {
-			// Reached filesystem root without finding the file
-			return "", errors.New("no .groverc.json found — run 'grove init' first")
+			break
 		}
 		current = parent
 	}
+
+	// Fallback: if we're inside a git worktree, the main repo root
+	// may be a sibling directory rather than a parent. Ask git for
+	// the common .git dir and check if its parent has .groverc.json.
+	if root, err := findRootViaGit(dir); err == nil {
+		return root, nil
+	}
+
+	return "", errors.New("no .groverc.json found — run 'grove init' first")
+}
+
+func findRootViaGit(dir string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--git-common-dir")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	gitDir := strings.TrimSpace(string(out))
+	if !filepath.IsAbs(gitDir) {
+		gitDir = filepath.Join(dir, gitDir)
+	}
+	root := filepath.Dir(gitDir)
+
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := os.Stat(filepath.Join(root, FileName)); err != nil {
+		return "", err
+	}
+	return root, nil
 }
 
 // Save writes config to .groverc.json in dir.
