@@ -72,6 +72,10 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		alias = branchAlias(branch)
 	}
 
+	if err := validateAlias(alias); err != nil {
+		return err
+	}
+
 	if s.AliasExists(alias) {
 		return fmt.Errorf("alias %q already exists — use --name to choose a different one", alias)
 	}

@@ -8,8 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
-	"github.com/verbaux/grove/internal/git"
-	"github.com/verbaux/grove/internal/state"
 )
 
 func init() {
@@ -23,14 +21,6 @@ var listCmd = &cobra.Command{
 	RunE:  runList,
 }
 
-type row struct {
-	name   string
-	branch string
-	path   string
-	status string
-	isMain bool
-}
-
 func runList(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -42,45 +32,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	worktrees, err := git.ListWorktrees()
+	rows, err := buildWorktreeRows(root)
 	if err != nil {
 		return err
-	}
-
-	s, err := state.Load(root)
-	if err != nil {
-		return err
-	}
-
-	// Build a path → alias map from state for quick lookup.
-	pathToAlias := make(map[string]string)
-	for alias, entry := range s.Worktrees {
-		pathToAlias[entry.Path] = alias
-	}
-
-	var rows []row
-	for _, wt := range worktrees {
-		name := pathToAlias[wt.Path]
-		if name == "" {
-			if wt.IsMain {
-				name = "main"
-			} else {
-				name = "?"
-			}
-		}
-
-		status, err := git.Status(wt.Path)
-		if err != nil {
-			status = "unknown"
-		}
-
-		rows = append(rows, row{
-			name:   name,
-			branch: wt.Branch,
-			path:   wt.Path,
-			status: status,
-			isMain: wt.IsMain,
-		})
 	}
 
 	if len(rows) == 0 {
@@ -92,27 +46,33 @@ func runList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func renderTable(rows []row) string {
+func renderTable(rows []worktreeRow) string {
 	header := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("241"))
+	idxStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	mainStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("33"))   // blue
 	nameStyle := lipgloss.NewStyle().Bold(true)
 	cleanStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("34"))  // green
 	dirtyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // orange
 
 	// Calculate column widths dynamically based on content.
+	idxW := len("#")
 	nameW := len("NAME")
 	branchW := len("BRANCH")
 	pathW := len("PATH")
 
 	for _, r := range rows {
-		if len(r.name) > nameW {
-			nameW = len(r.name)
+		w := len(fmt.Sprintf("%d", r.Index))
+		if w > idxW {
+			idxW = w
 		}
-		if len(r.branch) > branchW {
-			branchW = len(r.branch)
+		if len(r.Name) > nameW {
+			nameW = len(r.Name)
 		}
-		if len(r.path) > pathW {
-			pathW = len(r.path)
+		if len(r.Branch) > branchW {
+			branchW = len(r.Branch)
+		}
+		if len(r.Path) > pathW {
+			pathW = len(r.Path)
 		}
 	}
 
@@ -123,7 +83,8 @@ func renderTable(rows []row) string {
 	var sb strings.Builder
 
 	sb.WriteString(
-		header.Render(pad("NAME", nameW)) +
+		header.Render(pad("#", idxW)) +
+			header.Render(pad("NAME", nameW)) +
 			header.Render(pad("BRANCH", branchW)) +
 			header.Render(pad("PATH", pathW)) +
 			header.Render("STATUS") + "\n",
@@ -132,20 +93,23 @@ func renderTable(rows []row) string {
 	for _, r := range rows {
 		statusStr := "✓ clean"
 		statusRendered := cleanStyle.Render(statusStr)
-		if r.status != "clean" {
-			statusStr = r.status
+		if r.Status != "clean" {
+			statusStr = r.Status
 			statusRendered = dirtyStyle.Render(statusStr)
 		}
 
-		name := nameStyle.Render(pad(r.name, nameW))
-		if r.isMain {
-			name = mainStyle.Render(pad(r.name, nameW))
+		name := nameStyle.Render(pad(r.Name, nameW))
+		if r.IsMain {
+			name = mainStyle.Render(pad(r.Name, nameW))
 		}
 
+		idx := idxStyle.Render(pad(fmt.Sprintf("%d", r.Index), idxW))
+
 		sb.WriteString(
-			name +
-				pad(r.branch, branchW) +
-				pad(r.path, pathW) +
+			idx +
+				name +
+				pad(r.Branch, branchW) +
+				pad(r.Path, pathW) +
 				statusRendered + "\n",
 		)
 	}

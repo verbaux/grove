@@ -91,6 +91,10 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	alias := prompt(fmt.Sprintf("Alias [%s]", defaultAlias), defaultAlias)
 	alias = strings.TrimSpace(alias)
 
+	if err := validateAlias(alias); err != nil {
+		return err
+	}
+
 	if s.AliasExists(alias) {
 		return fmt.Errorf("alias %q already exists — choose a different one", alias)
 	}
