@@ -25,6 +25,7 @@ var removeCmd = &cobra.Command{
 Checks for uncommitted changes and asks for confirmation before removing.
 Use --force to skip the check.`,
 	Args: cobra.ExactArgs(1),
+	ValidArgsFunction: completeAliases,
 	RunE: runRemove,
 }
 

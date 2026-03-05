@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
+	"github.com/spf13/cobra"
+	"github.com/verbaux/grove/internal/config"
 	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
@@ -79,6 +82,52 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 	}
 
 	return rows, nil
+}
+
+func completeAliases(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	root, err := config.FindRoot(cwd)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	s, err := state.Load(root)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	aliases := make([]string, 0, len(s.Worktrees))
+	for alias := range s.Worktrees {
+		aliases = append(aliases, alias)
+	}
+	return aliases, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeOrphans(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	root, err := config.FindRoot(cwd)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	s, err := state.Load(root)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	orphans, err := findOrphans(s)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	branches := make([]string, 0, len(orphans))
+	for _, o := range orphans {
+		branches = append(branches, o.Branch)
+	}
+	return branches, cobra.ShellCompDirectiveNoFileComp
 }
 
 type orphanWorktree struct {

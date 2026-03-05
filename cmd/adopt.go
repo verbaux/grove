@@ -23,6 +23,7 @@ If there is only one orphan worktree, it will be selected automatically.
 Otherwise, pass a branch name or path to identify which one to adopt.
 You will be prompted for an alias (defaults to the branch name).`,
 	Args: cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeOrphans,
 	RunE: runAdopt,
 }
 

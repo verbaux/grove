@@ -28,6 +28,7 @@ Usage:
 Or add a shell function (aliases can't take arguments):
   gcd() { cd "$(grove cd "$1")"; }`,
 	Args: cobra.ExactArgs(1),
+	ValidArgsFunction: completeAliases,
 	RunE: runCd,
 }
 

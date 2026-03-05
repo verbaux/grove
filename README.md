@@ -135,13 +135,19 @@ payments   feature/payments    /home/dev/myapp-payments      ✓ clean
 
 ### `grove cd <name>`
 
-Prints the path to a worktree so you can `cd` into it.
+Prints the path to a worktree so you can `cd` into it. Supports tab completion for aliases.
 
 ```sh
 cd $(grove cd auth)
 ```
 
-Add a shell alias to make this more convenient:
+Also accepts an index number from `grove list`:
+
+```sh
+cd $(grove cd 3)
+```
+
+Add a shell function to make this more convenient:
 
 ```sh
 # ~/.zshrc or ~/.bashrc
@@ -154,7 +160,7 @@ Then just: `gcd auth`
 
 ### `grove remove <name>`
 
-Removes a worktree by alias. Checks for uncommitted changes first and asks for confirmation.
+Removes a worktree by alias. Checks for uncommitted changes first and asks for confirmation. Supports tab completion for aliases.
 
 ```sh
 grove remove auth
@@ -175,6 +181,29 @@ grove clean
 # Skip uncommitted changes check
 grove clean --force
 ```
+
+## Shell completion
+
+Grove supports tab completion for commands, flags, and worktree aliases.
+
+```sh
+# Zsh (current session)
+source <(grove completion zsh)
+
+# Zsh (permanent)
+grove completion zsh > "${fpath[1]}/_grove"
+
+# Bash
+grove completion bash > /etc/bash_completion.d/grove
+
+# Fish
+grove completion fish > ~/.config/fish/completions/grove.fish
+```
+
+Tab completion works for:
+- Subcommands and flags
+- Worktree aliases in `cd`, `remove`
+- Orphan branch names in `adopt`
 
 ## Config
 
