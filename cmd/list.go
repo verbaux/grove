@@ -11,6 +11,7 @@ import (
 )
 
 func init() {
+	listCmd.Flags().BoolP("plain", "p", false, "Print only worktree aliases, one per line")
 	rootCmd.AddCommand(listCmd)
 }
 
@@ -39,6 +40,16 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	if len(rows) == 0 {
 		fmt.Println("No worktrees found.")
+		return nil
+	}
+
+	plain, _ := cmd.Flags().GetBool("plain")
+	if plain {
+		for _, r := range rows {
+			if r.Name != "?" && r.Name != "main" {
+				fmt.Println(r.Name)
+			}
+		}
 		return nil
 	}
 

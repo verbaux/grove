@@ -84,7 +84,10 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 	return rows, nil
 }
 
-func completeAliases(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+func completeAliases(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -105,7 +108,10 @@ func completeAliases(_ *cobra.Command, _ []string, _ string) ([]string, cobra.Sh
 	return aliases, cobra.ShellCompDirectiveNoFileComp
 }
 
-func completeOrphans(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+func completeOrphans(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
