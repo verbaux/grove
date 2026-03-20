@@ -173,6 +173,12 @@ func Status(worktreePath string) (string, error) {
 	return strings.Join(parts, ", "), nil
 }
 
+// Fetch fetches a refspec from a remote.
+func Fetch(remote, refspec string) error {
+	_, err := run("fetch", remote, refspec)
+	return err
+}
+
 func branchExists(branch string) bool {
 	_, err := run("rev-parse", "--verify", "refs/heads/"+branch)
 	return err == nil

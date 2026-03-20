@@ -65,13 +65,16 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Derive alias from branch name unless --name was provided.
-	// "feature/auth" → "auth", "main" → "main"
 	alias := createName
 	if alias == "" {
 		alias = branchAlias(branch)
 	}
 
+	return doCreate(root, cfg, &s, branch, alias, createFrom)
+}
+
+// doCreate is the shared worktree creation logic used by both `grove create` and `grove review`.
+func doCreate(root string, cfg config.Config, s *state.State, branch, alias, from string) error {
 	if err := validateAlias(alias); err != nil {
 		return err
 	}
@@ -80,33 +83,26 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("alias %q already exists — use --name to choose a different one", alias)
 	}
 
-	// Build the worktree path: worktreeDir + prefix + "-" + alias
-	// e.g. "../" + "myproject" + "-" + "auth" → "../myproject-auth"
-	// If prefix is empty, use just the alias to avoid a leading dash.
 	wtName := alias
 	if cfg.Prefix != "" {
 		wtName = cfg.Prefix + "-" + alias
 	}
 	worktreePath := filepath.Join(root, cfg.WorktreeDir, wtName)
-	worktreePath, err = filepath.Abs(worktreePath)
+	worktreePath, err := filepath.Abs(worktreePath)
 	if err != nil {
 		return err
 	}
-	// EvalSymlinks resolves /tmp → /private/tmp on macOS so path lookups
-	// match what git worktree list returns.
 	if resolved, err := filepath.EvalSymlinks(filepath.Dir(worktreePath)); err == nil {
 		worktreePath = filepath.Join(resolved, filepath.Base(worktreePath))
 	}
 
 	fmt.Printf("Creating worktree for branch %q at %s\n", branch, worktreePath)
 
-	if err := git.AddWorktree(worktreePath, branch, createFrom); err != nil {
+	if err := git.AddWorktree(worktreePath, branch, from); err != nil {
 		return err
 	}
 	fmt.Println("  ✓ git worktree created")
 
-	// If any step after this fails, clean up the worktree so we don't leave
-	// an orphaned directory that git knows about but grove doesn't.
 	var setupErr error
 	defer func() {
 		if setupErr != nil {
@@ -158,7 +154,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		setupErr = err
 		return setupErr
 	}
-	if err := state.Save(root, s); err != nil {
+	if err := state.Save(root, *s); err != nil {
 		setupErr = err
 		return setupErr
 	}
