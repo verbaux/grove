@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
 	"github.com/verbaux/grove/internal/state"
@@ -27,14 +28,12 @@ Usage:
 
 Or add a shell function (aliases can't take arguments):
   gcd() { cd "$(grove cd "$1")"; }`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeAliases,
 	RunE: runCd,
 }
 
 func runCd(cmd *cobra.Command, args []string) error {
-	arg := args[0]
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -45,7 +44,12 @@ func runCd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// If the argument is a number, resolve by index from the worktree list.
+	if len(args) == 0 {
+		return runPicker(root)
+	}
+
+	arg := args[0]
+
 	if idx, err := strconv.Atoi(arg); err == nil {
 		rows, err := buildWorktreeRows(root)
 		if err != nil {
@@ -69,5 +73,29 @@ func runCd(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println(entry.Path)
+	return nil
+}
+
+func runPicker(root string) error {
+	rows, err := buildWorktreeRows(root)
+	if err != nil {
+		return err
+	}
+
+	if len(rows) == 0 {
+		return fmt.Errorf("no worktrees found — create one with 'grove create'")
+	}
+
+	m, err := tea.NewProgram(newPicker(rows), tea.WithOutput(os.Stderr)).Run()
+	if err != nil {
+		return err
+	}
+
+	p := m.(pickerModel)
+	if p.quitted || p.selected == "" {
+		return nil
+	}
+
+	fmt.Println(p.selected)
 	return nil
 }
