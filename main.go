@@ -7,24 +7,28 @@ import (
 	"github.com/verbaux/grove/cmd"
 )
 
+var version string
+
 func main() {
-	cmd.Version = buildVersion()
+	if version != "" {
+		cmd.Version = version
+	} else {
+		cmd.Version = versionFromBuildInfo()
+	}
 	cmd.Execute()
 }
 
-func buildVersion() string {
+func versionFromBuildInfo() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return "unknown"
 	}
 
 	v := info.Main.Version
-	// go install with a tagged module version (e.g. v0.1.0)
 	if v != "" && v != "(devel)" && !strings.HasPrefix(v, "v0.0.0-") {
 		return v
 	}
 
-	// local build: extract commit and dirty flag from vcs settings
 	var revision, modified string
 	for _, s := range info.Settings {
 		switch s.Key {

@@ -1,0 +1,29 @@
+version: 2
+
+builds:
+  - ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+brews:
+  - repository:
+      owner: verbaux
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/verbaux/grove"
+    description: "Git worktree manager that handles the setup work"
+    license: "MIT"
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/grove --version")
+
+changelog:
+  use: github-native

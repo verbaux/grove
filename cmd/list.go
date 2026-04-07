@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 func init() {
 	listCmd.Flags().BoolP("plain", "p", false, "Print only worktree aliases, one per line")
+	listCmd.Flags().Bool("json", false, "Output as JSON array")
 	rootCmd.AddCommand(listCmd)
 }
 
@@ -40,6 +42,27 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	if len(rows) == 0 {
 		fmt.Println("No worktrees found.")
+		return nil
+	}
+
+	jsonOut, _ := cmd.Flags().GetBool("json")
+	if jsonOut {
+		type jsonRow struct {
+			Index  int    `json:"index"`
+			Name   string `json:"name"`
+			Branch string `json:"branch"`
+			Path   string `json:"path"`
+			Status string `json:"status"`
+		}
+		out := make([]jsonRow, len(rows))
+		for i, r := range rows {
+			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Status: r.Status}
+		}
+		data, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
 		return nil
 	}
 

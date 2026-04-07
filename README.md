@@ -38,7 +38,10 @@ Requires Go 1.24+.
 
 ### Homebrew
 
-Coming soon.
+```sh
+brew tap verbaux/tap
+brew install grove
+```
 
 ## Quick start
 
@@ -131,6 +134,13 @@ auth       feature/auth        /home/dev/myapp-auth          3 modified
 payments   feature/payments    /home/dev/myapp-payments      ✓ clean
 ```
 
+**Flags:**
+
+| Flag      | Description                                  |
+| --------- | -------------------------------------------- |
+| `--json`  | Output as JSON array (for scripts and tools) |
+| `--plain` | Print only worktree aliases, one per line    |
+
 ---
 
 ### `grove cd <name>`
@@ -139,6 +149,12 @@ Prints the path to a worktree so you can `cd` into it. Supports tab completion f
 
 ```sh
 cd $(grove cd auth)
+```
+
+Without arguments, opens an interactive fuzzy picker:
+
+```sh
+cd $(grove cd)
 ```
 
 Also accepts an index number from `grove list`:
@@ -154,7 +170,7 @@ Add a shell function to make this more convenient:
 gcd() { cd "$(grove cd "$1")"; }
 ```
 
-Then just: `gcd auth`
+Then just: `gcd auth` or `gcd` for the picker
 
 ---
 
@@ -181,6 +197,41 @@ grove clean
 # Skip uncommitted changes check
 grove clean --force
 ```
+
+---
+
+### `grove adopt`
+
+Register a worktree that was created outside of Grove (e.g. via `git worktree add` directly). These show as `?` in `grove list`.
+
+```sh
+# Auto-selects if only one orphan exists
+grove adopt
+
+# Specify by branch name
+grove adopt feature/legacy
+```
+
+---
+
+### `grove review [pr-number]`
+
+Check out a GitHub pull request into a new worktree. Requires the [GitHub CLI](https://cli.github.com) (`gh`).
+
+```sh
+# List open PRs
+grove review
+
+# Check out PR #42 into a worktree
+grove review 42
+
+# Custom alias (default: pr-42)
+grove review 42 --name hotfix
+```
+
+Grove fetches the PR branch, creates the worktree, and runs the usual setup (`.env` copy, symlinks, `afterCreate`). Works with fork PRs too.
+
+---
 
 ## Shell completion
 
