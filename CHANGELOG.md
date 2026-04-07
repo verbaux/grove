@@ -12,6 +12,7 @@ First public release.
 - `grove list` — show all worktrees with branch, path, and dirty status; `--json` for machine-readable output
 - `grove cd <name>` — print worktree path for shell `cd`; supports index numbers and interactive fuzzy picker
 - `grove clean` — remove all managed worktrees with optional orphan cleanup
+- `grove detach` — remove symlinks in the current worktree for independent dependency management
 - `grove adopt` — register orphan worktrees (created outside Grove) into state
 - `grove review <PR>` — checkout a GitHub PR into a new worktree
 - Shell completion for zsh, bash, and fish with dynamic alias suggestions

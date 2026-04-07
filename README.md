@@ -200,6 +200,20 @@ grove clean --force
 
 ---
 
+### `grove detach`
+
+Remove all symlinks in the current worktree so it becomes fully independent. Run this from inside a worktree.
+
+```sh
+cd $(grove cd auth)
+grove detach
+npm install   # or whatever your project uses
+```
+
+Useful when your branch has different dependencies and you need a standalone `node_modules` (or other symlinked directories).
+
+---
+
 ### `grove adopt`
 
 Register a worktree that was created outside of Grove (e.g. via `git worktree add` directly). These show as `?` in `grove list`.

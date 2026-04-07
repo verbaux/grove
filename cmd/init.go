@@ -73,10 +73,33 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if cfg.AfterCreate != "" {
 		fmt.Printf("  After create: %s\n", cfg.AfterCreate)
 	}
+	agentsAnswer := prompt("Create AGENTS.md with AI coding agent instructions? [Y/n]", "y")
+	if strings.ToLower(agentsAnswer) != "n" {
+		if err := writeAgentsMd(cwd); err != nil {
+			fmt.Printf("  Warning: could not write AGENTS.md: %v\n", err)
+		} else {
+			fmt.Println("  Created AGENTS.md")
+		}
+	}
+
 	fmt.Println()
 	fmt.Println("Next: grove create <branch>")
 
 	return nil
+}
+
+func writeAgentsMd(dir string) error {
+	path := filepath.Join(dir, "AGENTS.md")
+
+	existing, err := os.ReadFile(path)
+	if err == nil {
+		if strings.Contains(string(existing), "## Grove") {
+			return nil
+		}
+		return os.WriteFile(path, append(existing, []byte("\n"+groveAgentsSection)...), 0644)
+	}
+
+	return os.WriteFile(path, []byte("# AI Coding Agent Instructions\n\n"+groveAgentsSection), 0644)
 }
 
 // prompt prints a question and reads one line from stdin.
