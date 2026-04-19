@@ -202,13 +202,25 @@ grove clean --force
 
 ### `grove detach`
 
-Remove all symlinks in the current worktree so it becomes fully independent. Run this from inside a worktree.
+Remove symlinks in the current worktree so it becomes fully independent. Run this from inside a worktree.
 
 ```sh
 cd $(grove cd auth)
 grove detach
-npm install   # or whatever your project uses
 ```
+
+By default, prompts whether to copy each symlink's contents before removing it. Use `--copy` to copy all without prompting.
+
+```sh
+# Copy node_modules (and other symlinked dirs) then remove symlinks
+grove detach --copy
+```
+
+**Flags:**
+
+| Flag     | Description                           |
+| -------- | ------------------------------------- |
+| `--copy` | Copy symlink targets before removing  |
 
 Useful when your branch has different dependencies and you need a standalone `node_modules` (or other symlinked directories).
 
