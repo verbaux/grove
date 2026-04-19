@@ -141,6 +141,67 @@ func TestSymlinkConflict(t *testing.T) {
 	}
 }
 
+func TestCopyDir(t *testing.T) {
+	src := t.TempDir()
+	dst := filepath.Join(t.TempDir(), "copied")
+
+	os.WriteFile(filepath.Join(src, "file.txt"), []byte("hello"), 0644)
+	os.MkdirAll(filepath.Join(src, "sub"), 0755)
+	os.WriteFile(filepath.Join(src, "sub", "nested.txt"), []byte("world"), 0644)
+
+	copied, err := CopyDir(src, dst)
+	if err != nil {
+		t.Fatal("CopyDir failed:", err)
+	}
+	if !copied {
+		t.Error("expected copied=true")
+	}
+
+	data, err := os.ReadFile(filepath.Join(dst, "file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "hello" {
+		t.Errorf("file.txt = %q, want %q", string(data), "hello")
+	}
+
+	data, err = os.ReadFile(filepath.Join(dst, "sub", "nested.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "world" {
+		t.Errorf("sub/nested.txt = %q, want %q", string(data), "world")
+	}
+}
+
+func TestCopyDirSkipsMissingSrc(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "copied")
+
+	copied, err := CopyDir("/nonexistent/path", dst)
+	if err != nil {
+		t.Fatal("CopyDir should not error for missing src:", err)
+	}
+	if copied {
+		t.Error("expected copied=false when src missing")
+	}
+}
+
+func TestCopyDirIsIndependent(t *testing.T) {
+	src := t.TempDir()
+	dst := filepath.Join(t.TempDir(), "copied")
+
+	os.WriteFile(filepath.Join(src, "file.txt"), []byte("original"), 0644)
+
+	CopyDir(src, dst)
+
+	os.WriteFile(filepath.Join(src, "file.txt"), []byte("modified"), 0644)
+
+	data, _ := os.ReadFile(filepath.Join(dst, "file.txt"))
+	if string(data) != "original" {
+		t.Error("copy should be independent of source")
+	}
+}
+
 // touch creates a file (and any needed parent dirs) with empty content.
 func touch(t *testing.T, dir string, rel string) {
 	t.Helper()

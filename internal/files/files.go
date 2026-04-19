@@ -118,6 +118,41 @@ func Symlink(srcDir, dstDir, name string) (bool, error) {
 	return true, os.Symlink(src, dst)
 }
 
+// CopyDir recursively copies a directory from src to dst.
+// Returns (true, nil) if copied, (false, nil) if src doesn't exist.
+func CopyDir(src, dst string) (bool, error) {
+	info, err := os.Stat(src)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.IsDir() {
+		return true, copyFile(src, dst)
+	}
+
+	err = filepath.WalkDir(src, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, relErr := filepath.Rel(src, path)
+		if relErr != nil {
+			return relErr
+		}
+		target := filepath.Join(dst, rel)
+
+		if d.IsDir() {
+			return os.MkdirAll(target, 0755)
+		}
+		return copyFile(path, target)
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // copyFile copies a single file from src to dst, creating parent directories as needed.
 func copyFile(src, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {

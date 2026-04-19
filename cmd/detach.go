@@ -4,23 +4,31 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/files"
 	"github.com/verbaux/grove/internal/state"
 )
 
+var detachCopy bool
+
 func init() {
 	rootCmd.AddCommand(detachCmd)
+	detachCmd.Flags().BoolVar(&detachCopy, "copy", false, "copy symlink targets before removing")
 }
 
 var detachCmd = &cobra.Command{
 	Use:   "detach",
 	Short: "Remove symlinks in the current worktree",
 	Long: `Remove all symlinked directories in the current worktree so it
-becomes fully independent. Run this from inside a worktree.
+becomes fully independent.
 
-After detaching, install dependencies manually.`,
+By default, prompts whether to copy each symlink's contents.
+Use --copy to copy all without prompting.
+
+After detaching without copying, install dependencies manually.`,
 	RunE: runDetach,
 }
 
@@ -86,10 +94,42 @@ func runDetach(cmd *cobra.Command, args []string) error {
 		if fi.Mode()&os.ModeSymlink == 0 {
 			continue
 		}
+
+		target, err := os.Readlink(link)
+		if err != nil {
+			fmt.Printf("  ✗ could not read symlink %s: %v\n", name, err)
+			continue
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(link), target)
+		}
+
+		shouldCopy := detachCopy
+		if !shouldCopy {
+			answer := prompt(
+				fmt.Sprintf("  %s → %s\n  Copy contents before removing? [y/N]", name, target),
+				"n",
+			)
+			shouldCopy = strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes")
+		}
+
 		if err := os.Remove(link); err != nil {
 			fmt.Printf("  ✗ could not remove %s: %v\n", name, err)
 			continue
 		}
+
+		if shouldCopy {
+			copied, err := files.CopyDir(target, link)
+			if err != nil {
+				fmt.Printf("  ✗ failed to copy %s: %v\n", name, err)
+				removed++
+				continue
+			}
+			if copied {
+				fmt.Printf("  ✓ copied %s\n", name)
+			}
+		}
+
 		fmt.Printf("  ✓ removed symlink %s\n", name)
 		removed++
 	}
@@ -100,7 +140,7 @@ func runDetach(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Println("Worktree detached. Install dependencies manually to continue.")
+	fmt.Println("Worktree detached.")
 	return nil
 }
 
