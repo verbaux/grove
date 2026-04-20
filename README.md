@@ -243,6 +243,36 @@ grove adopt feature/legacy
 
 ---
 
+### `grove doctor`
+
+Diagnose grove configuration and worktree health. Reports problems as `✓`, `⚠`, or `✗` and exits non-zero if any errors are found.
+
+Checks:
+- `.groverc.json` is valid and `portRange` is sane
+- every worktree path in `.grove/state.json` exists on disk
+- no orphan worktrees (git knows about them, grove doesn't)
+- configured symlinks in each worktree point to real targets
+- no port collisions in state
+- `gh` CLI is installed (needed for `grove review`)
+
+```sh
+grove doctor
+```
+
+```
+  ✓ project root: /home/dev/myapp
+  ✓ .groverc.json valid
+  ✓ 3 tracked worktree(s), all paths exist
+  ⚠ orphan worktree: /home/dev/myapp-legacy (branch feature/legacy) — run 'grove adopt'
+  ✓ 6 symlink(s) checked, all healthy
+  ✓ no port collisions
+  ✓ gh CLI available
+
+Summary: 6 ok, 1 warn, 0 error
+```
+
+---
+
 ### `grove review [pr-number]`
 
 Check out a GitHub pull request into a new worktree. Requires the [GitHub CLI](https://cli.github.com) (`gh`).
