@@ -243,6 +243,37 @@ grove adopt feature/legacy
 
 ---
 
+### `grove template`
+
+Save and reuse `.groverc.json` configurations across projects.
+
+Templates live in `$XDG_CONFIG_HOME/grove/templates/` (or `~/.config/grove/templates/`).
+
+```sh
+# In a configured project, save the current config as a template
+grove template save nextjs
+
+# List saved templates
+grove template list
+
+# Show a template's contents
+grove template show nextjs
+
+# Apply a template to the current directory
+cd new-project
+grove template apply nextjs
+
+# Or initialize from a template (skips the interactive wizard)
+grove init --template nextjs
+
+# Delete
+grove template delete nextjs
+```
+
+Template names: letters, digits, dash, underscore.
+
+---
+
 ### `grove doctor`
 
 Diagnose grove configuration and worktree health. Reports problems as `✓`, `⚠`, or `✗` and exits non-zero if any errors are found.

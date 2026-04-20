@@ -10,10 +10,15 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/templates"
 )
+
+var initTemplate string
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+	initCmd.Flags().StringVar(&initTemplate, "template", "", "Initialize from a saved template (skips interactive prompts)")
+	_ = initCmd.RegisterFlagCompletionFunc("template", completeTemplates)
 }
 
 var initCmd = &cobra.Command{
@@ -36,6 +41,21 @@ func runInit(cmd *cobra.Command, args []string) error {
 			fmt.Println("Aborted.")
 			return nil
 		}
+	}
+
+	if initTemplate != "" {
+		cfg, err := templates.Load(initTemplate)
+		if err != nil {
+			return err
+		}
+		if cfg.Prefix == "" {
+			cfg.Prefix = filepath.Base(cwd)
+		}
+		if err := config.Save(cwd, cfg); err != nil {
+			return err
+		}
+		fmt.Printf("Created .groverc.json from template %q\n", initTemplate)
+		return nil
 	}
 
 	cfg := config.Default()
