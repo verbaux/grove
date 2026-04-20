@@ -32,6 +32,7 @@ type worktreeRow struct {
 	Name   string
 	Branch string
 	Path   string
+	Port   int
 	Status string
 	IsMain bool
 }
@@ -51,8 +52,10 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 	}
 
 	pathToAlias := make(map[string]string)
+	pathToPort := make(map[string]int)
 	for alias, entry := range s.Worktrees {
 		pathToAlias[entry.Path] = alias
+		pathToPort[entry.Path] = entry.Port
 	}
 
 	var rows []worktreeRow
@@ -76,6 +79,7 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 			Name:   name,
 			Branch: wt.Branch,
 			Path:   wt.Path,
+			Port:   pathToPort[wt.Path],
 			Status: status,
 			IsMain: wt.IsMain,
 		})

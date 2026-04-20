@@ -12,7 +12,7 @@ Creating worktree for branch "feature/auth" at /home/dev/myapp-auth
   ✓ symlinked node_modules
   ✓ afterCreate done
 
-Worktree "auth" ready.
+Worktree "auth" ready (port 3487).
   cd $(grove cd auth)
 ```
 
@@ -73,6 +73,8 @@ $ grove init
 Prefix for worktree directories [myapp]:
 Where to place worktrees [../]:
 Directories to symlink (comma-separated) [node_modules]:
+Directories to copy as build cache (comma-separated, leave empty for none) []:
+Port range for worktrees (format min-max) [3001-3999]:
 Command to run after creating worktree (leave empty for none) []: npm install
 
 Created .groverc.json
@@ -129,10 +131,10 @@ If setup fails after the worktree is created, Grove rolls back the `git worktree
 Shows all active worktrees with their status.
 
 ```
-NAME       BRANCH              PATH                          STATUS
-main       main                /home/dev/myapp               ✓ clean
-auth       feature/auth        /home/dev/myapp-auth          3 modified
-payments   feature/payments    /home/dev/myapp-payments      ✓ clean
+NAME       BRANCH              PATH                          PORT   STATUS
+main       main                /home/dev/myapp               -      ✓ clean
+auth       feature/auth        /home/dev/myapp-auth          3487   3 modified
+payments   feature/payments    /home/dev/myapp-payments      3214   ✓ clean
 ```
 
 **Flags:**
@@ -295,7 +297,8 @@ Project config, lives in the repo root.
   "prefix": "myapp",
   "symlink": ["node_modules"],
   "copyDirs": [".next", "dist"],
-  "afterCreate": "npm install"
+  "afterCreate": "npm install",
+  "portRange": { "min": 3001, "max": 3999 }
 }
 ```
 
@@ -306,6 +309,7 @@ Project config, lives in the repo root.
 | `symlink`     | `["node_modules"]` | Directories to symlink from the main worktree         |
 | `copyDirs`    | `[]`               | Directories to copy as build cache (e.g. `.next`, `dist`, `target`) |
 | `afterCreate` | `""`               | Shell command to run in the new worktree after setup  |
+| `portRange`   | `3001–3999`        | Port range assigned to each worktree (see Ports below) |
 
 Worktree path formula: `worktreeDir` + `prefix` + `-` + alias
 Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`
@@ -333,6 +337,20 @@ Directory structure is preserved. If you have `apps/api/.env.local`, the copy la
 Instead of running `npm install` in each worktree (slow), Grove creates a symlink from the new worktree's `node_modules` to the original. Both worktrees share the same `node_modules` on disk.
 
 This works well when the branches have the same dependencies. If a branch changes `package.json` significantly, use `afterCreate: "npm install"` — it will install into the symlink's target, or you can remove the symlink and install fresh.
+
+## Per-worktree ports
+
+Each worktree gets a stable, deterministic port derived from its alias (hashed into `portRange`, default `3001–3999`). Collisions are resolved via linear probing against already-used ports. The assigned port is saved in `.grove/state.json` so it never changes as long as the worktree exists.
+
+Available as `$GROVE_PORT` in `afterCreate`:
+
+```json
+{
+  "afterCreate": "echo \"Dev server on $GROVE_PORT\" && PORT=$GROVE_PORT npm run dev &"
+}
+```
+
+Also exposed: `$GROVE_ALIAS`, `$GROVE_BRANCH`, `$GROVE_PATH`.
 
 ## License
 

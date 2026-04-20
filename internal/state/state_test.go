@@ -8,7 +8,7 @@ func TestSaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
 
 	s := State{Worktrees: map[string]WorktreeEntry{}}
-	s.Add("auth", "feature/auth", "/tmp/project-auth")
+	s.Add("auth", "feature/auth", "/tmp/project-auth", 3001)
 
 	if err := Save(dir, s); err != nil {
 		t.Fatal("Save failed:", err)
@@ -29,6 +29,9 @@ func TestSaveAndLoad(t *testing.T) {
 	if entry.Path != "/tmp/project-auth" {
 		t.Errorf("path = %q, want %q", entry.Path, "/tmp/project-auth")
 	}
+	if entry.Port != 3001 {
+		t.Errorf("port = %d, want 3001", entry.Port)
+	}
 }
 
 func TestLoadMissing(t *testing.T) {
@@ -46,17 +49,17 @@ func TestLoadMissing(t *testing.T) {
 func TestAddDuplicateAlias(t *testing.T) {
 	s := State{Worktrees: map[string]WorktreeEntry{}}
 
-	if err := s.Add("auth", "feature/auth", "/tmp/a"); err != nil {
+	if err := s.Add("auth", "feature/auth", "/tmp/a", 0); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Add("auth", "feature/other", "/tmp/b"); err == nil {
+	if err := s.Add("auth", "feature/other", "/tmp/b", 0); err == nil {
 		t.Fatal("expected error when adding duplicate alias")
 	}
 }
 
 func TestRemove(t *testing.T) {
 	s := State{Worktrees: map[string]WorktreeEntry{}}
-	s.Add("auth", "feature/auth", "/tmp/a")
+	s.Add("auth", "feature/auth", "/tmp/a", 0)
 
 	if err := s.Remove("auth"); err != nil {
 		t.Fatal("Remove failed:", err)

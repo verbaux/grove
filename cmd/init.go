@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -62,6 +63,18 @@ func runInit(cmd *cobra.Command, args []string) error {
 	)
 	cfg.CopyDirs = splitAndTrim(copyDirsInput)
 
+	portRangeInput := prompt(
+		fmt.Sprintf("Port range for worktrees (format min-max) [%d-%d]", config.DefaultPortMin, config.DefaultPortMax),
+		fmt.Sprintf("%d-%d", config.DefaultPortMin, config.DefaultPortMax),
+	)
+	if pr, err := parsePortRange(portRangeInput); err == nil {
+		if pr.Min != config.DefaultPortMin || pr.Max != config.DefaultPortMax {
+			cfg.PortRange = &pr
+		}
+	} else {
+		fmt.Printf("  Warning: %v — using defaults\n", err)
+	}
+
 	cfg.AfterCreate = prompt("Command to run after creating worktree (leave empty for none) []", "")
 
 	if err := config.Save(cwd, cfg); err != nil {
@@ -78,6 +91,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	if len(cfg.CopyDirs) > 0 {
 		fmt.Printf("  Copy dirs:    %s\n", strings.Join(cfg.CopyDirs, ", "))
+	}
+	if cfg.PortRange != nil {
+		fmt.Printf("  Port range:   %d-%d\n", cfg.PortRange.Min, cfg.PortRange.Max)
 	}
 	if cfg.AfterCreate != "" {
 		fmt.Printf("  After create: %s\n", cfg.AfterCreate)
@@ -129,6 +145,23 @@ func prompt(question, defaultVal string) string {
 		return defaultVal
 	}
 	return line
+}
+
+// parsePortRange parses "min-max" into a PortRange.
+func parsePortRange(s string) (config.PortRange, error) {
+	parts := strings.Split(s, "-")
+	if len(parts) != 2 {
+		return config.PortRange{}, fmt.Errorf("invalid port range %q, expected min-max", s)
+	}
+	minV, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+	maxV, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil {
+		return config.PortRange{}, fmt.Errorf("invalid port range %q", s)
+	}
+	if minV <= 0 || maxV < minV {
+		return config.PortRange{}, fmt.Errorf("invalid port range %q", s)
+	}
+	return config.PortRange{Min: minV, Max: maxV}, nil
 }
 
 // splitAndTrim splits a comma-separated string and trims whitespace from each part.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/ports"
 	"github.com/verbaux/grove/internal/state"
 )
 
@@ -34,6 +35,11 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	}
 
 	root, err := config.FindRoot(cwd)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Load(root)
 	if err != nil {
 		return err
 	}
@@ -100,13 +106,25 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("alias %q already exists — choose a different one", alias)
 	}
 
-	if err := s.Add(alias, target.Branch, target.Path); err != nil {
+	portMin, portMax := cfg.ResolvedPortRange()
+	used := make(map[int]bool)
+	for _, e := range s.Worktrees {
+		if e.Port != 0 {
+			used[e.Port] = true
+		}
+	}
+	port, err := ports.Allocate(alias, portMin, portMax, used)
+	if err != nil {
+		return fmt.Errorf("port allocation: %w", err)
+	}
+
+	if err := s.Add(alias, target.Branch, target.Path, port); err != nil {
 		return err
 	}
 	if err := state.Save(root, s); err != nil {
 		return err
 	}
 
-	fmt.Printf("Worktree %q adopted (%s).\n", alias, target.Path)
+	fmt.Printf("Worktree %q adopted (%s, port %d).\n", alias, target.Path, port)
 	return nil
 }

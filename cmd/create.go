@@ -12,6 +12,7 @@ import (
 	"github.com/verbaux/grove/internal/config"
 	"github.com/verbaux/grove/internal/files"
 	"github.com/verbaux/grove/internal/git"
+	"github.com/verbaux/grove/internal/ports"
 	"github.com/verbaux/grove/internal/state"
 )
 
@@ -96,6 +97,18 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		worktreePath = filepath.Join(resolved, filepath.Base(worktreePath))
 	}
 
+	portMin, portMax := cfg.ResolvedPortRange()
+	used := make(map[int]bool)
+	for _, e := range s.Worktrees {
+		if e.Port != 0 {
+			used[e.Port] = true
+		}
+	}
+	port, err := ports.Allocate(alias, portMin, portMax, used)
+	if err != nil {
+		return fmt.Errorf("port allocation: %w", err)
+	}
+
 	fmt.Printf("Creating worktree for branch %q at %s\n", branch, worktreePath)
 
 	if err := git.AddWorktree(worktreePath, branch, from); err != nil {
@@ -158,16 +171,23 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		fmt.Printf("  ✓ copied %s\n", strings.Join(copiedDirs, ", "))
 	}
 
+	groveEnv := []string{
+		"GROVE_ALIAS=" + alias,
+		"GROVE_BRANCH=" + branch,
+		"GROVE_PATH=" + worktreePath,
+		fmt.Sprintf("GROVE_PORT=%d", port),
+	}
+
 	if cfg.AfterCreate != "" {
 		fmt.Printf("  running: %s\n", cfg.AfterCreate)
-		if err := runShell(cfg.AfterCreate, worktreePath); err != nil {
+		if err := runShell(cfg.AfterCreate, worktreePath, groveEnv); err != nil {
 			setupErr = fmt.Errorf("afterCreate command failed: %w", err)
 			return setupErr
 		}
 		fmt.Println("  ✓ afterCreate done")
 	}
 
-	if err := s.Add(alias, branch, worktreePath); err != nil {
+	if err := s.Add(alias, branch, worktreePath, port); err != nil {
 		setupErr = err
 		return setupErr
 	}
@@ -177,7 +197,7 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	}
 
 	fmt.Println()
-	fmt.Printf("Worktree %q ready.\n", alias)
+	fmt.Printf("Worktree %q ready (port %d).\n", alias, port)
 	fmt.Printf("  cd $(grove cd %s)\n", alias)
 
 	return nil
@@ -192,10 +212,14 @@ func branchAlias(branch string) string {
 
 // runShell runs a command string in the given directory.
 // Uses "sh -c" so the string can include pipes, env vars, etc.
-func runShell(command, dir string) error {
+// extraEnv is appended to os.Environ so callers can expose additional variables.
+func runShell(command, dir string, extraEnv []string) error {
 	cmd := exec.Command("sh", "-c", command)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
 	return cmd.Run()
 }

@@ -52,11 +52,12 @@ func runList(cmd *cobra.Command, args []string) error {
 			Name   string `json:"name"`
 			Branch string `json:"branch"`
 			Path   string `json:"path"`
+			Port   int    `json:"port,omitempty"`
 			Status string `json:"status"`
 		}
 		out := make([]jsonRow, len(rows))
 		for i, r := range rows {
-			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Status: r.Status}
+			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Port: r.Port, Status: r.Status}
 		}
 		data, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
@@ -93,6 +94,7 @@ func renderTable(rows []worktreeRow) string {
 	nameW := len("NAME")
 	branchW := len("BRANCH")
 	pathW := len("PATH")
+	portW := len("PORT")
 
 	for _, r := range rows {
 		w := len(fmt.Sprintf("%d", r.Index))
@@ -108,6 +110,9 @@ func renderTable(rows []worktreeRow) string {
 		if len(r.Path) > pathW {
 			pathW = len(r.Path)
 		}
+		if w := len(portStr(r.Port)); w > portW {
+			portW = w
+		}
 	}
 
 	pad := func(s string, w int) string {
@@ -121,6 +126,7 @@ func renderTable(rows []worktreeRow) string {
 			header.Render(pad("NAME", nameW)) +
 			header.Render(pad("BRANCH", branchW)) +
 			header.Render(pad("PATH", pathW)) +
+			header.Render(pad("PORT", portW)) +
 			header.Render("STATUS") + "\n",
 	)
 
@@ -144,9 +150,17 @@ func renderTable(rows []worktreeRow) string {
 				name +
 				pad(r.Branch, branchW) +
 				pad(r.Path, pathW) +
+				pad(portStr(r.Port), portW) +
 				statusRendered + "\n",
 		)
 	}
 
 	return sb.String()
+}
+
+func portStr(p int) string {
+	if p == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d", p)
 }

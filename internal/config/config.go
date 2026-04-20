@@ -11,13 +11,34 @@ import (
 
 const FileName = ".groverc.json"
 
+// PortRange defines the allowed port allocation range.
+type PortRange struct {
+	Min int `json:"min"`
+	Max int `json:"max"`
+}
+
 // Config maps directly to .groverc.json.
 type Config struct {
-	WorktreeDir string   `json:"worktreeDir"`
-	Prefix      string   `json:"prefix"`
-	Symlink     []string `json:"symlink"`
-	CopyDirs    []string `json:"copyDirs,omitempty"`
-	AfterCreate string   `json:"afterCreate"`
+	WorktreeDir string     `json:"worktreeDir"`
+	Prefix      string     `json:"prefix"`
+	Symlink     []string   `json:"symlink"`
+	CopyDirs    []string   `json:"copyDirs,omitempty"`
+	AfterCreate string     `json:"afterCreate"`
+	PortRange   *PortRange `json:"portRange,omitempty"`
+}
+
+// DefaultPortMin, DefaultPortMax — fallback range when cfg.PortRange is nil.
+const (
+	DefaultPortMin = 3001
+	DefaultPortMax = 3999
+)
+
+// ResolvedPortRange returns the configured range or defaults.
+func (c Config) ResolvedPortRange() (int, int) {
+	if c.PortRange != nil && c.PortRange.Min > 0 && c.PortRange.Max >= c.PortRange.Min {
+		return c.PortRange.Min, c.PortRange.Max
+	}
+	return DefaultPortMin, DefaultPortMax
 }
 
 // Default returns a config with sensible defaults.

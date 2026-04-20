@@ -15,6 +15,7 @@ const fileName = "state.json"
 type WorktreeEntry struct {
 	Branch  string    `json:"branch"`
 	Path    string    `json:"path"`
+	Port    int       `json:"port,omitempty"`
 	Created time.Time `json:"created"`
 }
 
@@ -92,7 +93,7 @@ func Save(dir string, s State) error {
 }
 
 // Add registers a new worktree alias. Returns an error if the alias is taken.
-func (s *State) Add(alias, branch, path string) error {
+func (s *State) Add(alias, branch, path string, port int) error {
 	if _, exists := s.Worktrees[alias]; exists {
 		return errors.New("alias \"" + alias + "\" already exists")
 	}
@@ -100,6 +101,7 @@ func (s *State) Add(alias, branch, path string) error {
 	s.Worktrees[alias] = WorktreeEntry{
 		Branch:  branch,
 		Path:    path,
+		Port:    port,
 		Created: time.Now(),
 	}
 	return nil
