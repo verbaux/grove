@@ -16,6 +16,7 @@ type Config struct {
 	WorktreeDir string   `json:"worktreeDir"`
 	Prefix      string   `json:"prefix"`
 	Symlink     []string `json:"symlink"`
+	CopyDirs    []string `json:"copyDirs,omitempty"`
 	AfterCreate string   `json:"afterCreate"`
 }
 

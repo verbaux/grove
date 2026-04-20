@@ -56,6 +56,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 	)
 	cfg.Symlink = splitAndTrim(symlinkInput)
 
+	copyDirsInput := prompt(
+		"Directories to copy as build cache (comma-separated, leave empty for none) []",
+		"",
+	)
+	cfg.CopyDirs = splitAndTrim(copyDirsInput)
+
 	cfg.AfterCreate = prompt("Command to run after creating worktree (leave empty for none) []", "")
 
 	if err := config.Save(cwd, cfg); err != nil {
@@ -69,6 +75,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Worktree dir: %s\n", cfg.WorktreeDir)
 	if len(cfg.Symlink) > 0 {
 		fmt.Printf("  Symlink:      %s\n", strings.Join(cfg.Symlink, ", "))
+	}
+	if len(cfg.CopyDirs) > 0 {
+		fmt.Printf("  Copy dirs:    %s\n", strings.Join(cfg.CopyDirs, ", "))
 	}
 	if cfg.AfterCreate != "" {
 		fmt.Printf("  After create: %s\n", cfg.AfterCreate)

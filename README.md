@@ -94,8 +94,9 @@ Creates a worktree for a branch and sets it up automatically:
 1. Runs `git worktree add`
 2. Copies all `.env*` files (recursively, preserving directory structure)
 3. Creates symlinks for configured directories
-4. Runs `afterCreate` command if set
-5. Saves an alias for easy reference
+4. Copies build cache directories (`copyDirs`) for a warm start
+5. Runs `afterCreate` command if set
+6. Saves an alias for easy reference
 
 If the branch doesn't exist, it's created from current HEAD.
 
@@ -293,6 +294,7 @@ Project config, lives in the repo root.
   "worktreeDir": "../",
   "prefix": "myapp",
   "symlink": ["node_modules"],
+  "copyDirs": [".next", "dist"],
   "afterCreate": "npm install"
 }
 ```
@@ -302,6 +304,7 @@ Project config, lives in the repo root.
 | `worktreeDir` | `../`              | Where to place worktrees relative to the project root |
 | `prefix`      | folder name        | Prefix for worktree directory names                   |
 | `symlink`     | `["node_modules"]` | Directories to symlink from the main worktree         |
+| `copyDirs`    | `[]`               | Directories to copy as build cache (e.g. `.next`, `dist`, `target`) |
 | `afterCreate` | `""`               | Shell command to run in the new worktree after setup  |
 
 Worktree path formula: `worktreeDir` + `prefix` + `-` + alias

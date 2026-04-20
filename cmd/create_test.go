@@ -173,3 +173,97 @@ func TestCreateSkipsSymlinkConflict(t *testing.T) {
 		t.Fatalf("cleanup failed: %s", out)
 	}
 }
+
+func TestCreateCopiesBuildCache(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{},
+		CopyDirs:    []string{".next", "dist"},
+		AfterCreate: "",
+	})
+
+	// Create build artifacts in main worktree
+	nextDir := filepath.Join(dir, ".next", "cache")
+	os.MkdirAll(nextDir, 0755)
+	os.WriteFile(filepath.Join(nextDir, "build.json"), []byte(`{"version":1}`), 0644)
+
+	distDir := filepath.Join(dir, "dist")
+	os.MkdirAll(distDir, 0755)
+	os.WriteFile(filepath.Join(distDir, "index.js"), []byte("console.log('hi')"), 0644)
+
+	createName = ""
+	createFrom = ""
+
+	if err := runCreate(createCmd, []string{"feature/build-cache"}); err != nil {
+		t.Fatalf("expected create to succeed, got: %v", err)
+	}
+
+	wtPath := filepath.Join(filepath.Dir(dir), "testproject-build-cache")
+
+	// Verify .next/cache/build.json was copied
+	data, err := os.ReadFile(filepath.Join(wtPath, ".next", "cache", "build.json"))
+	if err != nil {
+		t.Fatal("expected .next/cache/build.json to be copied:", err)
+	}
+	if string(data) != `{"version":1}` {
+		t.Errorf("content = %q, want %q", string(data), `{"version":1}`)
+	}
+
+	// Verify dist/index.js was copied
+	data, err = os.ReadFile(filepath.Join(wtPath, "dist", "index.js"))
+	if err != nil {
+		t.Fatal("expected dist/index.js to be copied:", err)
+	}
+	if string(data) != "console.log('hi')" {
+		t.Errorf("content = %q, want %q", string(data), "console.log('hi')")
+	}
+
+	// Verify it's a copy, not a symlink
+	info, err := os.Lstat(filepath.Join(wtPath, ".next"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Error("expected .next to be a real directory, not a symlink")
+	}
+
+	remove := exec.Command("git", "worktree", "remove", "--force", wtPath)
+	remove.Dir = dir
+	if out, err := remove.CombinedOutput(); err != nil {
+		t.Fatalf("cleanup failed: %s", out)
+	}
+}
+
+func TestCreateSkipsMissingCopyDirs(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{},
+		CopyDirs:    []string{"nonexistent-dir"},
+		AfterCreate: "",
+	})
+
+	createName = ""
+	createFrom = ""
+
+	if err := runCreate(createCmd, []string{"feature/no-cache"}); err != nil {
+		t.Fatalf("expected create to succeed with missing copyDirs, got: %v", err)
+	}
+
+	wtPath := filepath.Join(filepath.Dir(dir), "testproject-no-cache")
+
+	s, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.AliasExists("no-cache") {
+		t.Error("expected alias to be present in state")
+	}
+
+	remove := exec.Command("git", "worktree", "remove", "--force", wtPath)
+	remove.Dir = dir
+	if out, err := remove.CombinedOutput(); err != nil {
+		t.Fatalf("cleanup failed: %s", out)
+	}
+}

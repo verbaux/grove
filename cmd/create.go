@@ -141,6 +141,23 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		fmt.Printf("  ✓ symlinked %s\n", strings.Join(symlinked, ", "))
 	}
 
+	var copiedDirs []string
+	for _, name := range cfg.CopyDirs {
+		src := filepath.Join(root, name)
+		dst := filepath.Join(worktreePath, name)
+		copied, err := files.CopyDir(src, dst)
+		if err != nil {
+			setupErr = fmt.Errorf("copy %s: %w", name, err)
+			return setupErr
+		}
+		if copied {
+			copiedDirs = append(copiedDirs, name)
+		}
+	}
+	if len(copiedDirs) > 0 {
+		fmt.Printf("  ✓ copied %s\n", strings.Join(copiedDirs, ", "))
+	}
+
 	if cfg.AfterCreate != "" {
 		fmt.Printf("  running: %s\n", cfg.AfterCreate)
 		if err := runShell(cfg.AfterCreate, worktreePath); err != nil {
