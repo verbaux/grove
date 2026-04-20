@@ -5,5 +5,12 @@ dist/
 # Grove local state (machine-specific)
 .grove/
 
+# Internal code docs (not for users)
+docs/CODEMAPS/
+
+# Ephemeral reports / agent working files
+.reports/
+CLAUDE.md
+
 # macOS
 .DS_Store

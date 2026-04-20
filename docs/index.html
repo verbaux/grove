@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grove — Git worktree manager that handles the setup</title>
+<meta name="description" content="Grove automates .env copying, node_modules symlinks, and setup scripts for git worktrees. Written in Go.">
+<meta property="og:title" content="Grove — Git worktree manager">
+<meta property="og:description" content="Automate the setup work for git worktrees.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://verbaux.github.io/grove/">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="logo" href="#">grove</a>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="#commands">Commands</a>
+      <a href="https://github.com/verbaux/grove" target="_blank" rel="noopener">GitHub →</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="container">
+    <h1>Git worktrees without the setup friction</h1>
+    <p class="lede">
+      <code>git worktree add</code> is fast. Everything after — <code>.env</code> files, <code>node_modules</code>, install scripts —
+      is where you give up. <strong>Grove automates all of that.</strong>
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="#install">Install</a>
+      <a class="btn ghost" href="https://github.com/verbaux/grove" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+
+    <pre class="terminal"><span class="prompt">$</span> grove create feature/auth
+<span class="muted">Creating worktree for branch "feature/auth" at /home/dev/myapp-auth</span>
+  <span class="ok">✓</span> git worktree created
+  <span class="ok">✓</span> copied 2 .env file(s)
+  <span class="ok">✓</span> symlinked node_modules
+  <span class="ok">✓</span> afterCreate done
+
+Worktree "auth" ready (port 3487).
+  cd $(grove cd auth)</pre>
+  </div>
+</section>
+
+<section id="features" class="features">
+  <div class="container">
+    <h2>What it does</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Auto .env copy</h3>
+        <p>Walks the project recursively and copies every <code>.env*</code> file to the new worktree, preserving directory structure.</p>
+      </div>
+      <div class="card">
+        <h3>node_modules symlinks</h3>
+        <p>Instead of reinstalling per worktree, Grove symlinks configured directories from the main tree. Detach when branches diverge.</p>
+      </div>
+      <div class="card">
+        <h3>Build cache (copyDirs)</h3>
+        <p>Copy <code>.next</code>, <code>dist</code>, <code>target</code> into new worktrees for a warm start.</p>
+      </div>
+      <div class="card">
+        <h3>Per-worktree ports</h3>
+        <p>Every worktree gets a stable port via alias hash. Exposed as <code>$GROVE_PORT</code> in your setup script.</p>
+      </div>
+      <div class="card">
+        <h3>PR review</h3>
+        <p><code>grove review 42</code> checks out a GitHub pull request into a ready-to-run worktree via <code>gh</code> CLI.</p>
+      </div>
+      <div class="card">
+        <h3>afterCreate hooks</h3>
+        <p>Run one command or an array of commands after setup. Fail-fast, with <code>$GROVE_ALIAS/BRANCH/PORT/PATH</code> in scope.</p>
+      </div>
+      <div class="card">
+        <h3>Orphan handling</h3>
+        <p><code>grove adopt</code> registers worktrees created outside of Grove. <code>grove doctor</code> finds stale state and broken symlinks.</p>
+      </div>
+      <div class="card">
+        <h3>Templates</h3>
+        <p>Save any <code>.groverc.json</code> as a reusable template. <code>grove init --template nextjs</code> in a new project.</p>
+      </div>
+      <div class="card">
+        <h3>Interactive picker</h3>
+        <p><code>grove cd</code> with no args opens a fuzzy picker. Tab completion for aliases in every command.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install" class="install">
+  <div class="container">
+    <h2>Install</h2>
+    <div class="install-grid">
+      <div>
+        <h3>Homebrew (macOS &amp; Linux)</h3>
+        <pre class="terminal small"><span class="prompt">$</span> brew tap verbaux/tap
+<span class="prompt">$</span> brew install grove</pre>
+      </div>
+      <div>
+        <h3>Go install</h3>
+        <pre class="terminal small"><span class="prompt">$</span> go install github.com/verbaux/grove@latest</pre>
+      </div>
+      <div>
+        <h3>Binary releases</h3>
+        <p>Prebuilt binaries for darwin &amp; linux, amd64 &amp; arm64 on the <a href="https://github.com/verbaux/grove/releases" target="_blank" rel="noopener">Releases page</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="commands" class="commands">
+  <div class="container">
+    <h2>Commands</h2>
+    <table class="cmd-table">
+      <tr><td><code>grove init</code></td><td>Interactive wizard — creates <code>.groverc.json</code></td></tr>
+      <tr><td><code>grove create &lt;branch&gt;</code></td><td>Create worktree + copy envs + symlinks + afterCreate</td></tr>
+      <tr><td><code>grove list</code></td><td>Table of worktrees with status, port, and index</td></tr>
+      <tr><td><code>grove cd [name|index]</code></td><td>Print path to cd into; interactive picker without args</td></tr>
+      <tr><td><code>grove remove &lt;name&gt;</code></td><td>Remove a worktree (dirty-state check)</td></tr>
+      <tr><td><code>grove clean</code></td><td>Remove all managed worktrees + orphan cleanup</td></tr>
+      <tr><td><code>grove adopt</code></td><td>Register an orphan worktree</td></tr>
+      <tr><td><code>grove review [pr]</code></td><td>Check out a GitHub PR into a worktree</td></tr>
+      <tr><td><code>grove detach</code></td><td>Remove symlinks (optionally copy contents first)</td></tr>
+      <tr><td><code>grove doctor</code></td><td>Diagnose config, state, symlinks, ports, dependencies</td></tr>
+      <tr><td><code>grove template</code></td><td>Save / list / apply reusable configs</td></tr>
+      <tr><td><code>grove completion</code></td><td>Shell completion for zsh, bash, fish, powershell</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="cta-section">
+  <div class="container centered">
+    <h2>Grab it</h2>
+    <p>Small Go binary. No dependencies beyond <code>git</code>.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/verbaux/grove" target="_blank" rel="noopener">View on GitHub</a>
+      <a class="btn ghost" href="https://github.com/verbaux/grove#readme" target="_blank" rel="noopener">Full README</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <p>
+      <a href="https://github.com/verbaux/grove">GitHub</a> ·
+      <a href="https://github.com/verbaux/grove/issues">Issues</a> ·
+      <a href="https://github.com/sponsors/verbaux">Sponsor</a> ·
+      MIT License
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
