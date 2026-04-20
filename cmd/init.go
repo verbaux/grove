@@ -75,7 +75,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Warning: %v — using defaults\n", err)
 	}
 
-	cfg.AfterCreate = prompt("Command to run after creating worktree (leave empty for none) []", "")
+	afterCreateInput := prompt("Command to run after creating worktree (leave empty for none) []", "")
+	if afterCreateInput != "" {
+		cfg.AfterCreate = config.AfterCreate{afterCreateInput}
+	}
 
 	if err := config.Save(cwd, cfg); err != nil {
 		return err
@@ -95,8 +98,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if cfg.PortRange != nil {
 		fmt.Printf("  Port range:   %d-%d\n", cfg.PortRange.Min, cfg.PortRange.Max)
 	}
-	if cfg.AfterCreate != "" {
-		fmt.Printf("  After create: %s\n", cfg.AfterCreate)
+	if len(cfg.AfterCreate) > 0 {
+		fmt.Printf("  After create: %s\n", strings.Join(cfg.AfterCreate, ", "))
 	}
 	agentsAnswer := prompt("Create AGENTS.md with AI coding agent instructions? [Y/n]", "y")
 	if strings.ToLower(agentsAnswer) != "n" {

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,7 +22,7 @@ func TestSaveAndLoad(t *testing.T) {
 		WorktreeDir: "../",
 		Prefix:      "myproject",
 		Symlink:     []string{"node_modules", ".yarn"},
-		AfterCreate: "make setup",
+		AfterCreate: AfterCreate{"make setup"},
 	}
 
 	if err := Save(dir, want); err != nil {
@@ -41,8 +42,13 @@ func TestSaveAndLoad(t *testing.T) {
 	if got.Prefix != want.Prefix {
 		t.Errorf("Prefix = %q, want %q", got.Prefix, want.Prefix)
 	}
-	if got.AfterCreate != want.AfterCreate {
-		t.Errorf("AfterCreate = %q, want %q", got.AfterCreate, want.AfterCreate)
+	if len(got.AfterCreate) != len(want.AfterCreate) {
+		t.Fatalf("AfterCreate len = %d, want %d", len(got.AfterCreate), len(want.AfterCreate))
+	}
+	for i := range want.AfterCreate {
+		if got.AfterCreate[i] != want.AfterCreate[i] {
+			t.Errorf("AfterCreate[%d] = %q, want %q", i, got.AfterCreate[i], want.AfterCreate[i])
+		}
 	}
 	if len(got.Symlink) != len(want.Symlink) {
 		t.Fatalf("Symlink length = %d, want %d", len(got.Symlink), len(want.Symlink))
@@ -154,5 +160,98 @@ func TestFindRootNoConfig(t *testing.T) {
 	_, err := FindRoot(dir)
 	if err == nil {
 		t.Fatal("expected error when no .groverc.json exists anywhere")
+	}
+}
+
+func TestAfterCreateUnmarshalString(t *testing.T) {
+	var a AfterCreate
+	if err := json.Unmarshal([]byte(`"npm install"`), &a); err != nil {
+		t.Fatal(err)
+	}
+	if len(a) != 1 || a[0] != "npm install" {
+		t.Errorf("got %v, want [npm install]", a)
+	}
+}
+
+func TestAfterCreateUnmarshalArray(t *testing.T) {
+	var a AfterCreate
+	if err := json.Unmarshal([]byte(`["npm ci","npm run build"]`), &a); err != nil {
+		t.Fatal(err)
+	}
+	if len(a) != 2 || a[0] != "npm ci" || a[1] != "npm run build" {
+		t.Errorf("got %v, want [npm ci, npm run build]", a)
+	}
+}
+
+func TestAfterCreateUnmarshalEmpty(t *testing.T) {
+	var a AfterCreate
+	if err := json.Unmarshal([]byte(`""`), &a); err != nil {
+		t.Fatal(err)
+	}
+	if len(a) != 0 {
+		t.Errorf("empty string should yield empty, got %v", a)
+	}
+}
+
+func TestAfterCreateMarshalSingle(t *testing.T) {
+	a := AfterCreate{"npm install"}
+	data, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `"npm install"` {
+		t.Errorf("got %s, want \"npm install\"", data)
+	}
+}
+
+func TestAfterCreateMarshalArray(t *testing.T) {
+	a := AfterCreate{"a", "b"}
+	data, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `["a","b"]` {
+		t.Errorf("got %s, want [a,b]", data)
+	}
+}
+
+func TestAfterCreateMarshalEmpty(t *testing.T) {
+	a := AfterCreate{}
+	data, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `""` {
+		t.Errorf("got %s, want empty string", data)
+	}
+}
+
+func TestConfigBackwardCompatString(t *testing.T) {
+	dir := t.TempDir()
+	raw := `{"worktreeDir":"../","prefix":"x","symlink":["node_modules"],"afterCreate":"npm install"}`
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(raw), 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.AfterCreate) != 1 || got.AfterCreate[0] != "npm install" {
+		t.Errorf("got %v", got.AfterCreate)
+	}
+}
+
+func TestConfigArrayForm(t *testing.T) {
+	dir := t.TempDir()
+	raw := `{"worktreeDir":"../","prefix":"x","symlink":["node_modules"],"afterCreate":["npm ci","npm run build"]}`
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(raw), 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.AfterCreate) != 2 {
+		t.Fatalf("got %v", got.AfterCreate)
 	}
 }

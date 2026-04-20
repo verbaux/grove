@@ -178,12 +178,14 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		fmt.Sprintf("GROVE_PORT=%d", port),
 	}
 
-	if cfg.AfterCreate != "" {
-		fmt.Printf("  running: %s\n", cfg.AfterCreate)
-		if err := runShell(cfg.AfterCreate, worktreePath, groveEnv); err != nil {
-			setupErr = fmt.Errorf("afterCreate command failed: %w", err)
+	for i, command := range cfg.AfterCreate {
+		fmt.Printf("  running [%d/%d]: %s\n", i+1, len(cfg.AfterCreate), command)
+		if err := runShell(command, worktreePath, groveEnv); err != nil {
+			setupErr = fmt.Errorf("afterCreate command %d failed: %w", i+1, err)
 			return setupErr
 		}
+	}
+	if len(cfg.AfterCreate) > 0 {
 		fmt.Println("  ✓ afterCreate done")
 	}
 

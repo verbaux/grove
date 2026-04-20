@@ -55,7 +55,7 @@ func TestCreateRollbackOnAfterCreateFailure(t *testing.T) {
 		WorktreeDir: "../",
 		Prefix:      "testproject",
 		Symlink:     []string{},
-		AfterCreate: "exit 1", // always fails
+		AfterCreate: config.AfterCreate{"exit 1"}, // always fails
 	})
 
 	// Reset package-level flags so we get a clean state
@@ -88,7 +88,7 @@ func TestCreateRollbackOnStateSaveFailure(t *testing.T) {
 		WorktreeDir: "../",
 		Prefix:      "testproject",
 		Symlink:     []string{},
-		AfterCreate: "",
+		AfterCreate: nil,
 	})
 
 	createName = ""
@@ -116,7 +116,7 @@ func TestCreateSkipsSymlinkConflict(t *testing.T) {
 		WorktreeDir: "../",
 		Prefix:      "testproject",
 		Symlink:     []string{".yarn/cache"},
-		AfterCreate: "",
+		AfterCreate: nil,
 	})
 
 	// Make .yarn/cache tracked so it exists in the new worktree checkout.
@@ -180,7 +180,7 @@ func TestCreateCopiesBuildCache(t *testing.T) {
 		Prefix:      "testproject",
 		Symlink:     []string{},
 		CopyDirs:    []string{".next", "dist"},
-		AfterCreate: "",
+		AfterCreate: nil,
 	})
 
 	// Create build artifacts in main worktree
@@ -241,7 +241,7 @@ func TestCreateSkipsMissingCopyDirs(t *testing.T) {
 		Prefix:      "testproject",
 		Symlink:     []string{},
 		CopyDirs:    []string{"nonexistent-dir"},
-		AfterCreate: "",
+		AfterCreate: nil,
 	})
 
 	createName = ""

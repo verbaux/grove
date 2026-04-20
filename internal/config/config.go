@@ -17,14 +17,46 @@ type PortRange struct {
 	Max int `json:"max"`
 }
 
+// AfterCreate is a list of shell commands run after worktree setup.
+// JSON accepts either a single string (legacy) or an array.
+type AfterCreate []string
+
+func (a *AfterCreate) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		if s == "" {
+			*a = nil
+		} else {
+			*a = AfterCreate{s}
+		}
+		return nil
+	}
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return errors.New("afterCreate must be a string or array of strings")
+	}
+	*a = AfterCreate(arr)
+	return nil
+}
+
+func (a AfterCreate) MarshalJSON() ([]byte, error) {
+	if len(a) == 0 {
+		return []byte(`""`), nil
+	}
+	if len(a) == 1 {
+		return json.Marshal(a[0])
+	}
+	return json.Marshal([]string(a))
+}
+
 // Config maps directly to .groverc.json.
 type Config struct {
-	WorktreeDir string     `json:"worktreeDir"`
-	Prefix      string     `json:"prefix"`
-	Symlink     []string   `json:"symlink"`
-	CopyDirs    []string   `json:"copyDirs,omitempty"`
-	AfterCreate string     `json:"afterCreate"`
-	PortRange   *PortRange `json:"portRange,omitempty"`
+	WorktreeDir string      `json:"worktreeDir"`
+	Prefix      string      `json:"prefix"`
+	Symlink     []string    `json:"symlink"`
+	CopyDirs    []string    `json:"copyDirs,omitempty"`
+	AfterCreate AfterCreate `json:"afterCreate"`
+	PortRange   *PortRange  `json:"portRange,omitempty"`
 }
 
 // DefaultPortMin, DefaultPortMax — fallback range when cfg.PortRange is nil.
@@ -48,7 +80,6 @@ func Default() Config {
 		WorktreeDir: "../",
 		Prefix:      "",
 		Symlink:     []string{"node_modules"},
-		AfterCreate: "",
 	}
 }
 

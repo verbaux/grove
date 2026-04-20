@@ -308,7 +308,7 @@ Project config, lives in the repo root.
 | `prefix`      | folder name        | Prefix for worktree directory names                   |
 | `symlink`     | `["node_modules"]` | Directories to symlink from the main worktree         |
 | `copyDirs`    | `[]`               | Directories to copy as build cache (e.g. `.next`, `dist`, `target`) |
-| `afterCreate` | `""`               | Shell command to run in the new worktree after setup  |
+| `afterCreate` | `""`               | Shell command(s) to run after setup — string or array (see below) |
 | `portRange`   | `3001–3999`        | Port range assigned to each worktree (see Ports below) |
 
 Worktree path formula: `worktreeDir` + `prefix` + `-` + alias
@@ -337,6 +337,28 @@ Directory structure is preserved. If you have `apps/api/.env.local`, the copy la
 Instead of running `npm install` in each worktree (slow), Grove creates a symlink from the new worktree's `node_modules` to the original. Both worktrees share the same `node_modules` on disk.
 
 This works well when the branches have the same dependencies. If a branch changes `package.json` significantly, use `afterCreate: "npm install"` — it will install into the symlink's target, or you can remove the symlink and install fresh.
+
+## afterCreate
+
+Single command (legacy, still supported):
+
+```json
+{ "afterCreate": "npm install" }
+```
+
+Or an array of commands — run sequentially, fail-fast:
+
+```json
+{
+  "afterCreate": [
+    "npm ci",
+    "npm run build",
+    "echo \"ready on $GROVE_PORT\""
+  ]
+}
+```
+
+Each command runs in the worktree directory via `sh -c`, so pipes, `&&`, subshells all work. The `$GROVE_*` env vars are available in every command.
 
 ## Per-worktree ports
 
