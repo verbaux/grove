@@ -507,6 +507,7 @@ em { font-style: normal; color: var(--accent); font-weight: inherit; }
   border-radius: var(--radius);
   padding: 22px;
   display: flex; flex-direction: column; gap: 14px;
+  min-width: 0;
 }
 .install-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
