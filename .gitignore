@@ -12,5 +12,8 @@ docs/CODEMAPS/
 .reports/
 CLAUDE.md
 
+# Claude Code local overrides (machine-specific)
+.claude/settings.local.json
+
 # macOS
 .DS_Store

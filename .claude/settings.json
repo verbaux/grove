@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; [ -z \"$f\" ] && exit 0; root=$(git -C \"$(dirname \"$f\")\" rev-parse --show-toplevel 2>/dev/null); case \"$f\" in \"$root/go.sum\"|\"$root/grove\") echo \"Blocked: $(basename \"$f\") must not be hand-edited\" 1>&2; exit 2 ;; esac; }",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; [ -z \"$f\" ] && exit 0; case \"$f\" in *.go) gofmt -w \"$f\" 2>/dev/null || true ;; esac; }",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; [ -z \"$f\" ] && exit 0; case \"$f\" in *.go) ;; *) exit 0 ;; esac; root=$(git -C \"$(dirname \"$f\")\" rev-parse --show-toplevel 2>/dev/null) || exit 0; cd \"$root\" && go vet ./... 1>&2 || exit 2; }",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
