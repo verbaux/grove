@@ -1,5 +1,5 @@
 # Build output
-grove
+/grove
 dist/
 
 # Grove local state (machine-specific)

@@ -435,6 +435,35 @@ Available as `$GROVE_PORT` in `afterCreate`:
 
 Also exposed: `$GROVE_ALIAS`, `$GROVE_BRANCH`, `$GROVE_PATH`.
 
+## Agent skill
+
+Grove ships with an [agent skill](https://agentskills.io/specification) that teaches AI coding agents (Claude Code, Codex CLI, Gemini CLI, and others) to use `grove` instead of raw `git worktree` commands.
+
+The skill is embedded in the `grove` binary. Install it with:
+
+```sh
+# Autodetect installed agents (~/.claude, ~/.agents) and install into each
+grove skill install
+
+# Install for a specific agent
+grove skill install --target claude
+grove skill install --target codex
+
+# Install into a custom directory
+grove skill install --dir ~/some/skills
+
+# Overwrite existing files without prompting
+grove skill install --force
+
+# Show current install paths and status
+grove skill path
+
+# Remove
+grove skill uninstall
+```
+
+After install, the agent will detect `.groverc.json` and route worktree operations through Grove (create, list, review PRs, adopt orphans, etc.).
+
 ## License
 
 MIT
