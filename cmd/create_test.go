@@ -61,6 +61,7 @@ func TestCreateRollbackOnAfterCreateFailure(t *testing.T) {
 	// Reset package-level flags so we get a clean state
 	createName = ""
 	createFrom = ""
+	createDetach = false
 
 	err := runCreate(createCmd, []string{"feature/rollback-test"})
 	if err == nil {
@@ -93,6 +94,7 @@ func TestCreateRollbackOnStateSaveFailure(t *testing.T) {
 
 	createName = ""
 	createFrom = ""
+	createDetach = false
 
 	// Make .grove directory a file so state.Save fails
 	groveDir := filepath.Join(dir, ".grove")
@@ -140,6 +142,7 @@ func TestCreateSkipsSymlinkConflict(t *testing.T) {
 
 	createName = ""
 	createFrom = ""
+	createDetach = false
 
 	if err := runCreate(createCmd, []string{"feature/symlink-conflict"}); err != nil {
 		t.Fatalf("expected create to succeed on symlink conflict, got: %v", err)
@@ -194,6 +197,7 @@ func TestCreateCopiesBuildCache(t *testing.T) {
 
 	createName = ""
 	createFrom = ""
+	createDetach = false
 
 	if err := runCreate(createCmd, []string{"feature/build-cache"}); err != nil {
 		t.Fatalf("expected create to succeed, got: %v", err)
@@ -246,6 +250,7 @@ func TestCreateSkipsMissingCopyDirs(t *testing.T) {
 
 	createName = ""
 	createFrom = ""
+	createDetach = false
 
 	if err := runCreate(createCmd, []string{"feature/no-cache"}); err != nil {
 		t.Fatalf("expected create to succeed with missing copyDirs, got: %v", err)

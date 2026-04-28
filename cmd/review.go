@@ -232,7 +232,7 @@ func runReviewCheckout(number string) error {
 		return err
 	}
 
-	if err := doCreate(root, cfg, &s, pr.HeadRefName, alias, from); err != nil {
+	if err := doCreate(root, cfg, &s, pr.HeadRefName, alias, from, false); err != nil {
 		return err
 	}
 

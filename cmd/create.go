@@ -17,14 +17,16 @@ import (
 )
 
 var (
-	createName string
-	createFrom string
+	createName   string
+	createFrom   string
+	createDetach bool
 )
 
 func init() {
 	rootCmd.AddCommand(createCmd)
 	createCmd.Flags().StringVar(&createName, "name", "", "alias for the worktree (default: last segment of branch name)")
 	createCmd.Flags().StringVar(&createFrom, "from", "", "base branch or commit to create the new branch from")
+	createCmd.Flags().BoolVar(&createDetach, "detach", false, "create worktree without symlinks (runs afterDetachedCreate before afterCreate)")
 }
 
 var createCmd = &cobra.Command{
@@ -37,6 +39,10 @@ Grove will:
   - Copy all .env* files found in the project
   - Create symlinks for configured directories (e.g. node_modules)
   - Run the afterCreate command if configured
+
+With --detach, symlinks are skipped. If afterDetachedCreate is configured,
+its commands run before afterCreate (useful for installing dependencies
+locally instead of relying on symlinked node_modules).
 
 The branch will be created if it doesn't already exist.`,
 	Args: cobra.ExactArgs(1),
@@ -71,11 +77,12 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		alias = branchAlias(branch)
 	}
 
-	return doCreate(root, cfg, &s, branch, alias, createFrom)
+	return doCreate(root, cfg, &s, branch, alias, createFrom, createDetach)
 }
 
 // doCreate is the shared worktree creation logic used by both `grove create` and `grove review`.
-func doCreate(root string, cfg config.Config, s *state.State, branch, alias, from string) error {
+// When detach is true, symlinks are skipped and afterDetachedCreate runs before afterCreate.
+func doCreate(root string, cfg config.Config, s *state.State, branch, alias, from string, detach bool) error {
 	if err := validateAlias(alias); err != nil {
 		return err
 	}
@@ -135,23 +142,29 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		fmt.Printf("  ✓ copied %d .env file(s)\n", len(copied))
 	}
 
-	var symlinked []string
-	for _, name := range cfg.Symlink {
-		created, err := files.Symlink(root, worktreePath, name)
-		if err != nil {
-			if errors.Is(err, files.ErrSymlinkDestinationConflict) {
-				fmt.Fprintf(os.Stderr, "  warning: skipping symlink %s: %v\n", name, err)
-				continue
+	if detach {
+		if len(cfg.Symlink) > 0 {
+			fmt.Printf("  ⚠ skipping %d symlink(s) (--detach)\n", len(cfg.Symlink))
+		}
+	} else {
+		var symlinked []string
+		for _, name := range cfg.Symlink {
+			created, err := files.Symlink(root, worktreePath, name)
+			if err != nil {
+				if errors.Is(err, files.ErrSymlinkDestinationConflict) {
+					fmt.Fprintf(os.Stderr, "  warning: skipping symlink %s: %v\n", name, err)
+					continue
+				}
+				setupErr = fmt.Errorf("symlink %s: %w", name, err)
+				return setupErr
 			}
-			setupErr = fmt.Errorf("symlink %s: %w", name, err)
-			return setupErr
+			if created {
+				symlinked = append(symlinked, name)
+			}
 		}
-		if created {
-			symlinked = append(symlinked, name)
+		if len(symlinked) > 0 {
+			fmt.Printf("  ✓ symlinked %s\n", strings.Join(symlinked, ", "))
 		}
-	}
-	if len(symlinked) > 0 {
-		fmt.Printf("  ✓ symlinked %s\n", strings.Join(symlinked, ", "))
 	}
 
 	var copiedDirs []string
@@ -176,6 +189,19 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		"GROVE_BRANCH=" + branch,
 		"GROVE_PATH=" + worktreePath,
 		fmt.Sprintf("GROVE_PORT=%d", port),
+	}
+
+	if detach {
+		for i, command := range cfg.AfterDetachedCreate {
+			fmt.Printf("  running afterDetachedCreate [%d/%d]: %s\n", i+1, len(cfg.AfterDetachedCreate), command)
+			if err := runShell(command, worktreePath, groveEnv); err != nil {
+				setupErr = fmt.Errorf("afterDetachedCreate command %d failed: %w", i+1, err)
+				return setupErr
+			}
+		}
+		if len(cfg.AfterDetachedCreate) > 0 {
+			fmt.Println("  ✓ afterDetachedCreate done")
+		}
 	}
 
 	for i, command := range cfg.AfterCreate {

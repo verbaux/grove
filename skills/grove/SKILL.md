@@ -24,6 +24,7 @@ Config fields:
 | `symlink` | Dirs to symlink from main worktree (e.g. `node_modules`) |
 | `copyDirs` | Dirs to copy as build cache (e.g. `.next`, `dist`, `target`) |
 | `afterCreate` | Hook command — string OR array (fail-fast sequential) |
+| `afterDetachedCreate` | Hook run before `afterCreate` when `--detach` is passed (string OR array) |
 | `portRange` | `{min, max}` for per-worktree port assignment (default 3001–3999) |
 
 Worktree path: `<worktreeDir>/<prefix>-<alias>/`. State in `.grove/state.json` (gitignored).
@@ -36,9 +37,12 @@ Worktree path: `<worktreeDir>/<prefix>-<alias>/`. State in `.grove/state.json` (
 grove create feature/my-branch              # alias: "my-branch"
 grove create feature/my-branch --name fix   # custom alias
 grove create feature/my-branch --from main  # branch from main
+grove create feature/my-branch --detach     # skip symlinks; runs afterDetachedCreate before afterCreate
 ```
 
 Creates worktree, copies `.env*`, sets up symlinks, copies `copyDirs`, runs `afterCreate`. Rolls back `git worktree add` on setup failure.
+
+Use `--detach` when branch has different dependencies than main (e.g. major `package.json` bump) — produces a standalone worktree that won't share `node_modules` with main.
 
 `afterCreate` env vars: `$GROVE_PORT`, `$GROVE_ALIAS`, `$GROVE_BRANCH`, `$GROVE_PATH`.
 

@@ -51,12 +51,13 @@ func (a AfterCreate) MarshalJSON() ([]byte, error) {
 
 // Config maps directly to .groverc.json.
 type Config struct {
-	WorktreeDir string      `json:"worktreeDir"`
-	Prefix      string      `json:"prefix"`
-	Symlink     []string    `json:"symlink"`
-	CopyDirs    []string    `json:"copyDirs,omitempty"`
-	AfterCreate AfterCreate `json:"afterCreate"`
-	PortRange   *PortRange  `json:"portRange,omitempty"`
+	WorktreeDir         string      `json:"worktreeDir"`
+	Prefix              string      `json:"prefix"`
+	Symlink             []string    `json:"symlink"`
+	CopyDirs            []string    `json:"copyDirs,omitempty"`
+	AfterCreate         AfterCreate `json:"afterCreate"`
+	AfterDetachedCreate AfterCreate `json:"afterDetachedCreate,omitempty"`
+	PortRange           *PortRange  `json:"portRange,omitempty"`
 }
 
 // DefaultPortMin, DefaultPortMax — fallback range when cfg.PortRange is nil.

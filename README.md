@@ -108,6 +108,7 @@ If the branch doesn't exist, it's created from current HEAD.
 | ----------------- | ---------------------------------------------------- |
 | `--name <alias>`  | Custom alias (default: last segment of branch name)  |
 | `--from <branch>` | Create the new branch from this base instead of HEAD |
+| `--detach`        | Skip symlinks; run `afterDetachedCreate` before `afterCreate` |
 
 **Examples:**
 
@@ -120,6 +121,9 @@ grove create feature/payment-redesign --name payments
 
 # Branch from a specific base
 grove create feature/auth --from main
+
+# Standalone worktree without symlinks (e.g. branch has different deps)
+grove create feature/big-deps-bump --detach
 ```
 
 If setup fails after the worktree is created, Grove rolls back the `git worktree add` so you're not left with an orphaned directory.
@@ -359,18 +363,20 @@ Project config, lives in the repo root.
   "symlink": ["node_modules"],
   "copyDirs": [".next", "dist"],
   "afterCreate": "npm install",
+  "afterDetachedCreate": "npm ci",
   "portRange": { "min": 3001, "max": 3999 }
 }
 ```
 
-| Field         | Default            | Description                                           |
-| ------------- | ------------------ | ----------------------------------------------------- |
-| `worktreeDir` | `../`              | Where to place worktrees relative to the project root |
-| `prefix`      | folder name        | Prefix for worktree directory names                   |
-| `symlink`     | `["node_modules"]` | Directories to symlink from the main worktree         |
-| `copyDirs`    | `[]`               | Directories to copy as build cache (e.g. `.next`, `dist`, `target`) |
-| `afterCreate` | `""`               | Shell command(s) to run after setup — string or array (see below) |
-| `portRange`   | `3001–3999`        | Port range assigned to each worktree (see Ports below) |
+| Field                 | Default            | Description                                           |
+| --------------------- | ------------------ | ----------------------------------------------------- |
+| `worktreeDir`         | `../`              | Where to place worktrees relative to the project root |
+| `prefix`              | folder name        | Prefix for worktree directory names                   |
+| `symlink`             | `["node_modules"]` | Directories to symlink from the main worktree         |
+| `copyDirs`            | `[]`               | Directories to copy as build cache (e.g. `.next`, `dist`, `target`) |
+| `afterCreate`         | `""`               | Shell command(s) to run after setup — string or array (see below) |
+| `afterDetachedCreate` | `""`               | Shell command(s) to run before `afterCreate` when `--detach` is passed (string or array) |
+| `portRange`           | `3001–3999`        | Port range assigned to each worktree (see Ports below) |
 
 Worktree path formula: `worktreeDir` + `prefix` + `-` + alias
 Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`
@@ -420,6 +426,32 @@ Or an array of commands — run sequentially, fail-fast:
 ```
 
 Each command runs in the worktree directory via `sh -c`, so pipes, `&&`, subshells all work. The `$GROVE_*` env vars are available in every command.
+
+## Detached worktrees (`--detach`)
+
+By default, `grove create` symlinks `node_modules` (and any other configured `symlink` directories) to the main worktree to avoid reinstalling. That is great when branches share dependencies, but breaks down when a branch bumps `package.json` significantly — installing into the symlink mutates the main worktree's modules.
+
+`grove create <branch> --detach` creates a fully independent worktree:
+- All entries in `symlink` are skipped.
+- If `afterDetachedCreate` is configured, its commands run **before** `afterCreate` so you can install dependencies locally.
+- `copyDirs`, `.env*` copying, and `afterCreate` behave exactly as in normal mode.
+
+```json
+{
+  "symlink": ["node_modules"],
+  "afterCreate": "npm run build",
+  "afterDetachedCreate": "npm ci"
+}
+```
+
+```sh
+grove create feature/big-bump --detach
+# → no node_modules symlink
+# → npm ci  (afterDetachedCreate)
+# → npm run build  (afterCreate)
+```
+
+If you have an existing worktree with symlinks and want to make it standalone, use `grove detach` instead.
 
 ## Per-worktree ports
 
