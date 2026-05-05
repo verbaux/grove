@@ -8,8 +8,11 @@ import (
 	"strconv"
 	"strings"
 
+	"slices"
+
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/detect"
 	"github.com/verbaux/grove/internal/templates"
 )
 
@@ -100,6 +103,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 		cfg.AfterCreate = config.AfterCreate{afterCreateInput}
 	}
 
+	cfg = applyDetectPrompts(cwd, cfg)
+
 	if err := config.Save(cwd, cfg); err != nil {
 		return err
 	}
@@ -148,6 +153,61 @@ func writeAgentsMd(dir string) error {
 	}
 
 	return os.WriteFile(path, []byte("# AI Coding Agent Instructions\n\n"+groveAgentsSection), 0644)
+}
+
+// applyDetectPrompts scans the project for known frameworks and offers each
+// suggestion the user has not already covered as a y/n prompt.
+func applyDetectPrompts(root string, cfg config.Config) config.Config {
+	sugs := detect.Analyze(root)
+	if len(sugs) == 0 {
+		return cfg
+	}
+
+	pending := make([]detect.Suggestion, 0, len(sugs))
+	for _, s := range sugs {
+		if !configCoversSuggestion(cfg, s) {
+			pending = append(pending, s)
+		}
+	}
+	if len(pending) == 0 {
+		return cfg
+	}
+
+	fmt.Println()
+	fmt.Println("Detected project conventions — accept any suggestions?")
+	for _, s := range pending {
+		question := fmt.Sprintf("  Add %s %q? (%s) [Y/n]", s.Kind, s.Value, s.Reason)
+		answer := strings.ToLower(prompt(question, "y"))
+		if answer == "n" {
+			continue
+		}
+		switch s.Kind {
+		case detect.KindSymlink:
+			cfg.Symlink = append(cfg.Symlink, s.Value)
+		case detect.KindCopyDir:
+			cfg.CopyDirs = append(cfg.CopyDirs, s.Value)
+		case detect.KindAfterCreate:
+			cfg.AfterCreate = append(cfg.AfterCreate, s.Value)
+		}
+	}
+	return cfg
+}
+
+func configCoversSuggestion(cfg config.Config, s detect.Suggestion) bool {
+	switch s.Kind {
+	case detect.KindSymlink:
+		return slices.Contains(cfg.Symlink, s.Value)
+	case detect.KindCopyDir:
+		return slices.Contains(cfg.CopyDirs, s.Value)
+	case detect.KindAfterCreate:
+		for _, c := range cfg.AfterCreate {
+			if strings.Contains(c, s.Value) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
 }
 
 // prompt prints a question and reads one line from stdin.
