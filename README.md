@@ -288,6 +288,8 @@ Checks:
 - no orphan worktrees (git knows about them, grove doesn't)
 - configured symlinks in each worktree point to real targets
 - no port collisions in state
+- configured `symlink` and `copyDirs` paths still exist in the main repo (warn on stale entries)
+- detected project conventions (husky, package managers, direnv, mise, Python, Cargo, Gradle, …) suggest config additions
 - `gh` CLI is installed (needed for `grove review`)
 
 ```sh
@@ -305,6 +307,50 @@ grove doctor
 
 Summary: 6 ok, 1 warn, 0 error
 ```
+
+---
+
+### `grove analyze`
+
+Scan the project for known framework signals and suggest `.groverc.json` additions. Non-mutating by default — review before applying.
+
+```sh
+# Print suggested additions (non-mutating)
+grove analyze
+
+# Include stale entries (paths in cfg.symlink / cfg.copyDirs that no longer exist in the main repo)
+grove analyze --clean
+
+# Apply additions interactively
+grove analyze --apply
+
+# Apply additions + remove stale entries, no prompt
+grove analyze --apply --clean --yes
+
+# Preview the resulting config without writing
+grove analyze --apply --clean --dry-run
+
+# Machine-readable output
+grove analyze --json
+```
+
+Detected today:
+
+| Signal | Suggestion |
+| --- | --- |
+| `.husky/` + `.husky/_` (gitignored) | symlink `.husky/_`, or `afterCreate: npx husky` if the runtime dir is missing |
+| `package.json` + `node_modules/` | symlink `node_modules` |
+| `package.json` `packageManager` field | `afterCreate: <pnpm\|yarn\|bun\|npm> install` |
+| `pnpm-lock.yaml` / `yarn.lock` / `bun.lockb` / `package-lock.json` | matching `<pm> install` afterCreate |
+| `next.config.*` | copyDir `.next/cache` |
+| `turbo.json` | copyDir `.turbo` |
+| `.envrc` | `afterCreate: direnv allow` |
+| `.mise.toml` / `.tool-versions` | `afterCreate: mise install` |
+| `uv.lock` / `poetry.lock` / `Pipfile.lock` / `requirements.txt` | matching Python install command |
+| `Cargo.toml` | `afterCreate: cargo fetch` |
+| `build.gradle*` + `gradlew` | `afterCreate: ./gradlew --no-daemon dependencies` |
+
+Suggestions already covered by your config are filtered out automatically. `grove init` runs the same detector and offers each suggestion as a y/n prompt during the wizard.
 
 ---
 
@@ -390,6 +436,16 @@ Local state that maps aliases to paths. Add `.grove/` to your `.gitignore`.
 ```
 echo '.grove/' >> .gitignore
 ```
+
+## Project detection
+
+Grove ships with a built-in detector that recognizes common project conventions (husky hooks, package managers, direnv, mise, Python/Cargo/Gradle ecosystems, Next.js, Turbo, …) and proposes matching `.groverc.json` entries.
+
+- **`grove init`** offers detected suggestions as y/n prompts during the wizard.
+- **`grove doctor`** warns when a detected suggestion is missing from the config, or when an existing `symlink` / `copyDirs` entry points to a path that no longer exists in the main repo.
+- **`grove analyze`** is the dedicated command for inspecting and applying detector output (see above).
+
+The detector is conservative: symlink suggestions only fire when the target actually exists in the main repo, so applying a suggestion will not produce broken symlinks in fresh worktrees.
 
 ## How `.env` copying works
 

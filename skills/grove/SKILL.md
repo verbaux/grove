@@ -103,7 +103,20 @@ grove detach --copy   # copy all symlink targets before removing
 grove doctor   # validates config, worktree paths, orphans, symlinks, port collisions, gh CLI
 ```
 
-Exits non-zero on errors. Run before manual git-worktree surgery.
+Exits non-zero on errors. Run before manual git-worktree surgery. Also warns on stale `symlink` / `copyDirs` entries (target missing in main repo) and on detected project conventions that the config does not yet cover (husky, package managers, direnv, mise, Python, Cargo, Gradle, Next.js, Turbo).
+
+### Analyze
+
+```sh
+grove analyze                          # print suggested .groverc.json additions
+grove analyze --clean                  # also list stale symlink/copyDir entries
+grove analyze --apply                  # apply additions interactively
+grove analyze --apply --clean --yes    # apply additions + remove stale, no prompt
+grove analyze --apply --dry-run        # preview resulting config without writing
+grove analyze --json                   # machine-readable output
+```
+
+Use when adopting Grove on an existing project or after the project gains/loses tooling (e.g. switched from `npm` to `pnpm`, removed `node_modules`, added husky). Suggestions already covered by the config are filtered out. Symlink suggestions only fire when the target actually exists in the main repo, so applying them never produces broken symlinks.
 
 ### Remove
 
@@ -125,4 +138,6 @@ grove clean --force  # skip uncommitted changes check
 
 - NEVER use `git worktree add/remove` directly when Grove is available — bypasses state tracking.
 - `grove clean` is destructive — confirm with user before running.
+- `grove analyze --apply` and `--apply --clean` mutate `.groverc.json`; show the planned diff (use `--dry-run`) and confirm with the user before running without `--yes`.
+- When the user asks why hooks/builds/installs aren't running in a worktree, run `grove analyze` (or `grove doctor`) first — most setup gaps are surfaced as detector suggestions or stale-path warnings.
 - Reference `$GROVE_PORT` in `afterCreate` / dev commands (stable hash of alias in `portRange`).
