@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -142,6 +143,116 @@ func TestDiagSymlinksBroken(t *testing.T) {
 	if !hasError {
 		t.Errorf("expected error for broken symlink, got %v", diags)
 	}
+}
+
+func TestDiagConfigPathsWarnsOnMissingSymlink(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.Config{Symlink: []string{"node_modules", ".husky/_"}}
+
+	diags := diagConfigPaths(root, cfg)
+	if len(diags) != 2 {
+		t.Errorf("expected 2 warnings for missing targets, got %+v", diags)
+	}
+	for _, d := range diags {
+		if d.Level != levelWarn {
+			t.Errorf("expected warn, got %v", d)
+		}
+	}
+}
+
+func TestDiagConfigPathsSilentWhenTargetsExist(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".husky", "_"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{Symlink: []string{"node_modules", ".husky/_"}}
+
+	diags := diagConfigPaths(root, cfg)
+	if len(diags) != 0 {
+		t.Errorf("expected no warnings when targets exist, got %+v", diags)
+	}
+}
+
+func TestDiagConfigPathsWarnsOnMissingCopyDir(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.Config{CopyDirs: []string{".next/cache"}}
+
+	diags := diagConfigPaths(root, cfg)
+	if len(diags) != 1 || diags[0].Level != levelWarn {
+		t.Errorf("expected 1 warn for missing copyDir, got %+v", diags)
+	}
+}
+
+func TestDiagSuggestionsWarnsOnMissing(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "pnpm-lock.yaml"), []byte(""), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Config{}
+	diags := diagSuggestions(root, cfg)
+
+	wantSymlink, wantAfter := false, false
+	for _, d := range diags {
+		if d.Level != levelWarn {
+			t.Errorf("expected warn level, got %v", d)
+		}
+		if filepath.Base("node_modules") != "node_modules" {
+			continue
+		}
+		if containsAll(d.Message, "symlink", "node_modules") {
+			wantSymlink = true
+		}
+		if containsAll(d.Message, "afterCreate", "pnpm install") {
+			wantAfter = true
+		}
+	}
+	if !wantSymlink {
+		t.Errorf("expected node_modules symlink suggestion, got %+v", diags)
+	}
+	if !wantAfter {
+		t.Errorf("expected pnpm install afterCreate suggestion, got %+v", diags)
+	}
+}
+
+func TestDiagSuggestionsSilentWhenSatisfied(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "pnpm-lock.yaml"), []byte(""), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Config{
+		Symlink:     []string{"node_modules"},
+		AfterCreate: config.AfterCreate{"pnpm install"},
+	}
+	diags := diagSuggestions(root, cfg)
+	if len(diags) != 0 {
+		t.Errorf("expected no suggestions when config satisfies them, got %+v", diags)
+	}
+}
+
+func containsAll(s string, parts ...string) bool {
+	for _, p := range parts {
+		if !strings.Contains(s, p) {
+			return false
+		}
+	}
+	return true
 }
 
 func TestDiagSymlinksHealthy(t *testing.T) {

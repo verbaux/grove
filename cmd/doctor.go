@@ -7,9 +7,13 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"slices"
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/detect"
 	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
@@ -85,6 +89,8 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 	diags = append(diags, diagSymlinks(root, cfg, s)...)
 	diags = append(diags, diagPortCollisions(s)...)
+	diags = append(diags, diagConfigPaths(root, cfg)...)
+	diags = append(diags, diagSuggestions(root, cfg)...)
 	diags = append(diags, diagGhCLI())
 
 	printDiagnostics(diags)
@@ -204,6 +210,61 @@ func diagPortCollisions(s state.State) []diagnostic {
 	return out
 }
 
+func diagConfigPaths(root string, cfg config.Config) []diagnostic {
+	var out []diagnostic
+	check := func(field, name string) {
+		if name == "" {
+			return
+		}
+		full := filepath.Join(root, name)
+		if _, err := os.Stat(full); errors.Is(err, os.ErrNotExist) {
+			out = append(out, diagnostic{
+				Level:   levelWarn,
+				Message: fmt.Sprintf("%s %q has no target in main repo: %s — symlinks to it will break", field, name, full),
+			})
+		}
+	}
+	for _, name := range cfg.Symlink {
+		check("symlink", name)
+	}
+	for _, name := range cfg.CopyDirs {
+		check("copyDir", name)
+	}
+	return out
+}
+
+func diagSuggestions(root string, cfg config.Config) []diagnostic {
+	sugs := detect.Analyze(root)
+	var out []diagnostic
+	for _, s := range sugs {
+		if configHasSuggestion(cfg, s) {
+			continue
+		}
+		out = append(out, diagnostic{
+			Level:   levelWarn,
+			Message: fmt.Sprintf("suggested %s %q — %s", s.Kind, s.Value, s.Reason),
+		})
+	}
+	return out
+}
+
+func configHasSuggestion(cfg config.Config, s detect.Suggestion) bool {
+	switch s.Kind {
+	case detect.KindSymlink:
+		return slices.Contains(cfg.Symlink, s.Value)
+	case detect.KindCopyDir:
+		return slices.Contains(cfg.CopyDirs, s.Value)
+	case detect.KindAfterCreate:
+		for _, c := range cfg.AfterCreate {
+			if strings.Contains(c, s.Value) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
 func diagGhCLI() diagnostic {
 	if _, err := exec.LookPath("gh"); err != nil {
 		return diagnostic{levelWarn, "gh CLI not found — 'grove review' will not work"}
@@ -212,7 +273,7 @@ func diagGhCLI() diagnostic {
 }
 
 func printDiag(d diagnostic) {
-	ok := lipgloss.NewStyle().Foreground(lipgloss.Color("34"))   // green
+	ok := lipgloss.NewStyle().Foreground(lipgloss.Color("34"))    // green
 	warn := lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // orange
 	errS := lipgloss.NewStyle().Foreground(lipgloss.Color("196")) // red
 
