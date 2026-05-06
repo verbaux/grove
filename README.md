@@ -352,6 +352,8 @@ Detected today:
 
 Suggestions already covered by your config are filtered out automatically. `grove init` runs the same detector and offers each suggestion as a y/n prompt during the wizard.
 
+**Symlink-aware install routing.** When the detector finds an install command (e.g. `yarn install`) and the corresponding shared directory is already in `cfg.symlink` (e.g. `node_modules`), the suggestion is routed to `afterDetachedCreate` instead of `afterCreate`. Reason: running an install through a shared symlink would mutate the main worktree's dependencies. Routed install commands only execute when you explicitly request an independent worktree via `grove create --detach`.
+
 ---
 
 ### `grove review [pr-number]`

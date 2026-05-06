@@ -17,16 +17,27 @@ import (
 type Kind string
 
 const (
-	KindSymlink     Kind = "symlink"
-	KindCopyDir     Kind = "copyDir"
-	KindAfterCreate Kind = "afterCreate"
+	KindSymlink             Kind = "symlink"
+	KindCopyDir             Kind = "copyDir"
+	KindAfterCreate         Kind = "afterCreate"
+	KindAfterDetachedCreate Kind = "afterDetachedCreate"
 )
 
 // Suggestion is a single recommended config addition.
+//
+// LinkedSymlink names a symlink target whose presence in cfg.Symlink
+// signals that this suggestion would conflict with shared state when
+// run via afterCreate. Adapt() reroutes such suggestions to
+// afterDetachedCreate so they only execute when the user explicitly
+// asks for an independent worktree via `grove create --detach`.
+//
+// Empty LinkedSymlink means the suggestion is unaffected by the
+// symlink set and stays in its original Kind.
 type Suggestion struct {
-	Kind   Kind   `json:"kind"`
-	Value  string `json:"value"`
-	Reason string `json:"reason"`
+	Kind          Kind   `json:"kind"`
+	Value         string `json:"value"`
+	Reason        string `json:"reason"`
+	LinkedSymlink string `json:"linkedSymlink,omitempty"`
 }
 
 type rule func(root string) []Suggestion
@@ -49,6 +60,39 @@ func Analyze(root string) []Suggestion {
 	var out []Suggestion
 	for _, r := range rules {
 		out = append(out, r(root)...)
+	}
+	return out
+}
+
+// Adapt rewrites suggestions whose LinkedSymlink target is shared via
+// cfg.Symlink: such installs would mutate the main worktree's state
+// when run as afterCreate, so they are routed to afterDetachedCreate
+// (which only runs with `grove create --detach`).
+//
+// Suggestions without LinkedSymlink, or whose target is not in the
+// symlink set, are returned unchanged.
+func Adapt(symlinks []string, sugs []Suggestion) []Suggestion {
+	if len(sugs) == 0 {
+		return nil
+	}
+	linked := make(map[string]bool, len(symlinks))
+	for _, s := range symlinks {
+		linked[s] = true
+	}
+	out := make([]Suggestion, len(sugs))
+	for i, s := range sugs {
+		if s.LinkedSymlink == "" || !linked[s.LinkedSymlink] || s.Kind != KindAfterCreate {
+			out[i] = s
+			continue
+		}
+		out[i] = Suggestion{
+			Kind:          KindAfterDetachedCreate,
+			Value:         s.Value,
+			LinkedSymlink: s.LinkedSymlink,
+			Reason: s.Reason +
+				" (routed to afterDetachedCreate because " + s.LinkedSymlink +
+				" is symlinked; runs only with `grove create --detach`)",
+		}
 	}
 	return out
 }
@@ -93,9 +137,10 @@ func detectPackageManager(root string) []Suggestion {
 	if name, ok := readPackageManagerField(pkgPath); ok {
 		if cmd, ok := packageManagerInstall(name); ok {
 			return []Suggestion{{
-				Kind:   KindAfterCreate,
-				Value:  cmd,
-				Reason: "package.json packageManager=" + name + " (declared field overrides lockfile detection)",
+				Kind:          KindAfterCreate,
+				Value:         cmd,
+				Reason:        "package.json packageManager=" + name + " (declared field overrides lockfile detection)",
+				LinkedSymlink: "node_modules",
 			}}
 		}
 	}
@@ -113,9 +158,10 @@ func detectPackageManager(root string) []Suggestion {
 	for _, c := range candidates {
 		if fileExists(filepath.Join(root, c.lock)) {
 			return []Suggestion{{
-				Kind:   KindAfterCreate,
-				Value:  c.cmd,
-				Reason: c.lock + " present; install dependencies after worktree create",
+				Kind:          KindAfterCreate,
+				Value:         c.cmd,
+				Reason:        c.lock + " present; install dependencies after worktree create",
+				LinkedSymlink: "node_modules",
 			}}
 		}
 	}
@@ -207,9 +253,10 @@ func detectPython(root string) []Suggestion {
 	for _, c := range candidates {
 		if fileExists(filepath.Join(root, c.marker)) {
 			return []Suggestion{{
-				Kind:   KindAfterCreate,
-				Value:  c.cmd,
-				Reason: c.marker + " detected; install Python dependencies in worktree",
+				Kind:          KindAfterCreate,
+				Value:         c.cmd,
+				Reason:        c.marker + " detected; install Python dependencies in worktree",
+				LinkedSymlink: ".venv",
 			}}
 		}
 	}
@@ -221,9 +268,10 @@ func detectCargo(root string) []Suggestion {
 		return nil
 	}
 	return []Suggestion{{
-		Kind:   KindAfterCreate,
-		Value:  "cargo fetch",
-		Reason: "Cargo.toml detected; predownload dependencies into the global cargo cache",
+		Kind:          KindAfterCreate,
+		Value:         "cargo fetch",
+		Reason:        "Cargo.toml detected; predownload dependencies into the global cargo cache",
+		LinkedSymlink: "target",
 	}}
 }
 
@@ -239,9 +287,10 @@ func detectGradle(root string) []Suggestion {
 		return nil
 	}
 	return []Suggestion{{
-		Kind:   KindAfterCreate,
-		Value:  "./gradlew --no-daemon dependencies",
-		Reason: "Gradle wrapper + build script detected; prime the dependency cache for the worktree",
+		Kind:          KindAfterCreate,
+		Value:         "./gradlew --no-daemon dependencies",
+		Reason:        "Gradle wrapper + build script detected; prime the dependency cache for the worktree",
+		LinkedSymlink: ".gradle",
 	}}
 }
 

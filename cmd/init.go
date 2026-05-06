@@ -158,7 +158,7 @@ func writeAgentsMd(dir string) error {
 // applyDetectPrompts scans the project for known frameworks and offers each
 // suggestion the user has not already covered as a y/n prompt.
 func applyDetectPrompts(root string, cfg config.Config) config.Config {
-	sugs := detect.Analyze(root)
+	sugs := detect.Adapt(cfg.Symlink, detect.Analyze(root))
 	if len(sugs) == 0 {
 		return cfg
 	}
@@ -188,6 +188,8 @@ func applyDetectPrompts(root string, cfg config.Config) config.Config {
 			cfg.CopyDirs = append(cfg.CopyDirs, s.Value)
 		case detect.KindAfterCreate:
 			cfg.AfterCreate = append(cfg.AfterCreate, s.Value)
+		case detect.KindAfterDetachedCreate:
+			cfg.AfterDetachedCreate = append(cfg.AfterDetachedCreate, s.Value)
 		}
 	}
 	return cfg
@@ -201,6 +203,13 @@ func configCoversSuggestion(cfg config.Config, s detect.Suggestion) bool {
 		return slices.Contains(cfg.CopyDirs, s.Value)
 	case detect.KindAfterCreate:
 		for _, c := range cfg.AfterCreate {
+			if strings.Contains(c, s.Value) {
+				return true
+			}
+		}
+		return false
+	case detect.KindAfterDetachedCreate:
+		for _, c := range cfg.AfterDetachedCreate {
 			if strings.Contains(c, s.Value) {
 				return true
 			}

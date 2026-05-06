@@ -118,6 +118,8 @@ grove analyze --json                   # machine-readable output
 
 Use when adopting Grove on an existing project or after the project gains/loses tooling (e.g. switched from `npm` to `pnpm`, removed `node_modules`, added husky). Suggestions already covered by the config are filtered out. Symlink suggestions only fire when the target actually exists in the main repo, so applying them never produces broken symlinks.
 
+Install commands (`yarn install`, `pnpm install`, `uv sync`, `cargo fetch`, `./gradlew dependencies`, …) are auto-routed to `afterDetachedCreate` when the corresponding shared directory (`node_modules`, `.venv`, `target`, `.gradle`) is already in `cfg.symlink`, so they only run with `grove create --detach`. This prevents an install from mutating the main worktree's deps through the symlink.
+
 ### Remove
 
 ```sh

@@ -7,9 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"slices"
-	"strings"
-
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
@@ -234,7 +231,7 @@ func diagConfigPaths(root string, cfg config.Config) []diagnostic {
 }
 
 func diagSuggestions(root string, cfg config.Config) []diagnostic {
-	sugs := detect.Analyze(root)
+	sugs := detect.Adapt(cfg.Symlink, detect.Analyze(root))
 	var out []diagnostic
 	for _, s := range sugs {
 		if configHasSuggestion(cfg, s) {
@@ -249,20 +246,7 @@ func diagSuggestions(root string, cfg config.Config) []diagnostic {
 }
 
 func configHasSuggestion(cfg config.Config, s detect.Suggestion) bool {
-	switch s.Kind {
-	case detect.KindSymlink:
-		return slices.Contains(cfg.Symlink, s.Value)
-	case detect.KindCopyDir:
-		return slices.Contains(cfg.CopyDirs, s.Value)
-	case detect.KindAfterCreate:
-		for _, c := range cfg.AfterCreate {
-			if strings.Contains(c, s.Value) {
-				return true
-			}
-		}
-		return false
-	}
-	return false
+	return configCoversSuggestion(cfg, s)
 }
 
 func diagGhCLI() diagnostic {

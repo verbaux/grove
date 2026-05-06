@@ -65,7 +65,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	all := detect.Analyze(root)
+	all := detect.Adapt(cfg.Symlink, detect.Analyze(root))
 	pending := pendingSuggestions(cfg, all)
 	var stale []StalePath
 	if analyzeClean {
@@ -192,6 +192,7 @@ func mergeSuggestions(cfg config.Config, pending []detect.Suggestion) config.Con
 	out.Symlink = append([]string(nil), cfg.Symlink...)
 	out.CopyDirs = append([]string(nil), cfg.CopyDirs...)
 	out.AfterCreate = append(config.AfterCreate(nil), cfg.AfterCreate...)
+	out.AfterDetachedCreate = append(config.AfterCreate(nil), cfg.AfterDetachedCreate...)
 	for _, s := range pending {
 		switch s.Kind {
 		case detect.KindSymlink:
@@ -200,6 +201,8 @@ func mergeSuggestions(cfg config.Config, pending []detect.Suggestion) config.Con
 			out.CopyDirs = append(out.CopyDirs, s.Value)
 		case detect.KindAfterCreate:
 			out.AfterCreate = append(out.AfterCreate, s.Value)
+		case detect.KindAfterDetachedCreate:
+			out.AfterDetachedCreate = append(out.AfterDetachedCreate, s.Value)
 		}
 	}
 	return out
@@ -220,9 +223,10 @@ func pendingSuggestions(cfg config.Config, all []detect.Suggestion) []detect.Sug
 func groupByKind(sugs []detect.Suggestion) []detect.Suggestion {
 	out := append([]detect.Suggestion(nil), sugs...)
 	rank := map[detect.Kind]int{
-		detect.KindSymlink:     0,
-		detect.KindCopyDir:     1,
-		detect.KindAfterCreate: 2,
+		detect.KindSymlink:             0,
+		detect.KindCopyDir:             1,
+		detect.KindAfterCreate:         2,
+		detect.KindAfterDetachedCreate: 3,
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		return rank[out[i].Kind] < rank[out[j].Kind]

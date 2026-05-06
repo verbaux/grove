@@ -237,12 +237,12 @@ func TestDiagSuggestionsSilentWhenSatisfied(t *testing.T) {
 	}
 
 	cfg := config.Config{
-		Symlink:     []string{"node_modules"},
-		AfterCreate: config.AfterCreate{"pnpm install"},
+		Symlink:             []string{"node_modules"},
+		AfterDetachedCreate: config.AfterCreate{"pnpm install"},
 	}
 	diags := diagSuggestions(root, cfg)
 	if len(diags) != 0 {
-		t.Errorf("expected no suggestions when config satisfies them, got %+v", diags)
+		t.Errorf("expected no suggestions when config satisfies them (install routed to afterDetachedCreate because node_modules is symlinked), got %+v", diags)
 	}
 }
 

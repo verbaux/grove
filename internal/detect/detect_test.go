@@ -3,6 +3,7 @@ package detect
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -286,6 +287,59 @@ func TestDetectGradleSkippedWithoutWrapper(t *testing.T) {
 	sugs := Analyze(dir)
 	if hasSuggestion(sugs, KindAfterCreate, "./gradlew --no-daemon dependencies") {
 		t.Errorf("did not expect gradle suggestion without gradlew, got %+v", sugs)
+	}
+}
+
+func TestAdaptReroutesInstallWhenNodeModulesSymlinked(t *testing.T) {
+	in := []Suggestion{
+		{Kind: KindAfterCreate, Value: "yarn install", Reason: "lockfile", LinkedSymlink: "node_modules"},
+		{Kind: KindAfterCreate, Value: "direnv allow", Reason: "envrc"},
+		{Kind: KindSymlink, Value: ".husky/_", Reason: "husky"},
+	}
+
+	got := Adapt([]string{"node_modules", ".husky/_"}, in)
+
+	if got[0].Kind != KindAfterDetachedCreate {
+		t.Errorf("expected install rerouted to afterDetachedCreate, got %s", got[0].Kind)
+	}
+	if got[0].Value != "yarn install" {
+		t.Errorf("expected value preserved, got %q", got[0].Value)
+	}
+	if got[1].Kind != KindAfterCreate {
+		t.Errorf("direnv (no LinkedSymlink) must stay afterCreate, got %s", got[1].Kind)
+	}
+	if got[2].Kind != KindSymlink {
+		t.Errorf("symlink suggestion must stay symlink, got %s", got[2].Kind)
+	}
+}
+
+func TestAdaptKeepsInstallAfterCreateWhenSymlinkAbsent(t *testing.T) {
+	in := []Suggestion{
+		{Kind: KindAfterCreate, Value: "yarn install", LinkedSymlink: "node_modules"},
+	}
+	got := Adapt(nil, in)
+	if got[0].Kind != KindAfterCreate {
+		t.Errorf("expected afterCreate when no symlink, got %s", got[0].Kind)
+	}
+}
+
+func TestAdaptDoesNotDoubleRouteAlreadyDetached(t *testing.T) {
+	in := []Suggestion{
+		{Kind: KindAfterDetachedCreate, Value: "yarn install", LinkedSymlink: "node_modules"},
+	}
+	got := Adapt([]string{"node_modules"}, in)
+	if got[0].Kind != KindAfterDetachedCreate {
+		t.Errorf("expected afterDetachedCreate preserved, got %s", got[0].Kind)
+	}
+}
+
+func TestAdaptReasonAnnotated(t *testing.T) {
+	in := []Suggestion{
+		{Kind: KindAfterCreate, Value: "yarn install", Reason: "lockfile present", LinkedSymlink: "node_modules"},
+	}
+	got := Adapt([]string{"node_modules"}, in)
+	if !strings.Contains(got[0].Reason, "afterDetachedCreate") || !strings.Contains(got[0].Reason, "--detach") {
+		t.Errorf("expected reason annotation about routing, got %q", got[0].Reason)
 	}
 }
 
