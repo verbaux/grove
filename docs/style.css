@@ -541,7 +541,7 @@ em { font-style: normal; color: var(--accent); font-weight: inherit; }
   font-family: var(--mono);
   font-size: 0.82rem; line-height: 1.75;
   color: var(--term-text);
-  overflow-x: auto; white-space: pre;
+  overflow-x: auto; white-space: pre-wrap; word-break: break-word;
   margin-top: auto;
 }
 .mini-term .p { color: var(--ok); user-select: none; }
@@ -555,7 +555,6 @@ em { font-style: normal; color: var(--accent); font-weight: inherit; }
   padding: 28px 0;
   border-top: 1px solid var(--border);
 }
-.ref-group:last-child { border-bottom: 1px solid var(--border); }
 .ref-label { display: flex; gap: 14px; align-items: start; }
 .ref-idx {
   font-family: var(--mono);

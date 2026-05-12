@@ -57,7 +57,7 @@
     <div class="hero-text">
       <div class="eyebrow">
         <span class="dot"></span>
-        git worktree manager · v0.4
+        git worktree manager · <span data-version>v0.4</span>
       </div>
       <h1>Git worktrees <span class="hi">without</span><br>the setup friction.</h1>
       <p class="lede">
@@ -80,6 +80,7 @@
           <div class="tw-tabs" role="tablist">
             <button class="tw-tab active" data-demo="create" role="tab">create</button>
             <button class="tw-tab" data-demo="list" role="tab">list</button>
+            <button class="tw-tab" data-demo="analyze" role="tab">analyze</button>
             <button class="tw-tab" data-demo="review" role="tab">review</button>
           </div>
         </div>
@@ -100,6 +101,19 @@ Worktree <span class="s">"auth"</span> ready · port <span class="n">3487</span>
   auth      feature/auth        3487   <span class="ok">clean</span>
   payments  feature/payments    3612   <span class="warn">dirty</span>
   review-42 pr-42-fix-sidebar   3721   <span class="ok">clean</span></pre>
+
+<pre data-demo-panel="analyze" class="tw-body"><span class="p">$</span> grove analyze
+<span class="m">Project: /home/dev/myapp</span>
+
+Suggested additions:
+  <span class="ok">+</span> afterCreate <span class="s">"yarn install"</span>
+      <span class="m">reason: package.json packageManager=yarn</span>
+  <span class="ok">+</span> copyDirs <span class="s">".next/cache"</span>
+      <span class="m">reason: next.config.js detected</span>
+  <span class="ok">+</span> afterCreate <span class="s">"npx husky"</span>
+      <span class="m">reason: .husky/_ gitignored (runtime dir)</span>
+
+<span class="m">Apply with: grove analyze --apply</span></pre>
 
 <pre data-demo-panel="review" class="tw-body"><span class="p">$</span> grove review <span class="n">42</span>
 <span class="m">Fetching PR #42 "Fix sidebar overflow" by @alice</span>
@@ -177,7 +191,7 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
     <div class="section-head">
       <span class="kicker">— 02 · features</span>
       <h2 class="section-title">Everything <code>git worktree add</code> should've done.</h2>
-      <p class="section-sub">Nine behaviors. Together they turn "possible" into "default".</p>
+      <p class="section-sub">A dozen behaviors. Together they turn "possible" into "default".</p>
     </div>
 
     <div class="fgrid">
@@ -245,6 +259,18 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
         <h3>Interactive picker</h3>
         <p><code>grove cd</code> with no args opens a fuzzy picker. Tab completion everywhere.</p>
       </article>
+      <article class="fcard">
+        <h3>Project detection</h3>
+        <p><code>grove analyze</code> scans for husky, package managers, direnv, mise, Python, Cargo, Gradle, Next.js, Turbo — and proposes <code>.groverc.json</code> entries. Same detector runs inside <code>grove init</code> and <code>grove doctor</code>.</p>
+      </article>
+      <article class="fcard">
+        <h3>Detached worktrees</h3>
+        <p><code>grove create --detach</code> skips symlinks for branches that bump dependencies. Pairs with <code>afterDetachedCreate</code>, which runs before <code>afterCreate</code> so installs land locally instead of mutating the main tree.</p>
+      </article>
+      <article class="fcard">
+        <h3>Agent skill</h3>
+        <p>Ships an embedded skill for Claude Code, Codex CLI, Gemini CLI, and friends. <code>grove skill install</code> autodetects agent dirs so they route worktree ops through Grove.</p>
+      </article>
     </div>
   </div>
 </section>
@@ -254,7 +280,7 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
   <div class="container">
     <div class="section-head">
       <span class="kicker">— 03 · install</span>
-      <h2 class="section-title">One command to plant it.</h2>
+      <h2 class="section-title">Three ways to plant it.</h2>
       <p class="section-sub">Single static binary. darwin &amp; linux, amd64 &amp; arm64.</p>
     </div>
     <div class="install-grid">
@@ -309,8 +335,10 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
         <div><h4>Setup</h4><p>Once per project.</p></div>
       </div>
       <ul class="ref-list">
-        <li><code>grove init</code><span>Interactive wizard — creates <code>.groverc.json</code></span></li>
+        <li><code>grove init</code><span>Interactive wizard — creates <code>.groverc.json</code>, offers detected conventions as prompts</span></li>
+        <li><code>grove analyze</code><span>Scan project, suggest config additions; <code>--apply</code>, <code>--clean</code>, <code>--dry-run</code>, <code>--json</code></span></li>
         <li><code>grove template</code><span>Save / list / apply reusable configs</span></li>
+        <li><code>grove skill install</code><span>Install the embedded agent skill into Claude / Codex / Gemini</span></li>
         <li><code>grove completion</code><span>Shell completion for zsh, bash, fish, powershell</span></li>
       </ul>
     </div>
@@ -321,9 +349,9 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
         <div><h4>Daily</h4><p>The ones you'll alias.</p></div>
       </div>
       <ul class="ref-list">
-        <li><code>grove create &lt;branch&gt;</code><span>Create worktree + copy envs + symlinks + afterCreate</span></li>
+        <li><code>grove create &lt;branch&gt;</code><span>Create worktree + copy envs + symlinks + afterCreate; <code>--detach</code> for independent deps</span></li>
         <li><code>grove cd [name|index]</code><span>Print path to cd into; fuzzy picker without args</span></li>
-        <li><code>grove list</code><span>Table of worktrees with status, port, and index</span></li>
+        <li><code>grove list</code><span>Table of worktrees with status, port, and index; <code>--json</code>, <code>--plain</code></span></li>
         <li><code>grove review [pr]</code><span>Check out a GitHub PR into a ready-to-run worktree</span></li>
       </ul>
     </div>
@@ -334,11 +362,11 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
         <div><h4>Maintenance</h4><p>When things get messy.</p></div>
       </div>
       <ul class="ref-list">
-        <li><code>grove remove &lt;name&gt;</code><span>Remove a worktree (dirty-state check)</span></li>
-        <li><code>grove clean</code><span>Remove all managed worktrees + orphan cleanup</span></li>
+        <li><code>grove remove &lt;name&gt;</code><span>Remove a worktree (dirty-state check); <code>--force</code> to skip</span></li>
+        <li><code>grove clean</code><span>Remove all managed worktrees + orphan cleanup; <code>--force</code> to skip</span></li>
         <li><code>grove adopt</code><span>Register an orphan worktree</span></li>
-        <li><code>grove detach</code><span>Remove symlinks (optionally copy contents first)</span></li>
-        <li><code>grove doctor</code><span>Diagnose config, state, symlinks, ports, dependencies</span></li>
+        <li><code>grove detach</code><span>Remove symlinks; <code>--copy</code> preserves contents first</span></li>
+        <li><code>grove doctor</code><span>Diagnose config, state, symlinks, ports, deps, stale paths, missing detector suggestions</span></li>
       </ul>
     </div>
   </div>
@@ -469,6 +497,21 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
       nav.classList.toggle('compact', y > 40);
       last = y;
     }, { passive: true });
+  })();
+
+  // auto-fetch latest version from GitHub Releases
+  (function(){
+    var targets = document.querySelectorAll('[data-version]');
+    if (!targets.length) return;
+    try {
+      fetch('https://api.github.com/repos/verbaux/grove/releases/latest', { headers: { 'Accept': 'application/vnd.github+json' } })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if (!d || !d.tag_name) return;
+          targets.forEach(function(el){ el.textContent = d.tag_name; });
+        })
+        .catch(function(){});
+    } catch(e) {}
   })();
 </script>
 
