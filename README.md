@@ -181,6 +181,32 @@ Then just: `gcd auth` or `gcd` for the picker
 
 ---
 
+### `grove open [name]`
+
+Open a worktree in your editor. Resolves the worktree by alias or index (or shows the interactive picker with no argument), then launches your editor in that directory.
+
+```sh
+grove open auth
+grove open 3
+grove open          # picker
+```
+
+The editor is chosen in this order:
+
+1. `--editor` flag
+2. `editor` field in `.groverc.json`
+3. `$VISUAL`
+4. `$EDITOR`
+
+```sh
+# Override for one invocation
+grove open auth --editor "code -w"
+```
+
+The `editor` config field lets different projects open in different editors. The command supports editors that take arguments (e.g. `code -w`) and replaces the grove process with the editor, so terminal editors like `vim` attach to the terminal correctly.
+
+---
+
 ### `grove remove <name>`
 
 Removes a worktree by alias. Checks for uncommitted changes first and asks for confirmation. Supports tab completion for aliases.
@@ -412,7 +438,8 @@ Project config, lives in the repo root.
   "copyDirs": [".next", "dist"],
   "afterCreate": "npm install",
   "afterDetachedCreate": "npm ci",
-  "portRange": { "min": 3001, "max": 3999 }
+  "portRange": { "min": 3001, "max": 3999 },
+  "editor": "code -w"
 }
 ```
 
@@ -425,6 +452,7 @@ Project config, lives in the repo root.
 | `afterCreate`         | `""`               | Shell command(s) to run after setup — string or array (see below) |
 | `afterDetachedCreate` | `""`               | Shell command(s) to run before `afterCreate` when `--detach` is passed (string or array) |
 | `portRange`           | `3001–3999`        | Port range assigned to each worktree (see Ports below) |
+| `editor`              | `""`               | Editor command for `grove open` (overrides `$VISUAL`/`$EDITOR`) |
 
 Worktree path formula: `worktreeDir` + `prefix` + `-` + alias
 Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`

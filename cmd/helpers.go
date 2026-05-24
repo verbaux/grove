@@ -26,6 +26,37 @@ func validateAlias(alias string) error {
 	return nil
 }
 
+// resolveWorktreePath resolves a worktree to its filesystem path.
+// arg may be an alias, an index from `grove list`, or empty for the
+// interactive picker. An empty return path with nil error means the
+// picker was cancelled.
+func resolveWorktreePath(root, arg string) (string, error) {
+	if arg == "" {
+		return pickWorktree(root)
+	}
+
+	if idx, err := strconv.Atoi(arg); err == nil {
+		rows, err := buildWorktreeRows(root)
+		if err != nil {
+			return "", err
+		}
+		if idx < 1 || idx > len(rows) {
+			return "", fmt.Errorf("index %d out of range — run 'grove list' to see available worktrees (1–%d)", idx, len(rows))
+		}
+		return rows[idx-1].Path, nil
+	}
+
+	s, err := state.Load(root)
+	if err != nil {
+		return "", err
+	}
+	entry, ok := s.Get(arg)
+	if !ok {
+		return "", fmt.Errorf("no worktree with alias %q — run 'grove list' to see available worktrees", arg)
+	}
+	return entry.Path, nil
+}
+
 // worktreeRow holds display info for a single worktree in the list.
 type worktreeRow struct {
 	Index  int

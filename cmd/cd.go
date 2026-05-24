@@ -3,12 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
-	"github.com/verbaux/grove/internal/state"
 )
 
 func init() {
@@ -28,9 +26,9 @@ Usage:
 
 Or add a shell function (aliases can't take arguments):
   gcd() { cd "$(grove cd "$1")"; }`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeAliases,
-	RunE: runCd,
+	RunE:              runCd,
 }
 
 func runCd(cmd *cobra.Command, args []string) error {
@@ -44,58 +42,44 @@ func runCd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if len(args) == 0 {
-		return runPicker(root)
+	arg := ""
+	if len(args) > 0 {
+		arg = args[0]
 	}
 
-	arg := args[0]
-
-	if idx, err := strconv.Atoi(arg); err == nil {
-		rows, err := buildWorktreeRows(root)
-		if err != nil {
-			return err
-		}
-		if idx < 1 || idx > len(rows) {
-			return fmt.Errorf("index %d out of range — run 'grove list' to see available worktrees (1–%d)", idx, len(rows))
-		}
-		fmt.Println(rows[idx-1].Path)
-		return nil
-	}
-
-	s, err := state.Load(root)
+	path, err := resolveWorktreePath(root, arg)
 	if err != nil {
 		return err
 	}
-
-	entry, ok := s.Get(arg)
-	if !ok {
-		return fmt.Errorf("no worktree with alias %q — run 'grove list' to see available worktrees", arg)
+	if path == "" {
+		return nil // picker cancelled
 	}
 
-	fmt.Println(entry.Path)
+	fmt.Println(path)
 	return nil
 }
 
-func runPicker(root string) error {
+// pickWorktree shows the interactive fuzzy picker and returns the selected
+// worktree path. An empty path with nil error means the picker was cancelled.
+func pickWorktree(root string) (string, error) {
 	rows, err := buildWorktreeRows(root)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if len(rows) == 0 {
-		return fmt.Errorf("no worktrees found — create one with 'grove create'")
+		return "", fmt.Errorf("no worktrees found — create one with 'grove create'")
 	}
 
 	m, err := tea.NewProgram(newPicker(rows), tea.WithOutput(os.Stderr)).Run()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	p := m.(pickerModel)
 	if p.quitted || p.selected == "" {
-		return nil
+		return "", nil
 	}
 
-	fmt.Println(p.selected)
-	return nil
+	return p.selected, nil
 }

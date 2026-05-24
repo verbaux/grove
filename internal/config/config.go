@@ -58,6 +58,7 @@ type Config struct {
 	AfterCreate         AfterCreate `json:"afterCreate"`
 	AfterDetachedCreate AfterCreate `json:"afterDetachedCreate,omitempty"`
 	PortRange           *PortRange  `json:"portRange,omitempty"`
+	Editor              string      `json:"editor,omitempty"`
 }
 
 // DefaultPortMin, DefaultPortMax — fallback range when cfg.PortRange is nil.
