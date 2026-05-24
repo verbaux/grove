@@ -1,20 +1,25 @@
 # Changelog
 
-## [0.1.0] — Unreleased
+## [Unreleased]
 
-First public release.
+## [0.6.0] — 2026-05-24
 
 ### Added
 
-- `grove init` — interactive project setup wizard, creates `.groverc.json`
-- `grove create <branch>` — create worktree with automatic `.env` copying, symlinks, and post-create hooks; rollback on failure
-- `grove remove <name>` — remove worktree by alias, branch, path, or orphan name; checks for uncommitted changes
-- `grove list` — show all worktrees with branch, path, and dirty status; `--json` for machine-readable output
-- `grove cd <name>` — print worktree path for shell `cd`; supports index numbers and interactive fuzzy picker
-- `grove clean` — remove all managed worktrees with optional orphan cleanup
-- `grove detach` — remove symlinks in the current worktree for independent dependency management
-- `grove adopt` — register orphan worktrees (created outside Grove) into state
-- `grove review <PR>` — checkout a GitHub PR into a new worktree
-- Shell completion for zsh, bash, and fish with dynamic alias suggestions
-- Auto-detect version from git tags via `debug.BuildInfo`
-- `FindRoot` fallback via `git rev-parse --git-common-dir` for commands run inside worktrees
+- `grove open [name]` — open a worktree in your editor; resolves by alias/index/picker, then launches `$EDITOR`/`$VISUAL` (or the `editor` config field / `--editor` flag) in the worktree directory
+- `grove shell-init [shell]` — print shell integration (tab completion + a `gcd` helper) for bash/zsh/fish/powershell to `eval` from a startup file
+- `grove analyze` — scan the project for framework signals and suggest `.groverc.json` additions; `--apply`, `--clean`, `--dry-run`, `--yes`, `--json`
+- `grove create --detach` and the `afterDetachedCreate` config hook — create a fully independent worktree (no symlinks), running install commands locally instead of mutating the main tree
+- Project convention detector — recognizes husky, package managers, direnv, mise, Python, Cargo, Gradle, Next.js, Turbo; offered as prompts in `grove init` and surfaced by `grove doctor`
+- Symlink-aware install routing — install suggestions for an already-symlinked dir route to `afterDetachedCreate` so shared dependencies aren't mutated
+- Embedded agent skill and `grove skill install|uninstall|path` for Claude / Codex / Gemini
+- JSON schema for `.groverc.json` (`groverc.schema.json`); `grove init` writes a `$schema` reference so editors get autocomplete and validation
+- `editor` config field for `grove open`
+
+### Changed
+
+- `grove doctor` now warns on stale `symlink`/`copyDirs` paths and missing detector suggestions
+
+## [0.1.0] – [0.5.0]
+
+Released. See the [git tags](https://github.com/verbaux/grove/tags) and [GitHub Releases](https://github.com/verbaux/grove/releases) for per-version details.
