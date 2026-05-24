@@ -3,18 +3,31 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
 const FileName = ".groverc.json"
 
-// SchemaURL is the canonical location of the JSON schema for .groverc.json.
-// grove init writes it as the "$schema" field so editors offer validation
-// and autocomplete.
-const SchemaURL = "https://raw.githubusercontent.com/verbaux/grove/main/groverc.schema.json"
+const schemaURLFmt = "https://raw.githubusercontent.com/verbaux/grove/%s/groverc.schema.json"
+
+var releaseTag = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
+
+// SchemaURL returns the JSON schema location for .groverc.json, written by
+// grove init as the "$schema" field so editors offer validation and
+// autocomplete. Release builds (vX.Y.Z) pin to that tag so the schema matches
+// the binary; dev builds fall back to main.
+func SchemaURL(version string) string {
+	ref := "main"
+	if releaseTag.MatchString(version) {
+		ref = version
+	}
+	return fmt.Sprintf(schemaURLFmt, ref)
+}
 
 // PortRange defines the allowed port allocation range.
 type PortRange struct {

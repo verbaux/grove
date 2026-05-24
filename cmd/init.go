@@ -54,7 +54,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if cfg.Prefix == "" {
 			cfg.Prefix = filepath.Base(cwd)
 		}
-		cfg.Schema = config.SchemaURL
+		cfg.Schema = config.SchemaURL(Version)
 		if err := config.Save(cwd, cfg); err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg = applyDetectPrompts(cwd, cfg)
-	cfg.Schema = config.SchemaURL
+	cfg.Schema = config.SchemaURL(Version)
 
 	if err := config.Save(cwd, cfg); err != nil {
 		return err

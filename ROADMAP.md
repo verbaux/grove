@@ -9,14 +9,13 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 - **`grove init` convention prompts.** Detected conventions are offered as y/n prompts during `grove init`.
 - **`grove open`.** Open a worktree in your editor — resolves by alias/index/picker, then launches `$EDITOR`/`$VISUAL` (or the `editor` config field / `--editor` flag) in the worktree directory.
 - **`grove shell-init`.** Print shell integration (tab completion + a `gcd` helper) for `bash`/`zsh`/`fish`/`powershell` to `eval` from a shell startup file, replacing the manual paste-a-snippet step.
-- **JSON schema for `.groverc.json`.** Ships `groverc.schema.json`; `grove init` writes a `$schema` reference so editors get autocomplete, validation, and field descriptions. (Registering the schema with SchemaStore for zero-config editor support is still open — see below.)
+- **JSON schema for `.groverc.json`.** Ships `groverc.schema.json`; `grove init` writes a `$schema` reference so editors get autocomplete, validation, and field descriptions. The URL is pinned to the grove version that wrote it (dev builds fall back to `main`) so validation matches the binary. (Registering the schema with SchemaStore for zero-config editor support is still open — see below.)
 
 ## Now — cut the next release
 
 The latest published tag is `v0.5.0`. A batch of features has landed since (agent skill, `--detach`, the detector/recommender, `grove analyze`, `grove open`, `grove shell-init`, the JSON schema). The `CHANGELOG` `[Unreleased]` section lists them.
 
-- **Tag and publish the next release** (`v0.5.1` or `v0.6.0` per semver — these are additive features, so `v0.6.0`). The existing `goreleaser` + Homebrew tap pipeline already produces releases; tagging is the trigger. Move the `[Unreleased]` changelog block under the new version when cutting it.
-- **Pin the schema URL to the release tag.** `$schema` currently points at `main` (mutable). Repoint it to the tagged path once `v0.6.0` is out, so editors validate against a stable schema.
+- **Tag and publish the next release.** The existing `goreleaser` + Homebrew tap pipeline already produces releases; tagging is the trigger. Move the `[Unreleased]` changelog block under the new version when cutting it.
 
 ## Next — 0.2.x
 
