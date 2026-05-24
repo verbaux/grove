@@ -170,14 +170,14 @@ Also accepts an index number from `grove list`:
 cd $(grove cd 3)
 ```
 
-Add a shell function to make this more convenient:
+The easiest way is `grove shell-init` (see [Shell integration](#shell-integration)), which defines a `gcd` helper for you. Then just: `gcd auth` or `gcd` for the picker.
+
+Or add the function by hand:
 
 ```sh
 # ~/.zshrc or ~/.bashrc
 gcd() { cd "$(grove cd "$1")"; }
 ```
-
-Then just: `gcd auth` or `gcd` for the picker
 
 ---
 
@@ -401,9 +401,25 @@ Grove fetches the PR branch, creates the worktree, and runs the usual setup (`.e
 
 ---
 
-## Shell completion
+## Shell integration
 
-Grove supports tab completion for commands, flags, and worktree aliases.
+The quickest setup is `grove shell-init`. It prints tab completion **and** a `gcd` helper (`cd` straight into a worktree, with the fuzzy picker when called with no argument). Add one line to your shell startup file:
+
+```sh
+# ~/.zshrc or ~/.bashrc
+eval "$(grove shell-init zsh)"
+
+# ~/.config/fish/config.fish
+grove shell-init fish | source
+```
+
+Then: `gcd auth` — or `gcd` for the picker.
+
+Supported shells: `bash`, `zsh`, `fish`, `powershell`.
+
+### Completion only
+
+If you only want completion (no `gcd` helper):
 
 ```sh
 # Zsh (current session)
