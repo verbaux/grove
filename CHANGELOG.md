@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-05-24
+
 ### Changed
 
 - The `$schema` URL written by `grove init` is now pinned to the grove version that wrote it (dev builds fall back to `main`), so config validation matches the binary
