@@ -448,6 +448,7 @@ Project config, lives in the repo root.
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/verbaux/grove/main/groverc.schema.json",
   "worktreeDir": "../",
   "prefix": "myapp",
   "symlink": ["node_modules"],
@@ -458,6 +459,8 @@ Project config, lives in the repo root.
   "editor": "code -w"
 }
 ```
+
+`grove init` writes the `$schema` line automatically. Editors that understand JSON Schema (VS Code and others) use it for autocomplete, inline validation, and field descriptions while you edit `.groverc.json`.
 
 | Field                 | Default            | Description                                           |
 | --------------------- | ------------------ | ----------------------------------------------------- |

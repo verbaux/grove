@@ -9,11 +9,11 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 - **`grove init` convention prompts.** Detected conventions are offered as y/n prompts during `grove init`.
 - **`grove open`.** Open a worktree in your editor — resolves by alias/index/picker, then launches `$EDITOR`/`$VISUAL` (or the `editor` config field / `--editor` flag) in the worktree directory.
 - **`grove shell-init`.** Print shell integration (tab completion + a `gcd` helper) for `bash`/`zsh`/`fish`/`powershell` to `eval` from a shell startup file, replacing the manual paste-a-snippet step.
+- **JSON schema for `.groverc.json`.** Ships `groverc.schema.json`; `grove init` writes a `$schema` reference so editors get autocomplete, validation, and field descriptions. (Registering the schema with SchemaStore for zero-config editor support is still open — see below.)
 
 ## Now — toward the 0.1.0 release
 
 - **Ship 0.1.0.** Tag and publish the release. Gate: the CHANGELOG is still marked `Unreleased` and needs updating for `grove analyze`, `--detach` / `afterDetachedCreate`, and the full detector signal set. `goreleaser` and the Homebrew tap config are wired (`brews` stanza → `verbaux/homebrew-tap`), but the remote tap repo and `HOMEBREW_TAP_GITHUB_TOKEN` secret must be in place before publishing succeeds.
-- **JSON schema for `.groverc.json`.** Publish a schema so editors get validation and autocomplete for the config file. Independent of release mechanics — can ship any time the config struct stabilizes.
 
 ## Next — 0.2.x
 
@@ -37,4 +37,5 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 - Auto-update the embedded agent skill when `grove` itself is upgraded. (Land this before an MCP server — the update mechanism is shared infrastructure.)
 - MCP server for Grove, alongside the existing agent skill. (Builds on the same install/update plumbing as auto-update skill.)
 - TTL / auto-expiry for stale worktrees.
+- Register `groverc.schema.json` with [SchemaStore](https://www.schemastore.org/) so editors validate `.groverc.json` with no `$schema` line. External PR; depends on a stable hosted schema URL (ideally a tagged release rather than `main`).
 - Inter-worktree coordination / sync. Research area: broadcasting state changes (e.g. port assignments, config drift) across active worktrees so long-lived worktrees don't diverge silently.

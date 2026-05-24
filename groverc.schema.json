@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/verbaux/grove/main/groverc.schema.json",
+  "title": "Grove project configuration",
+  "description": "Schema for .groverc.json, the committed Grove project config. See https://github.com/verbaux/grove",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "command": {
+      "description": "A single shell command, or an array of commands run sequentially (fail-fast).",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to this JSON schema."
+    },
+    "worktreeDir": {
+      "type": "string",
+      "default": "../",
+      "description": "Where to place worktrees, relative to the project root."
+    },
+    "prefix": {
+      "type": "string",
+      "description": "Prefix for worktree directory names. Defaults to the project folder name."
+    },
+    "symlink": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["node_modules"],
+      "description": "Directories to symlink from the main worktree into each new worktree."
+    },
+    "copyDirs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Directories to copy as build cache for a warm start (e.g. .next, dist, target)."
+    },
+    "afterCreate": {
+      "$ref": "#/definitions/command",
+      "description": "Shell command(s) to run after worktree setup. $GROVE_PORT, $GROVE_ALIAS, $GROVE_BRANCH, $GROVE_PATH are available."
+    },
+    "afterDetachedCreate": {
+      "$ref": "#/definitions/command",
+      "description": "Shell command(s) to run before afterCreate when 'grove create --detach' is used."
+    },
+    "portRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Port range assigned deterministically to each worktree. Defaults to 3001-3999.",
+      "properties": {
+        "min": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "max": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      },
+      "required": ["min", "max"]
+    },
+    "editor": {
+      "type": "string",
+      "description": "Editor command for 'grove open'. Overrides $VISUAL and $EDITOR."
+    }
+  }
+}

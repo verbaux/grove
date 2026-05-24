@@ -11,6 +11,11 @@ import (
 
 const FileName = ".groverc.json"
 
+// SchemaURL is the canonical location of the JSON schema for .groverc.json.
+// grove init writes it as the "$schema" field so editors offer validation
+// and autocomplete.
+const SchemaURL = "https://raw.githubusercontent.com/verbaux/grove/main/groverc.schema.json"
+
 // PortRange defines the allowed port allocation range.
 type PortRange struct {
 	Min int `json:"min"`
@@ -51,6 +56,7 @@ func (a AfterCreate) MarshalJSON() ([]byte, error) {
 
 // Config maps directly to .groverc.json.
 type Config struct {
+	Schema              string      `json:"$schema,omitempty"`
 	WorktreeDir         string      `json:"worktreeDir"`
 	Prefix              string      `json:"prefix"`
 	Symlink             []string    `json:"symlink"`
