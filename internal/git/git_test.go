@@ -244,6 +244,25 @@ func TestIsMergedSquashMerge(t *testing.T) {
 	}
 }
 
+func TestIsMergedUnstartedBranch(t *testing.T) {
+	dir := setupTestRepo(t)
+	base := currentBranch(t, dir)
+
+	// Create a branch but commit nothing on it, then advance base.
+	// The branch tip is contained in base (ahead 0) but sits on the trunk —
+	// it is unstarted, not merged, and must not be pruned.
+	gitIn(t, dir, "branch", "feature")
+	commitFile(t, dir, "base.txt", "more", "base advances")
+
+	merged, err := IsMerged("feature", base)
+	if err != nil {
+		t.Fatal("IsMerged failed:", err)
+	}
+	if merged {
+		t.Error("expected unstarted branch (no commits ahead) to be not merged")
+	}
+}
+
 func TestIsMergedNotMerged(t *testing.T) {
 	dir := setupTestRepo(t)
 	base := currentBranch(t, dir)

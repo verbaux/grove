@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-05-25
+
+### Fixed
+
+- `grove prune` no longer flags worktrees whose branch has no commits beyond the base branch (unstarted or behind) as merged — these were incorrectly offered for removal. A branch contained in base is now treated as merged only when its tip sits off base's first-parent trunk (a real merge commit); squash and rebase merges are still detected by content
+
 ## [0.7.0] — 2026-05-25
 
 ### Added

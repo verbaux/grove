@@ -194,26 +194,50 @@ func DefaultBranch() string {
 }
 
 // IsMerged reports whether branch has already been merged into base.
-// It detects both regular/fast-forward merges (branch tip is an ancestor of
-// base) and squash merges (branch's cumulative diff already lives in base, but
-// the tip is not an ancestor).
+// It detects merge-commit merges (branch tip sits off base's first-parent
+// trunk) and squash/rebase merges (branch's cumulative diff already lives in
+// base, but the tip is not an ancestor). A branch with no commits beyond base —
+// unstarted, behind, or absorbed by a plain fast-forward — is NOT reported as
+// merged, so freshly created worktrees aren't pruned.
 func IsMerged(branch, base string) (bool, error) {
 	if branch == "" || base == "" {
 		return false, nil
 	}
 
-	// Regular/fast-forward merge: branch tip is reachable from base.
-	if _, err := run("merge-base", "--is-ancestor", branch, base); err == nil {
+	// Commits on branch that base doesn't already contain.
+	ahead, err := run("rev-list", "--count", base+".."+branch)
+	if err != nil {
+		// Unknown ref / unrelated histories — not merged.
+		return false, nil
+	}
+
+	if ahead == "0" {
+		// Branch tip is contained in base. It was merged via a merge commit
+		// only if the tip sits off base's first-parent trunk; a tip on the
+		// trunk just means the branch is unstarted or behind base.
+		tip, err := run("rev-parse", branch)
+		if err != nil {
+			return false, nil
+		}
+		trunk, err := run("rev-list", "--first-parent", base)
+		if err != nil {
+			return false, nil
+		}
+		for _, sha := range strings.Split(trunk, "\n") {
+			if sha == tip {
+				return false, nil
+			}
+		}
 		return true, nil
 	}
 
-	// Squash merge: synthesize a commit holding branch's tree on top of the
+	// Branch has unique commits. It's merged only if all of that work already
+	// lives in base. Synthesize a commit holding branch's tree on top of the
 	// merge-base, then ask `git cherry` whether base already contains an
 	// equivalent patch. The synthetic commit is dangling and never referenced;
 	// git gc reclaims it.
 	mergeBase, err := run("merge-base", base, branch)
 	if err != nil {
-		// Unrelated histories — not merged.
 		return false, nil
 	}
 	tree, err := run("rev-parse", branch+"^{tree}")
