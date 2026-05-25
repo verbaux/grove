@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-05-25
+
 ### Added
 
 - `grove prune` — remove worktrees whose branch is already merged into the base branch (auto-detected, or `--base <branch>`); detects regular and squash merges; `--yes` skips the prompt, `--force` removes worktrees with uncommitted changes
