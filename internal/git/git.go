@@ -179,6 +179,71 @@ func Fetch(remote, refspec string) error {
 	return err
 }
 
+// DefaultBranch returns the repository's default branch (e.g. "main").
+// Prefers the remote's HEAD (origin/HEAD); falls back to the main worktree's
+// branch. Returns "" if neither can be determined.
+func DefaultBranch() string {
+	if out, err := run("symbolic-ref", "--short", "refs/remotes/origin/HEAD"); err == nil {
+		return strings.TrimPrefix(out, "origin/")
+	}
+	worktrees, err := ListWorktrees()
+	if err == nil && len(worktrees) > 0 {
+		return worktrees[0].Branch
+	}
+	return ""
+}
+
+// IsMerged reports whether branch has already been merged into base.
+// It detects both regular/fast-forward merges (branch tip is an ancestor of
+// base) and squash merges (branch's cumulative diff already lives in base, but
+// the tip is not an ancestor).
+func IsMerged(branch, base string) (bool, error) {
+	if branch == "" || base == "" {
+		return false, nil
+	}
+
+	// Regular/fast-forward merge: branch tip is reachable from base.
+	if _, err := run("merge-base", "--is-ancestor", branch, base); err == nil {
+		return true, nil
+	}
+
+	// Squash merge: synthesize a commit holding branch's tree on top of the
+	// merge-base, then ask `git cherry` whether base already contains an
+	// equivalent patch. The synthetic commit is dangling and never referenced;
+	// git gc reclaims it.
+	mergeBase, err := run("merge-base", base, branch)
+	if err != nil {
+		// Unrelated histories — not merged.
+		return false, nil
+	}
+	tree, err := run("rev-parse", branch+"^{tree}")
+	if err != nil {
+		return false, err
+	}
+	synthetic, err := run("commit-tree", tree, "-p", mergeBase, "-m", "grove-prune-check")
+	if err != nil {
+		return false, err
+	}
+	cherry, err := run("cherry", base, synthetic)
+	if err != nil {
+		return false, nil
+	}
+	cherry = strings.TrimSpace(cherry)
+	if cherry == "" {
+		// Nothing diverged from base — the ancestor check above already covers
+		// true merges, so an empty diff here means no unique work to compare.
+		return false, nil
+	}
+	// Each line is "- <sha>" (patch present in base) or "+ <sha>" (absent).
+	// Fully merged means every line is "-".
+	for _, line := range strings.Split(cherry, "\n") {
+		if !strings.HasPrefix(line, "-") {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func branchExists(branch string) bool {
 	_, err := run("rev-parse", "--verify", "refs/heads/"+branch)
 	return err == nil

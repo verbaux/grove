@@ -180,3 +180,92 @@ func TestStatusStaged(t *testing.T) {
 		t.Errorf("status = %q, want %q", status, "1 staged")
 	}
 }
+
+// commitFile writes a file, stages it, and commits — returns nothing, fails on error.
+func commitFile(t *testing.T, dir, name, content, msg string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, dir, "add", name)
+	gitIn(t, dir, "commit", "-m", msg)
+}
+
+// currentBranch returns the checked-out branch name — git's default branch
+// for a fresh repo varies (master vs main) by version, so tests read it.
+func currentBranch(t *testing.T, dir string) string {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD failed: %v", err)
+	}
+	return string(out[:len(out)-1])
+}
+
+func TestIsMergedRegularMerge(t *testing.T) {
+	dir := setupTestRepo(t)
+	base := currentBranch(t, dir)
+
+	gitIn(t, dir, "checkout", "-b", "feature")
+	commitFile(t, dir, "feature.txt", "work", "feature work")
+	gitIn(t, dir, "checkout", base)
+	gitIn(t, dir, "merge", "--no-ff", "feature", "-m", "merge feature")
+
+	merged, err := IsMerged("feature", base)
+	if err != nil {
+		t.Fatal("IsMerged failed:", err)
+	}
+	if !merged {
+		t.Error("expected feature to be detected as merged")
+	}
+}
+
+func TestIsMergedSquashMerge(t *testing.T) {
+	dir := setupTestRepo(t)
+	base := currentBranch(t, dir)
+
+	gitIn(t, dir, "checkout", "-b", "feature")
+	commitFile(t, dir, "a.txt", "one", "commit a")
+	commitFile(t, dir, "b.txt", "two", "commit b")
+	gitIn(t, dir, "checkout", base)
+	// Squash merge: apply the branch's combined changes as a single commit
+	// whose history does NOT include the feature tips.
+	gitIn(t, dir, "merge", "--squash", "feature")
+	gitIn(t, dir, "commit", "-m", "squashed feature")
+
+	merged, err := IsMerged("feature", base)
+	if err != nil {
+		t.Fatal("IsMerged failed:", err)
+	}
+	if !merged {
+		t.Error("expected squash-merged feature to be detected as merged")
+	}
+}
+
+func TestIsMergedNotMerged(t *testing.T) {
+	dir := setupTestRepo(t)
+	base := currentBranch(t, dir)
+
+	gitIn(t, dir, "checkout", "-b", "feature")
+	commitFile(t, dir, "feature.txt", "work", "feature work")
+	gitIn(t, dir, "checkout", base)
+
+	merged, err := IsMerged("feature", base)
+	if err != nil {
+		t.Fatal("IsMerged failed:", err)
+	}
+	if merged {
+		t.Error("expected un-merged feature to be detected as not merged")
+	}
+}
+
+func TestDefaultBranch(t *testing.T) {
+	dir := setupTestRepo(t)
+
+	// No remote configured — falls back to the main worktree branch.
+	if got := DefaultBranch(); got != currentBranch(t, dir) {
+		t.Errorf("DefaultBranch() = %q, want %q", got, currentBranch(t, dir))
+	}
+}

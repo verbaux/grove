@@ -4,6 +4,7 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Recently shipped
 
+- **`grove prune`.** Removes worktrees whose branch is already merged into the base branch. Detects both regular and squash merges (the GitHub PR default) against the local base. Flags: `--base` (override the auto-detected default branch), `--yes` (skip confirmation), `--force` (remove worktrees with uncommitted changes).
 - **`grove analyze`.** Scans the project for known framework signals and suggests `.groverc.json` additions. Supports `--apply` (write suggestions back), `--dry-run`, `--yes`, `--clean` (remove stale entries), and `--json` for scripting.
 - **`afterDetachedCreate` lifecycle hook.** Config field that runs commands only when `grove create --detach` is used — used by the detector to route install commands that would corrupt a shared symlink target.
 - **`grove init` convention prompts.** Detected conventions are offered as y/n prompts during `grove init`.
@@ -19,7 +20,6 @@ The latest published tag is `v0.5.0`. A batch of features has landed since (agen
 
 ## Next — 0.2.x
 
-- **`grove prune`.** Detect worktrees whose branch is already merged and offer to remove them. Requires new git logic to identify merged branches — the existing `doctor` / `clean` machinery handles orphan detection (worktrees git knows but Grove doesn't track) and doesn't cover this case.
 - **Detector expansion.** Extends the existing detector (currently ~10 signals across JS, Python, Rust, Gradle, direnv, mise) with Docker / `docker-compose`, Vite, Remix, SvelteKit, Go modules, Ruby/Bundler, PHP/Composer, and `Makefile`.
 - **Monorepo awareness.** Handle workspaces so install and symlink suggestions are correct per package, starting with correct symlink suggestions for yarn/pnpm workspaces (multiple `package.json` files, hoisted vs. scoped `node_modules`); later, per-package `afterCreate` targeting and `.env` path resolution across workspace roots.
 - **Lifecycle hooks: `beforeRemove` / `afterRemove`.** Add `beforeRemove` and `afterRemove` command fields to `.groverc.json`. Config already has the polymorphic `AfterCreate` type; the same pattern extends cleanly to remove — ~30 lines total, no new dependencies.

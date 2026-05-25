@@ -233,6 +233,35 @@ grove clean --force
 
 ---
 
+### `grove prune`
+
+Removes grove-managed worktrees whose branch has already been merged into the base branch. Detects both regular and squash merges (the GitHub PR default). Merges are checked against the **local** base branch, so pull it first to catch PRs merged on the remote.
+
+```sh
+grove prune
+
+# Check against a specific branch
+grove prune --base develop
+
+# Non-interactive — skip the confirmation prompt
+grove prune --yes
+
+# Also remove merged worktrees with uncommitted changes
+grove prune --force
+```
+
+The base branch is auto-detected from the remote's default (`origin/HEAD`), falling back to the main working tree's branch. Without `--force`, a non-interactive run (`--yes`) skips worktrees with uncommitted changes rather than discarding them.
+
+**Flags:**
+
+| Flag             | Description                                                |
+| ---------------- | ---------------------------------------------------------- |
+| `--base <branch>`| Branch to check merges against (default: auto-detected)    |
+| `--yes`, `-y`    | Skip the confirmation prompt                               |
+| `--force`        | Remove even if worktrees have uncommitted changes          |
+
+---
+
 ### `grove detach`
 
 Remove symlinks in the current worktree so it becomes fully independent. Run this from inside a worktree.
