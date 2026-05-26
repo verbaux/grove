@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.7.2] — 2026-05-26
+
+### Fixed
+
+- `grove remove` now accepts an index number from `grove list` (e.g. `grove remove 2`), matching `grove cd` and `grove open` which already did — previously only an alias, branch, or path worked. Removing the main worktree (index 1) is now explicitly refused instead of producing a raw git error
+
 ## [0.7.1] — 2026-05-25
 
 ### Fixed

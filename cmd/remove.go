@@ -18,15 +18,15 @@ func init() {
 }
 
 var removeCmd = &cobra.Command{
-	Use:   "remove <name>",
+	Use:   "remove <name-or-number>",
 	Short: "Remove a worktree",
-	Long: `Remove a worktree by alias.
+	Long: `Remove a worktree by alias or by its index number from 'grove list'.
 
 Checks for uncommitted changes and asks for confirmation before removing.
 Use --force to skip the check.`,
-	Args: cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeAliases,
-	RunE: runRemove,
+	RunE:              runRemove,
 }
 
 func runRemove(cmd *cobra.Command, args []string) error {
@@ -47,12 +47,15 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	resolved, err := resolveWorktree(query, s)
+	resolved, err := resolveWorktree(root, query)
 	if err != nil {
 		return err
 	}
 	if resolved == nil {
 		return fmt.Errorf("no worktree matching %q — run 'grove list' to see available worktrees", query)
+	}
+	if resolved.IsMain {
+		return fmt.Errorf("refusing to remove the main worktree")
 	}
 
 	label := resolved.Alias

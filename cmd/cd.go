@@ -47,15 +47,18 @@ func runCd(cmd *cobra.Command, args []string) error {
 		arg = args[0]
 	}
 
-	path, err := resolveWorktreePath(root, arg)
+	resolved, err := resolveWorktree(root, arg)
 	if err != nil {
 		return err
 	}
-	if path == "" {
-		return nil // picker cancelled
+	if resolved == nil {
+		if arg == "" {
+			return nil // picker cancelled
+		}
+		return fmt.Errorf("no worktree matching %q — run 'grove list' to see available worktrees", arg)
 	}
 
-	fmt.Println(path)
+	fmt.Println(resolved.Path)
 	return nil
 }
 

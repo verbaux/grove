@@ -26,37 +26,6 @@ func validateAlias(alias string) error {
 	return nil
 }
 
-// resolveWorktreePath resolves a worktree to its filesystem path.
-// arg may be an alias, an index from `grove list`, or empty for the
-// interactive picker. An empty return path with nil error means the
-// picker was cancelled.
-func resolveWorktreePath(root, arg string) (string, error) {
-	if arg == "" {
-		return pickWorktree(root)
-	}
-
-	if idx, err := strconv.Atoi(arg); err == nil {
-		rows, err := buildWorktreeRows(root)
-		if err != nil {
-			return "", err
-		}
-		if idx < 1 || idx > len(rows) {
-			return "", fmt.Errorf("index %d out of range — run 'grove list' to see available worktrees (1–%d)", idx, len(rows))
-		}
-		return rows[idx-1].Path, nil
-	}
-
-	s, err := state.Load(root)
-	if err != nil {
-		return "", err
-	}
-	entry, ok := s.Get(arg)
-	if !ok {
-		return "", fmt.Errorf("no worktree with alias %q — run 'grove list' to see available worktrees", arg)
-	}
-	return entry.Path, nil
-}
-
 // worktreeRow holds display info for a single worktree in the list.
 type worktreeRow struct {
 	Index  int
@@ -205,11 +174,44 @@ type resolvedWorktree struct {
 	Path    string
 	Branch  string
 	InState bool
+	IsMain  bool
 }
 
-// resolveWorktree tries to find a worktree by alias, branch name, or path.
-// Returns nil if nothing matches.
-func resolveWorktree(query string, s state.State) (*resolvedWorktree, error) {
+// resolveWorktree resolves a worktree reference to a worktree. query may be an
+// alias, an index from `grove list`, a branch name, a path, or empty for the
+// interactive picker. A nil result with nil error means nothing matched (or the
+// picker was cancelled).
+func resolveWorktree(root, query string) (*resolvedWorktree, error) {
+	s, err := state.Load(root)
+	if err != nil {
+		return nil, err
+	}
+
+	// Empty: interactive picker.
+	if query == "" {
+		path, err := pickWorktree(root)
+		if err != nil {
+			return nil, err
+		}
+		if path == "" {
+			return nil, nil // cancelled
+		}
+		return resolveByPath(path, s)
+	}
+
+	// Numeric: index from `grove list`. Numeric aliases are reserved, so this
+	// is unambiguous.
+	if idx, err := strconv.Atoi(query); err == nil {
+		rows, err := buildWorktreeRows(root)
+		if err != nil {
+			return nil, err
+		}
+		if idx < 1 || idx > len(rows) {
+			return nil, fmt.Errorf("index %d out of range — run 'grove list' to see available worktrees (1–%d)", idx, len(rows))
+		}
+		return rowToResolved(rows[idx-1], s), nil
+	}
+
 	// 1. Alias
 	if entry, ok := s.Get(query); ok {
 		return &resolvedWorktree{
@@ -252,4 +254,37 @@ func resolveWorktree(query string, s state.State) (*resolvedWorktree, error) {
 	}
 
 	return nil, nil
+}
+
+// rowToResolved builds a resolvedWorktree from a list row, marking state membership.
+func rowToResolved(r worktreeRow, s state.State) *resolvedWorktree {
+	res := &resolvedWorktree{Path: r.Path, Branch: r.Branch, IsMain: r.IsMain}
+	for alias, entry := range s.Worktrees {
+		if entry.Path == r.Path {
+			res.Alias, res.InState = alias, true
+			break
+		}
+	}
+	return res
+}
+
+// resolveByPath maps a worktree path (e.g. from the picker) to a resolvedWorktree.
+func resolveByPath(path string, s state.State) (*resolvedWorktree, error) {
+	for alias, entry := range s.Worktrees {
+		if entry.Path == path {
+			return &resolvedWorktree{
+				Alias: alias, Path: entry.Path, Branch: entry.Branch, InState: true,
+			}, nil
+		}
+	}
+	worktrees, err := git.ListWorktrees()
+	if err != nil {
+		return nil, err
+	}
+	for _, wt := range worktrees {
+		if wt.Path == path {
+			return &resolvedWorktree{Path: wt.Path, Branch: wt.Branch, IsMain: wt.IsMain}, nil
+		}
+	}
+	return nil, fmt.Errorf("worktree not found at %s", path)
 }
