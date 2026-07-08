@@ -57,7 +57,7 @@
     <div class="hero-text">
       <div class="eyebrow">
         <span class="dot"></span>
-        git worktree manager · <span data-version>v0.4</span>
+        git worktree manager · <span data-version>v0.7.2</span>
       </div>
       <h1>Git worktrees <span class="hi">without</span><br>the setup friction.</h1>
       <p class="lede">
@@ -86,21 +86,21 @@
         </div>
         <div class="tw-body-wrap">
 <pre data-demo-panel="create" class="tw-body active"><span class="p">$</span> grove create <span class="s">feature/auth</span>
-<span class="m">Creating worktree at ./worktrees/auth</span>
+<span class="m">Creating worktree for branch "feature/auth" at /home/dev/myapp-auth</span>
   <span class="ok">✓</span> git worktree created
   <span class="ok">✓</span> copied 2 <span class="s">.env</span> file(s)
   <span class="ok">✓</span> symlinked <span class="s">node_modules</span>
-  <span class="ok">✓</span> afterCreate done <span class="m">(3.2s)</span>
+  <span class="ok">✓</span> afterCreate done
 
-Worktree <span class="s">"auth"</span> ready · port <span class="n">3487</span>.
+Worktree <span class="s">"auth"</span> ready (port <span class="n">3487</span>).
   cd $(grove cd auth)</pre>
 
 <pre data-demo-panel="list" class="tw-body"><span class="p">$</span> grove list
-<span class="m">  ALIAS     BRANCH              PORT   STATE</span>
-  main      main                3000   <span class="ok">clean</span>
-  auth      feature/auth        3487   <span class="ok">clean</span>
-  payments  feature/payments    3612   <span class="warn">dirty</span>
-  review-42 pr-42-fix-sidebar   3721   <span class="ok">clean</span></pre>
+<span class="m">#  NAME       BRANCH             PATH                    PORT  STATUS</span>
+1  main       main               /home/dev/myapp          -     <span class="ok">✓ clean</span>
+2  auth       feature/auth       /home/dev/myapp-auth     3487  <span class="ok">✓ clean</span>
+3  payments   feature/payments   /home/dev/myapp-payments 3612  <span class="warn">2 modified</span>
+4  review-42  pr-42-fix-sidebar  /home/dev/myapp-review-42 3721 <span class="ok">✓ clean</span></pre>
 
 <pre data-demo-panel="analyze" class="tw-body"><span class="p">$</span> grove analyze
 <span class="m">Project: /home/dev/myapp</span>
@@ -119,9 +119,10 @@ Suggested additions:
 <span class="m">Fetching PR #42 "Fix sidebar overflow" by @alice</span>
   <span class="ok">✓</span> fetched via gh
   <span class="ok">✓</span> worktree created
-  <span class="ok">✓</span> envs + symlinks + afterCreate done
+  <span class="ok">✓</span> copied .env files + symlinks + afterCreate done
 
-Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-42)</span></pre>
+Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>).
+  <span class="m">cd $(grove cd pr-42)</span></pre>
         </div>
       </div>
     </div>
@@ -178,7 +179,7 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
           <li><span class="ba-ok">✓</span> <code>.next</code>/<code>dist</code> warm-copied</li>
           <li><span class="ba-ok">✓</span> stable port from alias hash</li>
           <li><span class="ba-ok">✓</span> <code>afterCreate</code> hook runs</li>
-          <li><span class="ba-ok">✓</span> state tracked in <code>.groverc.json</code></li>
+          <li><span class="ba-ok">✓</span> state tracked in <code>.grove/state.json</code></li>
         </ul>
       </div>
     </div>
@@ -252,6 +253,10 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
         <p><code>grove adopt</code> registers outside worktrees. <code>grove doctor</code> finds stale state.</p>
       </article>
       <article class="fcard">
+        <h3>Merged-branch cleanup</h3>
+        <p><code>grove prune</code> removes managed worktrees whose branches are already merged, including squash-merged PRs.</p>
+      </article>
+      <article class="fcard">
         <h3>Templates</h3>
         <p>Save any <code>.groverc.json</code> as a reusable template. <code>grove init --template nextjs</code>.</p>
       </article>
@@ -269,7 +274,7 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
       </article>
       <article class="fcard">
         <h3>Agent skill</h3>
-        <p>Ships an embedded skill for Claude Code, Codex CLI, Gemini CLI, and friends. <code>grove skill install</code> autodetects agent dirs so they route worktree ops through Grove.</p>
+        <p>Ships an embedded skill for agent CLIs. <code>grove skill install</code> autodetects Claude and Codex-style skill dirs so agents route worktree ops through Grove.</p>
       </article>
     </div>
   </div>
@@ -336,9 +341,9 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
       </div>
       <ul class="ref-list">
         <li><code>grove init</code><span>Interactive wizard — creates <code>.groverc.json</code>, offers detected conventions as prompts</span></li>
-        <li><code>grove analyze</code><span>Scan project, suggest config additions; <code>--apply</code>, <code>--clean</code>, <code>--dry-run</code>, <code>--json</code></span></li>
-        <li><code>grove template</code><span>Save / list / apply reusable configs</span></li>
-        <li><code>grove skill install</code><span>Install the embedded agent skill into Claude / Codex / Gemini</span></li>
+        <li><code>grove analyze</code><span>Scan project, suggest config additions; <code>--apply</code>, <code>--clean</code>, <code>--dry-run</code>, <code>--yes</code>, <code>--json</code></span></li>
+        <li><code>grove template</code><span>Save / list / show / apply / delete reusable configs</span></li>
+        <li><code>grove skill</code><span>Install, uninstall, or inspect the embedded agent skill in detected Claude / Codex-style skill dirs</span></li>
         <li><code>grove shell-init</code><span>Completion + a <code>gcd</code> helper to <code>eval</code> from your shell rc</span></li>
         <li><code>grove completion</code><span>Shell completion for zsh, bash, fish, powershell</span></li>
       </ul>
@@ -350,11 +355,11 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
         <div><h4>Daily</h4><p>The ones you'll alias.</p></div>
       </div>
       <ul class="ref-list">
-        <li><code>grove create &lt;branch&gt;</code><span>Create worktree + copy envs + symlinks + afterCreate; <code>--detach</code> for independent deps</span></li>
+        <li><code>grove create &lt;branch&gt;</code><span>Create worktree + setup; <code>--name</code>, <code>--from</code>, <code>--detach</code></span></li>
         <li><code>grove cd [name|index]</code><span>Print path to cd into; fuzzy picker without args</span></li>
-        <li><code>grove open [name]</code><span>Open a worktree in your editor; <code>editor</code> config / <code>$EDITOR</code> / <code>--editor</code></span></li>
+        <li><code>grove open [name|index]</code><span>Open a worktree in your editor; <code>editor</code> config / <code>$EDITOR</code> / <code>--editor</code></span></li>
         <li><code>grove list</code><span>Table of worktrees with status, port, and index; <code>--json</code>, <code>--plain</code></span></li>
-        <li><code>grove review [pr]</code><span>Check out a GitHub PR into a ready-to-run worktree</span></li>
+        <li><code>grove review [pr]</code><span>List open PRs or check one out; <code>--name</code> sets the alias</span></li>
       </ul>
     </div>
 
@@ -364,8 +369,9 @@ Ready · port <span class="n">3721</span>. <span class="m">cd $(grove cd review-
         <div><h4>Maintenance</h4><p>When things get messy.</p></div>
       </div>
       <ul class="ref-list">
-        <li><code>grove remove &lt;name&gt;</code><span>Remove a worktree (dirty-state check); <code>--force</code> to skip</span></li>
+        <li><code>grove remove &lt;name|index&gt;</code><span>Remove a worktree (dirty-state check); <code>--force</code> to skip</span></li>
         <li><code>grove clean</code><span>Remove all managed worktrees + orphan cleanup; <code>--force</code> to skip</span></li>
+        <li><code>grove prune</code><span>Remove managed worktrees whose branch is merged; <code>--base</code>, <code>--yes</code>, <code>--force</code></span></li>
         <li><code>grove adopt</code><span>Register an orphan worktree</span></li>
         <li><code>grove detach</code><span>Remove symlinks; <code>--copy</code> preserves contents first</span></li>
         <li><code>grove doctor</code><span>Diagnose config, state, symlinks, ports, deps, stale paths, missing detector suggestions</span></li>
