@@ -12,11 +12,15 @@ import (
 	"github.com/verbaux/grove/internal/state"
 )
 
-var cleanForce bool
+var (
+	cleanForce            bool
+	cleanIncludeProtected bool
+)
 
 func init() {
 	rootCmd.AddCommand(cleanCmd)
 	cleanCmd.Flags().BoolVar(&cleanForce, "force", false, "remove even if worktrees have uncommitted changes")
+	cleanCmd.Flags().BoolVar(&cleanIncludeProtected, "include-protected", false, "include protected worktrees")
 }
 
 var cleanCmd = &cobra.Command{
@@ -82,10 +86,23 @@ func runClean(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			status = "unknown"
 		}
+		if entry.Protected && !cleanIncludeProtected {
+			fmt.Printf("  skipping protected worktree %s — pass --include-protected to remove\n", alias)
+			continue
+		}
 		toRemove = append(toRemove, worktreeInfo{alias, entry.Branch, entry.Path, entry.Port, status})
 		if status != "clean" {
 			dirty = append(dirty, fmt.Sprintf("  %s (%s)", alias, status))
 		}
+	}
+	if len(toRemove) == 0 {
+		fmt.Println("No removable managed worktrees.")
+		if orphanRemoved, err := cleanOrphans(s, cleanForce); err != nil {
+			return err
+		} else if orphanRemoved > 0 {
+			fmt.Printf("Removed %d orphan worktree(s).\n", orphanRemoved)
+		}
+		return nil
 	}
 
 	if len(dirty) > 0 && !cleanForce {

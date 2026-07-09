@@ -153,3 +153,69 @@ func TestPruneRemovesMergedKeepsUnmerged(t *testing.T) {
 		t.Error("unmerged alias should remain in state")
 	}
 }
+
+func TestPruneSkipsProtectedUnlessIncluded(t *testing.T) {
+	repo := setupIntegrationRepo(t, config.Config{Prefix: "testproject"})
+
+	wtRoot := t.TempDir()
+	protectedPath := filepath.Join(wtRoot, "protected")
+	unprotectedPath := filepath.Join(wtRoot, "unprotected")
+
+	addWorktreeWithCommit(t, repo, "protected-merged", protectedPath)
+	addWorktreeWithCommit(t, repo, "unprotected-merged", unprotectedPath)
+	gitInRepo(t, repo, "merge", "--no-ff", "protected-merged", "-m", "merge protected")
+	gitInRepo(t, repo, "merge", "--no-ff", "unprotected-merged", "-m", "merge unprotected")
+
+	s, err := state.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add("protected", "protected-merged", protectedPath, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetProtected("protected", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add("unprotected", "unprotected-merged", unprotectedPath, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(repo, s); err != nil {
+		t.Fatal(err)
+	}
+
+	pruneForce = false
+	pruneBase = ""
+	pruneYes = true
+	pruneDryRun = false
+	pruneJSON = false
+	pruneIncludeProtected = false
+	t.Cleanup(func() { pruneIncludeProtected = false })
+
+	if err := runPrune(pruneCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(protectedPath); err != nil {
+		t.Fatalf("protected worktree should remain: %v", err)
+	}
+	if _, err := os.Stat(unprotectedPath); !os.IsNotExist(err) {
+		t.Fatalf("unprotected worktree should be removed, stat err=%v", err)
+	}
+	s, err = state.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry, ok := s.Get("protected"); !ok || !entry.Protected {
+		t.Fatalf("protected state should remain, got %+v", entry)
+	}
+	if s.AliasExists("unprotected") {
+		t.Fatal("unprotected alias should be removed")
+	}
+
+	pruneIncludeProtected = true
+	if err := runPrune(pruneCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(protectedPath); !os.IsNotExist(err) {
+		t.Fatalf("protected worktree should be removed with include-protected, stat err=%v", err)
+	}
+}

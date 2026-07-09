@@ -131,17 +131,28 @@ Install commands (`yarn install`, `pnpm install`, `uv sync`, `cargo fetch`, `./g
 ```sh
 grove remove my-branch          # checks uncommitted changes
 grove remove my-branch --force  # skip check
+grove remove my-branch --include-protected  # remove protected worktree too
 ```
 
 Resolves by alias → branch → path → orphan.
 
 Managed removals run `beforeRemove` in the worktree before deletion and `afterRemove` from the project root after deletion/state update. Orphan cleanup does not run remove hooks.
 
+### Protect
+
+```sh
+grove protect my-branch     # prevent accidental removal
+grove unprotect my-branch   # allow normal clean/prune/remove again
+```
+
+Protected worktrees are skipped by `clean` and `prune`, and `remove` refuses them unless `--include-protected` is passed.
+
 ### Clean
 
 ```sh
 grove clean          # removes ALL managed worktrees, offers to remove orphans
 grove clean --force  # skip uncommitted changes check
+grove clean --include-protected  # include protected worktrees too
 ```
 
 ### Prune
@@ -150,6 +161,7 @@ grove clean --force  # skip uncommitted changes check
 grove prune                         # remove merged managed worktrees, prompts first
 grove prune --yes                   # non-interactive removal of clean merged worktrees
 grove prune --dry-run --json        # machine-readable preview, removes nothing
+grove prune --include-protected     # include protected merged worktrees too
 ```
 
 Use `--dry-run --json` when an agent or script needs to inspect prune candidates before asking the user to approve removal.
@@ -158,6 +170,7 @@ Use `--dry-run --json` when an agent or script needs to inspect prune candidates
 
 - NEVER use `git worktree add/remove` directly when Grove is available — bypasses state tracking.
 - `grove clean` is destructive — confirm with user before running.
+- Protected worktrees are intentional; do not pass `--include-protected` unless the user explicitly asks.
 - `grove analyze --apply` and `--apply --clean` mutate `.groverc.json`; show the planned diff (use `--dry-run`) and confirm with the user before running without `--yes`.
 - If `beforeRemove` fails, treat it as an intentional block and do not bypass it unless the user explicitly asks.
 - When the user asks why hooks/builds/installs aren't running in a worktree, run `grove analyze` (or `grove doctor`) first — most setup gaps are surfaced as detector suggestions or stale-path warnings.

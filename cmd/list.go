@@ -48,16 +48,17 @@ func runList(cmd *cobra.Command, args []string) error {
 	jsonOut, _ := cmd.Flags().GetBool("json")
 	if jsonOut {
 		type jsonRow struct {
-			Index  int    `json:"index"`
-			Name   string `json:"name"`
-			Branch string `json:"branch"`
-			Path   string `json:"path"`
-			Port   int    `json:"port,omitempty"`
-			Status string `json:"status"`
+			Index     int    `json:"index"`
+			Name      string `json:"name"`
+			Branch    string `json:"branch"`
+			Path      string `json:"path"`
+			Port      int    `json:"port,omitempty"`
+			Protected bool   `json:"protected,omitempty"`
+			Status    string `json:"status"`
 		}
 		out := make([]jsonRow, len(rows))
 		for i, r := range rows {
-			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Port: r.Port, Status: r.Status}
+			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Port: r.Port, Protected: r.Protected, Status: r.Status}
 		}
 		data, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
@@ -84,7 +85,7 @@ func runList(cmd *cobra.Command, args []string) error {
 func renderTable(rows []worktreeRow) string {
 	header := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("241"))
 	idxStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	mainStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("33"))   // blue
+	mainStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("33")) // blue
 	nameStyle := lipgloss.NewStyle().Bold(true)
 	cleanStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("34"))  // green
 	dirtyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // orange
@@ -136,6 +137,9 @@ func renderTable(rows []worktreeRow) string {
 		if r.Status != "clean" {
 			statusStr = r.Status
 			statusRendered = dirtyStyle.Render(statusStr)
+		}
+		if r.Protected {
+			statusRendered = "protected, " + statusRendered
 		}
 
 		name := nameStyle.Render(pad(r.Name, nameW))

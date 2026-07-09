@@ -13,10 +13,11 @@ const fileName = "state.json"
 
 // WorktreeEntry holds info about one grove-managed worktree.
 type WorktreeEntry struct {
-	Branch  string    `json:"branch"`
-	Path    string    `json:"path"`
-	Port    int       `json:"port,omitempty"`
-	Created time.Time `json:"created"`
+	Branch    string    `json:"branch"`
+	Path      string    `json:"path"`
+	Port      int       `json:"port,omitempty"`
+	Protected bool      `json:"protected,omitempty"`
+	Created   time.Time `json:"created"`
 }
 
 // State is the top-level structure of .grove/state.json.
@@ -114,6 +115,16 @@ func (s *State) Remove(alias string) error {
 	}
 
 	delete(s.Worktrees, alias)
+	return nil
+}
+
+func (s *State) SetProtected(alias string, protected bool) error {
+	entry, exists := s.Worktrees[alias]
+	if !exists {
+		return errors.New("alias \"" + alias + "\" not found")
+	}
+	entry.Protected = protected
+	s.Worktrees[alias] = entry
 	return nil
 }
 

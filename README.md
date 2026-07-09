@@ -142,7 +142,7 @@ Shows all active worktrees with their status.
 NAME       BRANCH              PATH                          PORT   STATUS
 main       main                /home/dev/myapp               -      ✓ clean
 auth       feature/auth        /home/dev/myapp-auth          3487   3 modified
-payments   feature/payments    /home/dev/myapp-payments      3214   ✓ clean
+payments   feature/payments    /home/dev/myapp-payments      3214   protected, ✓ clean
 ```
 
 **Flags:**
@@ -217,12 +217,30 @@ Removes a worktree by alias. Checks for uncommitted changes first and asks for c
 
 For managed worktrees, `beforeRemove` runs before deletion and can stop it; `afterRemove` runs after successful deletion and state update.
 
+Protected worktrees are refused unless you pass `--include-protected`.
+
 ```sh
 grove remove auth
 
 # Skip the check
 grove remove auth --force
+
+# Remove even if protected
+grove remove auth --include-protected
 ```
+
+---
+
+### `grove protect <name>` / `grove unprotect <name>`
+
+Protect a managed worktree from accidental removal. Protected worktrees are skipped by `grove clean` and `grove prune`, and `grove remove` refuses them unless `--include-protected` is passed.
+
+```sh
+grove protect auth
+grove unprotect auth
+```
+
+The name can be an alias, list index, branch, or path.
 
 ---
 
@@ -235,6 +253,9 @@ grove clean
 
 # Skip uncommitted changes check
 grove clean --force
+
+# Include protected worktrees too
+grove clean --include-protected
 ```
 
 ---
@@ -257,6 +278,9 @@ grove prune --force
 
 # Preview removals as JSON without deleting anything
 grove prune --dry-run --json
+
+# Include protected merged worktrees
+grove prune --include-protected
 ```
 
 The base branch is auto-detected from the remote's default (`origin/HEAD`), falling back to the main working tree's branch. Without `--force`, a non-interactive run (`--yes`) skips worktrees with uncommitted changes rather than discarding them.
@@ -270,6 +294,7 @@ The base branch is auto-detected from the remote's default (`origin/HEAD`), fall
 | `--force`        | Remove even if worktrees have uncommitted changes          |
 | `--dry-run`      | Show what would be removed without removing worktrees      |
 | `--json`         | Print dry-run result as JSON (requires `--dry-run`)        |
+| `--include-protected` | Include protected worktrees in prune candidates       |
 
 ---
 

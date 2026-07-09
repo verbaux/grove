@@ -6,6 +6,7 @@
 
 - `grove doctor --json`, `grove create --json`, and `grove prune --dry-run --json` for scripts and agents that need stable machine-readable output
 - `beforeRemove` and `afterRemove` config hooks for managed worktrees removed by `grove remove`, `grove clean`, or `grove prune`
+- `grove protect` and `grove unprotect`; protected worktrees are skipped by `clean`/`prune` and require `--include-protected` for explicit removal
 
 ## [0.7.2] — 2026-05-26
 

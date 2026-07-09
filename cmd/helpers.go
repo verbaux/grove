@@ -28,13 +28,14 @@ func validateAlias(alias string) error {
 
 // worktreeRow holds display info for a single worktree in the list.
 type worktreeRow struct {
-	Index  int
-	Name   string
-	Branch string
-	Path   string
-	Port   int
-	Status string
-	IsMain bool
+	Index     int
+	Name      string
+	Branch    string
+	Path      string
+	Port      int
+	Protected bool
+	Status    string
+	IsMain    bool
 }
 
 // buildWorktreeRows builds an ordered list of worktree rows.
@@ -53,9 +54,11 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 
 	pathToAlias := make(map[string]string)
 	pathToPort := make(map[string]int)
+	pathToProtected := make(map[string]bool)
 	for alias, entry := range s.Worktrees {
 		pathToAlias[entry.Path] = alias
 		pathToPort[entry.Path] = entry.Port
+		pathToProtected[entry.Path] = entry.Protected
 	}
 
 	var rows []worktreeRow
@@ -75,13 +78,14 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 		}
 
 		rows = append(rows, worktreeRow{
-			Index:  i + 1,
-			Name:   name,
-			Branch: wt.Branch,
-			Path:   wt.Path,
-			Port:   pathToPort[wt.Path],
-			Status: status,
-			IsMain: wt.IsMain,
+			Index:     i + 1,
+			Name:      name,
+			Branch:    wt.Branch,
+			Path:      wt.Path,
+			Port:      pathToPort[wt.Path],
+			Protected: pathToProtected[wt.Path],
+			Status:    status,
+			IsMain:    wt.IsMain,
 		})
 	}
 
@@ -170,11 +174,12 @@ func findOrphans(s state.State) ([]orphanWorktree, error) {
 }
 
 type resolvedWorktree struct {
-	Alias   string
-	Path    string
-	Branch  string
-	InState bool
-	IsMain  bool
+	Alias     string
+	Path      string
+	Branch    string
+	Protected bool
+	InState   bool
+	IsMain    bool
 }
 
 // resolveWorktree resolves a worktree reference to a worktree. query may be an
@@ -215,7 +220,7 @@ func resolveWorktree(root, query string) (*resolvedWorktree, error) {
 	// 1. Alias
 	if entry, ok := s.Get(query); ok {
 		return &resolvedWorktree{
-			Alias: query, Path: entry.Path, Branch: entry.Branch, InState: true,
+			Alias: query, Path: entry.Path, Branch: entry.Branch, Protected: entry.Protected, InState: true,
 		}, nil
 	}
 
@@ -223,7 +228,7 @@ func resolveWorktree(root, query string) (*resolvedWorktree, error) {
 	for alias, entry := range s.Worktrees {
 		if entry.Branch == query {
 			return &resolvedWorktree{
-				Alias: alias, Path: entry.Path, Branch: entry.Branch, InState: true,
+				Alias: alias, Path: entry.Path, Branch: entry.Branch, Protected: entry.Protected, InState: true,
 			}, nil
 		}
 	}
@@ -232,7 +237,7 @@ func resolveWorktree(root, query string) (*resolvedWorktree, error) {
 	for alias, entry := range s.Worktrees {
 		if entry.Path == query {
 			return &resolvedWorktree{
-				Alias: alias, Path: entry.Path, Branch: entry.Branch, InState: true,
+				Alias: alias, Path: entry.Path, Branch: entry.Branch, Protected: entry.Protected, InState: true,
 			}, nil
 		}
 	}
@@ -258,7 +263,7 @@ func resolveWorktree(root, query string) (*resolvedWorktree, error) {
 
 // rowToResolved builds a resolvedWorktree from a list row, marking state membership.
 func rowToResolved(r worktreeRow, s state.State) *resolvedWorktree {
-	res := &resolvedWorktree{Path: r.Path, Branch: r.Branch, IsMain: r.IsMain}
+	res := &resolvedWorktree{Path: r.Path, Branch: r.Branch, Protected: r.Protected, IsMain: r.IsMain}
 	for alias, entry := range s.Worktrees {
 		if entry.Path == r.Path {
 			res.Alias, res.InState = alias, true
@@ -272,9 +277,7 @@ func rowToResolved(r worktreeRow, s state.State) *resolvedWorktree {
 func resolveByPath(path string, s state.State) (*resolvedWorktree, error) {
 	for alias, entry := range s.Worktrees {
 		if entry.Path == path {
-			return &resolvedWorktree{
-				Alias: alias, Path: entry.Path, Branch: entry.Branch, InState: true,
-			}, nil
+			return &resolvedWorktree{Alias: alias, Path: entry.Path, Branch: entry.Branch, Protected: entry.Protected, InState: true}, nil
 		}
 	}
 	worktrees, err := git.ListWorktrees()

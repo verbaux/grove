@@ -10,11 +10,15 @@ import (
 	"github.com/verbaux/grove/internal/state"
 )
 
-var removeForce bool
+var (
+	removeForce            bool
+	removeIncludeProtected bool
+)
 
 func init() {
 	rootCmd.AddCommand(removeCmd)
 	removeCmd.Flags().BoolVar(&removeForce, "force", false, "remove even if there are uncommitted changes")
+	removeCmd.Flags().BoolVar(&removeIncludeProtected, "include-protected", false, "allow removing protected worktrees")
 }
 
 var removeCmd = &cobra.Command{
@@ -68,6 +72,9 @@ func runRemove(cmd *cobra.Command, args []string) error {
 	}
 
 	if resolved.InState {
+		if resolved.Protected && !removeIncludeProtected {
+			return fmt.Errorf("worktree %q is protected — pass --include-protected to remove it", resolved.Alias)
+		}
 		entry, ok := s.Get(resolved.Alias)
 		if !ok {
 			return fmt.Errorf("state entry %q disappeared", resolved.Alias)

@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	pruneForce  bool
-	pruneBase   string
-	pruneYes    bool
-	pruneDryRun bool
-	pruneJSON   bool
+	pruneForce            bool
+	pruneBase             string
+	pruneYes              bool
+	pruneDryRun           bool
+	pruneJSON             bool
+	pruneIncludeProtected bool
 )
 
 func init() {
@@ -27,14 +28,16 @@ func init() {
 	pruneCmd.Flags().BoolVarP(&pruneYes, "yes", "y", false, "skip the confirmation prompt")
 	pruneCmd.Flags().BoolVar(&pruneDryRun, "dry-run", false, "show what would be removed without removing worktrees")
 	pruneCmd.Flags().BoolVar(&pruneJSON, "json", false, "print dry-run result as JSON")
+	pruneCmd.Flags().BoolVar(&pruneIncludeProtected, "include-protected", false, "include protected worktrees")
 }
 
 type pruneCandidate struct {
-	Alias  string `json:"alias"`
-	Branch string `json:"branch"`
-	Path   string `json:"path"`
-	Port   int    `json:"-"`
-	Status string `json:"status"`
+	Alias     string `json:"alias"`
+	Branch    string `json:"branch"`
+	Path      string `json:"path"`
+	Port      int    `json:"-"`
+	Protected bool   `json:"protected,omitempty"`
+	Status    string `json:"status"`
 }
 
 type pruneSkipped struct {
@@ -131,11 +134,18 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		if !isMerged {
 			continue
 		}
+		if entry.Protected && !pruneIncludeProtected {
+			skipped = append(skipped, pruneSkipped{Alias: alias, Branch: entry.Branch, Reason: "protected"})
+			if !pruneJSON {
+				fmt.Fprintf(os.Stderr, "  skipping protected worktree %s — pass --include-protected to remove\n", alias)
+			}
+			continue
+		}
 		status, err := git.Status(entry.Path)
 		if err != nil {
 			status = "unknown"
 		}
-		merged = append(merged, pruneCandidate{Alias: alias, Branch: entry.Branch, Path: entry.Path, Port: entry.Port, Status: status})
+		merged = append(merged, pruneCandidate{Alias: alias, Branch: entry.Branch, Path: entry.Path, Port: entry.Port, Protected: entry.Protected, Status: status})
 		if status != "clean" {
 			dirty = append(dirty, fmt.Sprintf("  %s (%s)", alias, status))
 		}

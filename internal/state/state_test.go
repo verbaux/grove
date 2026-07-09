@@ -76,3 +76,29 @@ func TestRemoveNonexistent(t *testing.T) {
 		t.Fatal("expected error when removing nonexistent alias")
 	}
 }
+
+func TestSetProtectedPersists(t *testing.T) {
+	dir := t.TempDir()
+	s := State{Worktrees: map[string]WorktreeEntry{}}
+	if err := s.Add("auth", "feature/auth", "/tmp/project-auth", 3001); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetProtected("auth", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(dir, s); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := loaded.Get("auth")
+	if !ok {
+		t.Fatal("expected auth entry")
+	}
+	if !entry.Protected {
+		t.Fatal("expected auth to be protected")
+	}
+}
