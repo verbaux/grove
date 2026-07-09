@@ -191,8 +191,8 @@ func mergeSuggestions(cfg config.Config, pending []detect.Suggestion) config.Con
 	out := cfg
 	out.Symlink = append([]string(nil), cfg.Symlink...)
 	out.CopyDirs = append([]string(nil), cfg.CopyDirs...)
-	out.AfterCreate = append(config.AfterCreate(nil), cfg.AfterCreate...)
-	out.AfterDetachedCreate = append(config.AfterCreate(nil), cfg.AfterDetachedCreate...)
+	out.AfterCreate = append(config.HookCommands(nil), cfg.AfterCreate...)
+	out.AfterDetachedCreate = append(config.HookCommands(nil), cfg.AfterDetachedCreate...)
 	for _, s := range pending {
 		switch s.Kind {
 		case detect.KindSymlink:

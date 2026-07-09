@@ -44,6 +44,10 @@ func runClean(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		return err
+	}
 
 	if len(s.Worktrees) == 0 {
 		fmt.Println("No managed worktrees to clean.")
@@ -57,7 +61,9 @@ func runClean(cmd *cobra.Command, args []string) error {
 
 	type worktreeInfo struct {
 		alias  string
+		branch string
 		path   string
+		port   int
 		status string
 	}
 
@@ -76,7 +82,7 @@ func runClean(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			status = "unknown"
 		}
-		toRemove = append(toRemove, worktreeInfo{alias, entry.Path, status})
+		toRemove = append(toRemove, worktreeInfo{alias, entry.Branch, entry.Path, entry.Port, status})
 		if status != "clean" {
 			dirty = append(dirty, fmt.Sprintf("  %s (%s)", alias, status))
 		}
@@ -116,29 +122,24 @@ func runClean(cmd *cobra.Command, args []string) error {
 
 	// If one removal fails, keep going — state stays consistent with what was actually removed.
 	var removed int
+	var removeErr error
 	for _, wt := range toRemove {
-		if _, err := os.Stat(wt.path); os.IsNotExist(err) {
-			// Path already gone — just clean up state
-			if err := s.Remove(wt.alias); err != nil {
-				fmt.Fprintf(os.Stderr, "  warning: could not remove alias %s from state: %v\n", wt.alias, err)
-			}
-			removed++
-			fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.alias)
-			continue
-		}
-		if err := git.RemoveWorktree(wt.path, force); err != nil {
+		ok, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
+			Alias:  wt.alias,
+			Branch: wt.branch,
+			Path:   wt.path,
+			Port:   wt.port,
+		}, force)
+		if err != nil {
 			fmt.Printf("  failed to remove %q: %v\n", wt.alias, err)
+			if removeErr == nil {
+				removeErr = err
+			}
 			continue
 		}
-		if err := s.Remove(wt.alias); err != nil {
-			fmt.Fprintf(os.Stderr, "  warning: could not remove alias %s from state: %v\n", wt.alias, err)
+		if ok {
+			removed++
 		}
-		removed++
-		fmt.Printf("  ✓ removed %s\n", wt.alias)
-	}
-
-	if err := state.Save(root, s); err != nil {
-		return err
 	}
 
 	if err := git.PruneWorktrees(); err != nil {
@@ -154,7 +155,7 @@ func runClean(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Removed %d orphan worktree(s).\n", orphanRemoved)
 	}
 
-	return nil
+	return removeErr
 }
 
 func cleanOrphans(s state.State, force bool) (int, error) {

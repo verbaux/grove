@@ -46,6 +46,10 @@ func runRemove(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		return err
+	}
 
 	resolved, err := resolveWorktree(root, query)
 	if err != nil {
@@ -63,10 +67,22 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		label = resolved.Branch
 	}
 
-	// If the path no longer exists on disk, the worktree was removed manually.
-	// Skip git commands and just clean up state.
-	if _, err := os.Stat(resolved.Path); os.IsNotExist(err) {
-		fmt.Printf("Worktree path %s no longer exists, cleaning up state.\n", resolved.Path)
+	if resolved.InState {
+		entry, ok := s.Get(resolved.Alias)
+		if !ok {
+			return fmt.Errorf("state entry %q disappeared", resolved.Alias)
+		}
+		_, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
+			Alias:  resolved.Alias,
+			Branch: entry.Branch,
+			Path:   entry.Path,
+			Port:   entry.Port,
+		}, removeForce)
+		if err != nil {
+			return err
+		}
+	} else if _, err := os.Stat(resolved.Path); os.IsNotExist(err) {
+		fmt.Printf("Worktree path %s no longer exists.\n", resolved.Path)
 	} else {
 		status, err := git.Status(resolved.Path)
 		if err != nil {
@@ -90,19 +106,68 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  ✓ removed worktree at %s\n", resolved.Path)
 	}
 
-	if resolved.InState {
-		if err := s.Remove(resolved.Alias); err != nil {
-			return err
-		}
-		if err := state.Save(root, s); err != nil {
-			return err
-		}
-	}
-
 	if err := git.PruneWorktrees(); err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: git worktree prune failed: %v\n", err)
 	}
 
 	fmt.Printf("Worktree %q removed.\n", label)
+	return nil
+}
+
+type managedRemoveTarget struct {
+	Alias  string
+	Branch string
+	Path   string
+	Port   int
+}
+
+func removeManagedWorktree(root string, cfg config.Config, s *state.State, wt managedRemoveTarget, force bool) (bool, error) {
+	if _, err := os.Stat(wt.Path); os.IsNotExist(err) {
+		if err := s.Remove(wt.Alias); err != nil {
+			return false, err
+		}
+		if err := state.Save(root, *s); err != nil {
+			return false, err
+		}
+		fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.Alias)
+		return true, nil
+	}
+
+	env := groveHookEnv(wt)
+	if err := runLifecycleHook("beforeRemove", cfg.BeforeRemove, wt.Path, env); err != nil {
+		return false, err
+	}
+	if err := git.RemoveWorktree(wt.Path, force); err != nil {
+		return false, err
+	}
+	if err := s.Remove(wt.Alias); err != nil {
+		return false, err
+	}
+	if err := state.Save(root, *s); err != nil {
+		return false, err
+	}
+	if err := runLifecycleHook("afterRemove", cfg.AfterRemove, root, env); err != nil {
+		return true, err
+	}
+	fmt.Printf("  ✓ removed %s\n", wt.Alias)
+	return true, nil
+}
+
+func groveHookEnv(wt managedRemoveTarget) []string {
+	return []string{
+		"GROVE_ALIAS=" + wt.Alias,
+		"GROVE_BRANCH=" + wt.Branch,
+		"GROVE_PATH=" + wt.Path,
+		fmt.Sprintf("GROVE_PORT=%d", wt.Port),
+	}
+}
+
+func runLifecycleHook(name string, commands config.HookCommands, dir string, env []string) error {
+	for i, command := range commands {
+		fmt.Printf("  running %s [%d/%d]: %s\n", name, i+1, len(commands), command)
+		if err := runShell(command, dir, env); err != nil {
+			return fmt.Errorf("%s command %d failed: %w", name, i+1, err)
+		}
+	}
 	return nil
 }

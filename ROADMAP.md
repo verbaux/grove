@@ -17,10 +17,10 @@ Latest published tag: `v0.7.2`. See `CHANGELOG` `[Unreleased]` for changes since
 - **`grove open` and `grove shell-init`.** Worktree opening now resolves aliases/indexes/picker selections, and shell integration prints completion plus a `gcd` helper for common shells.
 - **JSON schema for `.groverc.json`.** `grove init` writes a version-pinned `$schema` URL; dev builds fall back to `main`.
 - **Machine-readable output.** Added stable JSON to `grove doctor --json`, `grove create --json`, and `grove prune --dry-run --json`.
+- **Lifecycle hooks: `beforeRemove` / `afterRemove`.** Remove-time hooks now run for managed worktrees removed by `grove remove`, `grove clean`, and `grove prune`.
 
 ## Next
 
-- **Lifecycle hooks: `beforeRemove` / `afterRemove`.** Add remove-time command fields to `.groverc.json` with the same string-or-array behavior as `afterCreate`.
 - **`grove protect` / pinned worktrees.** Mark selected worktrees as protected so `grove clean` and `grove prune` skip them unless the user explicitly overrides.
 - **Detector expansion.** Extend the existing detector with Docker / `docker-compose`, Vite, Remix, SvelteKit, Go modules, Ruby/Bundler, PHP/Composer, and `Makefile`.
 - **Config drift detection.** Store the config version or hash used at worktree creation so Grove can report worktrees created before newer symlinks, copy dirs, or hooks were added.

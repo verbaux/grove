@@ -215,6 +215,8 @@ The `editor` config field lets different projects open in different editors. The
 
 Removes a worktree by alias. Checks for uncommitted changes first and asks for confirmation. Supports tab completion for aliases.
 
+For managed worktrees, `beforeRemove` runs before deletion and can stop it; `afterRemove` runs after successful deletion and state update.
+
 ```sh
 grove remove auth
 
@@ -496,6 +498,8 @@ Project config, lives in the repo root.
   "copyDirs": [".next", "dist"],
   "afterCreate": "npm install",
   "afterDetachedCreate": "npm ci",
+  "beforeRemove": "docker compose -p myapp-$GROVE_ALIAS down",
+  "afterRemove": "rm -f .grove/runtime/$GROVE_ALIAS.pid",
   "portRange": { "min": 3001, "max": 3999 },
   "editor": "code -w"
 }
@@ -511,6 +515,8 @@ Project config, lives in the repo root.
 | `copyDirs`            | `[]`               | Directories to copy as build cache (e.g. `.next`, `dist`, `target`) |
 | `afterCreate`         | `""`               | Shell command(s) to run after setup — string or array (see below) |
 | `afterDetachedCreate` | `""`               | Shell command(s) to run before `afterCreate` when `--detach` is passed (string or array) |
+| `beforeRemove`        | `""`               | Shell command(s) to run before removing a managed worktree (string or array) |
+| `afterRemove`         | `""`               | Shell command(s) to run after removing a managed worktree (string or array) |
 | `portRange`           | `3001–3999`        | Port range assigned to each worktree (see Ports below) |
 | `editor`              | `""`               | Editor command for `grove open` (overrides `$VISUAL`/`$EDITOR`) |
 
@@ -551,7 +557,9 @@ Instead of running `npm install` in each worktree (slow), Grove creates a symlin
 
 This works well when the branches have the same dependencies. If a branch changes `package.json` significantly, use `afterCreate: "npm install"` — it will install into the symlink's target, or you can remove the symlink and install fresh.
 
-## afterCreate
+## Lifecycle hooks
+
+### Create hooks
 
 Single command (legacy, still supported):
 
@@ -572,6 +580,24 @@ Or an array of commands — run sequentially, fail-fast:
 ```
 
 Each command runs in the worktree directory via `sh -c`, so pipes, `&&`, subshells all work. The `$GROVE_*` env vars are available in every command.
+
+### Remove hooks
+
+`beforeRemove` and `afterRemove` use the same string-or-array format:
+
+```json
+{
+  "beforeRemove": "test ! -f DO_NOT_REMOVE",
+  "afterRemove": [
+    "docker compose -p myapp-$GROVE_ALIAS down -v",
+    "rm -f .grove/runtime/$GROVE_ALIAS.pid"
+  ]
+}
+```
+
+Remove hooks run only for Grove-managed worktrees removed by `grove remove`, `grove clean`, or `grove prune`. Orphan cleanup does not run them.
+
+`beforeRemove` runs in the worktree directory before deletion; failure stops removal. `afterRemove` runs from the project root after the worktree is removed and `.grove/state.json` is updated. Stale state entries whose path is already gone are cleaned without hooks.
 
 ## Detached worktrees (`--detach`)
 

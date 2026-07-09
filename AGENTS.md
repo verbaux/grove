@@ -18,6 +18,7 @@
 - `grove create` must roll back `git worktree add` on any setup failure after the worktree exists. Preserve the `setupErr` pattern in `cmd/create.go`; tests assert no orphaned worktree or state entry remains.
 - Worktree paths are `worktreeDir` + `prefix` + `-` + alias, resolved to absolute paths and through the parent symlink to handle macOS `/tmp` versus `/private/tmp`.
 - `afterCreate` and `afterDetachedCreate` accept a string or array, run sequentially via `sh -c`, fail fast, and expose `GROVE_PORT`, `GROVE_ALIAS`, `GROVE_BRANCH`, and `GROVE_PATH`.
+- `beforeRemove` and `afterRemove` accept the same string-or-array hook format for managed worktrees. `beforeRemove` runs in the worktree and can block deletion; `afterRemove` runs from the project root after deletion and state update. Orphan cleanup and stale state cleanup do not run remove hooks.
 - `--detach` skips configured symlinks and runs `afterDetachedCreate` before `afterCreate`; normal `.env*` copying and `copyDirs` still apply.
 - `.env*` copying is recursive but intentionally skips `node_modules`, `.git`, `dist`, `.next`, and `build`.
 - Ports are deterministic from alias within the configured range, collision-resolved against existing state, and persisted in `.grove/state.json`.

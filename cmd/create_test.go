@@ -107,7 +107,7 @@ func TestCreateRollbackOnAfterCreateFailure(t *testing.T) {
 		WorktreeDir: "../",
 		Prefix:      "testproject",
 		Symlink:     []string{},
-		AfterCreate: config.AfterCreate{"exit 1"}, // always fails
+		AfterCreate: config.HookCommands{"exit 1"}, // always fails
 	})
 
 	// Reset package-level flags so we get a clean state

@@ -47,6 +47,14 @@
       "$ref": "#/definitions/command",
       "description": "Shell command(s) to run before afterCreate when 'grove create --detach' is used."
     },
+    "beforeRemove": {
+      "$ref": "#/definitions/command",
+      "description": "Shell command(s) to run before removing a managed worktree. $GROVE_PORT, $GROVE_ALIAS, $GROVE_BRANCH, and $GROVE_PATH are available. Failure stops removal."
+    },
+    "afterRemove": {
+      "$ref": "#/definitions/command",
+      "description": "Shell command(s) to run after a managed worktree is removed and state is updated. Runs from the project root. $GROVE_PORT, $GROVE_ALIAS, $GROVE_BRANCH, and $GROVE_PATH are available."
+    },
     "portRange": {
       "type": "object",
       "additionalProperties": false,

@@ -101,7 +101,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	afterCreateInput := prompt("Command to run after creating worktree (leave empty for none) []", "")
 	if afterCreateInput != "" {
-		cfg.AfterCreate = config.AfterCreate{afterCreateInput}
+		cfg.AfterCreate = config.HookCommands{afterCreateInput}
 	}
 
 	cfg = applyDetectPrompts(cwd, cfg)

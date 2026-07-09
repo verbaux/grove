@@ -272,7 +272,7 @@ func TestDiagSuggestionsSilentWhenSatisfied(t *testing.T) {
 
 	cfg := config.Config{
 		Symlink:             []string{"node_modules"},
-		AfterDetachedCreate: config.AfterCreate{"pnpm install"},
+		AfterDetachedCreate: config.HookCommands{"pnpm install"},
 	}
 	diags := diagSuggestions(root, cfg)
 	if len(diags) != 0 {

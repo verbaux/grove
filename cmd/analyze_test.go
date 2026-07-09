@@ -18,7 +18,7 @@ func TestPendingSuggestionsFiltersCovered(t *testing.T) {
 	}
 	cfg := config.Config{
 		Symlink:     []string{"node_modules"},
-		AfterCreate: config.AfterCreate{"pnpm install --frozen-lockfile"},
+		AfterCreate: config.HookCommands{"pnpm install --frozen-lockfile"},
 	}
 	got := pendingSuggestions(cfg, all)
 	if len(got) != 1 {
@@ -54,7 +54,7 @@ func TestPendingSuggestionsNoneWhenAllCovered(t *testing.T) {
 func TestMergeSuggestionsAppendsByKind(t *testing.T) {
 	cfg := config.Config{
 		Symlink:     []string{"node_modules"},
-		AfterCreate: config.AfterCreate{"npm install"},
+		AfterCreate: config.HookCommands{"npm install"},
 	}
 	pending := []detect.Suggestion{
 		{Kind: detect.KindSymlink, Value: ".husky/_"},
@@ -67,7 +67,7 @@ func TestMergeSuggestionsAppendsByKind(t *testing.T) {
 	want := config.Config{
 		Symlink:     []string{"node_modules", ".husky/_"},
 		CopyDirs:    []string{".turbo"},
-		AfterCreate: config.AfterCreate{"npm install", "direnv allow"},
+		AfterCreate: config.HookCommands{"npm install", "direnv allow"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("merge mismatch\n got: %+v\nwant: %+v", got, want)

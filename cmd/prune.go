@@ -33,6 +33,7 @@ type pruneCandidate struct {
 	Alias  string `json:"alias"`
 	Branch string `json:"branch"`
 	Path   string `json:"path"`
+	Port   int    `json:"-"`
 	Status string `json:"status"`
 }
 
@@ -79,6 +80,10 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	s, err := state.Load(root)
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Load(root)
 	if err != nil {
 		return err
 	}
@@ -130,7 +135,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			status = "unknown"
 		}
-		merged = append(merged, pruneCandidate{Alias: alias, Branch: entry.Branch, Path: entry.Path, Status: status})
+		merged = append(merged, pruneCandidate{Alias: alias, Branch: entry.Branch, Path: entry.Path, Port: entry.Port, Status: status})
 		if status != "clean" {
 			dirty = append(dirty, fmt.Sprintf("  %s (%s)", alias, status))
 		}
@@ -208,28 +213,24 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	var removed int
+	var removeErr error
 	for _, wt := range merged {
-		if _, err := os.Stat(wt.Path); os.IsNotExist(err) {
-			if err := s.Remove(wt.Alias); err != nil {
-				fmt.Fprintf(os.Stderr, "  warning: could not remove alias %s from state: %v\n", wt.Alias, err)
-			}
-			removed++
-			fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.Alias)
-			continue
-		}
-		if err := git.RemoveWorktree(wt.Path, force); err != nil {
+		ok, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
+			Alias:  wt.Alias,
+			Branch: wt.Branch,
+			Path:   wt.Path,
+			Port:   wt.Port,
+		}, force)
+		if err != nil {
 			fmt.Printf("  failed to remove %q: %v\n", wt.Alias, err)
+			if removeErr == nil {
+				removeErr = err
+			}
 			continue
 		}
-		if err := s.Remove(wt.Alias); err != nil {
-			fmt.Fprintf(os.Stderr, "  warning: could not remove alias %s from state: %v\n", wt.Alias, err)
+		if ok {
+			removed++
 		}
-		removed++
-		fmt.Printf("  ✓ removed %s\n", wt.Alias)
-	}
-
-	if err := state.Save(root, s); err != nil {
-		return err
 	}
 
 	if err := git.PruneWorktrees(); err != nil {
@@ -237,5 +238,5 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("\nRemoved %d of %d merged worktree(s).\n", removed, len(merged))
-	return nil
+	return removeErr
 }

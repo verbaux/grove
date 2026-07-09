@@ -25,6 +25,8 @@ Config fields:
 | `copyDirs` | Dirs to copy as build cache (e.g. `.next`, `dist`, `target`) |
 | `afterCreate` | Hook command — string OR array (fail-fast sequential) |
 | `afterDetachedCreate` | Hook run before `afterCreate` when `--detach` is passed (string OR array) |
+| `beforeRemove` | Hook run before managed worktree removal; failure stops removal |
+| `afterRemove` | Hook run after managed worktree removal and state update |
 | `portRange` | `{min, max}` for per-worktree port assignment (default 3001–3999) |
 
 Worktree path: `<worktreeDir>/<prefix>-<alias>/`. State in `.grove/state.json` (gitignored).
@@ -133,6 +135,8 @@ grove remove my-branch --force  # skip check
 
 Resolves by alias → branch → path → orphan.
 
+Managed removals run `beforeRemove` in the worktree before deletion and `afterRemove` from the project root after deletion/state update. Orphan cleanup does not run remove hooks.
+
 ### Clean
 
 ```sh
@@ -155,5 +159,6 @@ Use `--dry-run --json` when an agent or script needs to inspect prune candidates
 - NEVER use `git worktree add/remove` directly when Grove is available — bypasses state tracking.
 - `grove clean` is destructive — confirm with user before running.
 - `grove analyze --apply` and `--apply --clean` mutate `.groverc.json`; show the planned diff (use `--dry-run`) and confirm with the user before running without `--yes`.
+- If `beforeRemove` fails, treat it as an intentional block and do not bypass it unless the user explicitly asks.
 - When the user asks why hooks/builds/installs aren't running in a worktree, run `grove analyze` (or `grove doctor`) first — most setup gaps are surfaced as detector suggestions or stale-path warnings.
 - Reference `$GROVE_PORT` in `afterCreate` / dev commands (stable hash of alias in `portRange`).

@@ -43,7 +43,7 @@ func TestSaveAndLoad(t *testing.T) {
 		WorktreeDir: "../",
 		Prefix:      "nextjs",
 		Symlink:     []string{"node_modules"},
-		AfterCreate: config.AfterCreate{"npm ci"},
+		AfterCreate: config.HookCommands{"npm ci"},
 	}
 	if err := Save("nextjs", cfg); err != nil {
 		t.Fatal(err)

@@ -35,49 +35,51 @@ type PortRange struct {
 	Max int `json:"max"`
 }
 
-// AfterCreate is a list of shell commands run after worktree setup.
-// JSON accepts either a single string (legacy) or an array.
-type AfterCreate []string
+// HookCommands is a list of shell commands run by lifecycle hooks.
+// JSON accepts either a single string or an array.
+type HookCommands []string
 
-func (a *AfterCreate) UnmarshalJSON(data []byte) error {
+func (h *HookCommands) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err == nil {
 		if s == "" {
-			*a = nil
+			*h = nil
 		} else {
-			*a = AfterCreate{s}
+			*h = HookCommands{s}
 		}
 		return nil
 	}
 	var arr []string
 	if err := json.Unmarshal(data, &arr); err != nil {
-		return errors.New("afterCreate must be a string or array of strings")
+		return errors.New("hook command must be a string or array of strings")
 	}
-	*a = AfterCreate(arr)
+	*h = HookCommands(arr)
 	return nil
 }
 
-func (a AfterCreate) MarshalJSON() ([]byte, error) {
-	if len(a) == 0 {
+func (h HookCommands) MarshalJSON() ([]byte, error) {
+	if len(h) == 0 {
 		return []byte(`""`), nil
 	}
-	if len(a) == 1 {
-		return json.Marshal(a[0])
+	if len(h) == 1 {
+		return json.Marshal(h[0])
 	}
-	return json.Marshal([]string(a))
+	return json.Marshal([]string(h))
 }
 
 // Config maps directly to .groverc.json.
 type Config struct {
-	Schema              string      `json:"$schema,omitempty"`
-	WorktreeDir         string      `json:"worktreeDir"`
-	Prefix              string      `json:"prefix"`
-	Symlink             []string    `json:"symlink"`
-	CopyDirs            []string    `json:"copyDirs,omitempty"`
-	AfterCreate         AfterCreate `json:"afterCreate"`
-	AfterDetachedCreate AfterCreate `json:"afterDetachedCreate,omitempty"`
-	PortRange           *PortRange  `json:"portRange,omitempty"`
-	Editor              string      `json:"editor,omitempty"`
+	Schema              string       `json:"$schema,omitempty"`
+	WorktreeDir         string       `json:"worktreeDir"`
+	Prefix              string       `json:"prefix"`
+	Symlink             []string     `json:"symlink"`
+	CopyDirs            []string     `json:"copyDirs,omitempty"`
+	AfterCreate         HookCommands `json:"afterCreate"`
+	AfterDetachedCreate HookCommands `json:"afterDetachedCreate,omitempty"`
+	BeforeRemove        HookCommands `json:"beforeRemove,omitempty"`
+	AfterRemove         HookCommands `json:"afterRemove,omitempty"`
+	PortRange           *PortRange   `json:"portRange,omitempty"`
+	Editor              string       `json:"editor,omitempty"`
 }
 
 // DefaultPortMin, DefaultPortMax — fallback range when cfg.PortRange is nil.

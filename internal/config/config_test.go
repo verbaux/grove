@@ -22,7 +22,7 @@ func TestSaveAndLoad(t *testing.T) {
 		WorktreeDir: "../",
 		Prefix:      "myproject",
 		Symlink:     []string{"node_modules", ".yarn"},
-		AfterCreate: AfterCreate{"make setup"},
+		AfterCreate: HookCommands{"make setup"},
 	}
 
 	if err := Save(dir, want); err != nil {
@@ -163,8 +163,8 @@ func TestFindRootNoConfig(t *testing.T) {
 	}
 }
 
-func TestAfterCreateUnmarshalString(t *testing.T) {
-	var a AfterCreate
+func TestHookCommandsUnmarshalString(t *testing.T) {
+	var a HookCommands
 	if err := json.Unmarshal([]byte(`"npm install"`), &a); err != nil {
 		t.Fatal(err)
 	}
@@ -173,8 +173,8 @@ func TestAfterCreateUnmarshalString(t *testing.T) {
 	}
 }
 
-func TestAfterCreateUnmarshalArray(t *testing.T) {
-	var a AfterCreate
+func TestHookCommandsUnmarshalArray(t *testing.T) {
+	var a HookCommands
 	if err := json.Unmarshal([]byte(`["npm ci","npm run build"]`), &a); err != nil {
 		t.Fatal(err)
 	}
@@ -183,8 +183,8 @@ func TestAfterCreateUnmarshalArray(t *testing.T) {
 	}
 }
 
-func TestAfterCreateUnmarshalEmpty(t *testing.T) {
-	var a AfterCreate
+func TestHookCommandsUnmarshalEmpty(t *testing.T) {
+	var a HookCommands
 	if err := json.Unmarshal([]byte(`""`), &a); err != nil {
 		t.Fatal(err)
 	}
@@ -193,8 +193,8 @@ func TestAfterCreateUnmarshalEmpty(t *testing.T) {
 	}
 }
 
-func TestAfterCreateMarshalSingle(t *testing.T) {
-	a := AfterCreate{"npm install"}
+func TestHookCommandsMarshalSingle(t *testing.T) {
+	a := HookCommands{"npm install"}
 	data, err := json.Marshal(a)
 	if err != nil {
 		t.Fatal(err)
@@ -204,8 +204,8 @@ func TestAfterCreateMarshalSingle(t *testing.T) {
 	}
 }
 
-func TestAfterCreateMarshalArray(t *testing.T) {
-	a := AfterCreate{"a", "b"}
+func TestHookCommandsMarshalArray(t *testing.T) {
+	a := HookCommands{"a", "b"}
 	data, err := json.Marshal(a)
 	if err != nil {
 		t.Fatal(err)
@@ -215,8 +215,8 @@ func TestAfterCreateMarshalArray(t *testing.T) {
 	}
 }
 
-func TestAfterCreateMarshalEmpty(t *testing.T) {
-	a := AfterCreate{}
+func TestHookCommandsMarshalEmpty(t *testing.T) {
+	a := HookCommands{}
 	data, err := json.Marshal(a)
 	if err != nil {
 		t.Fatal(err)
@@ -253,5 +253,23 @@ func TestConfigArrayForm(t *testing.T) {
 	}
 	if len(got.AfterCreate) != 2 {
 		t.Fatalf("got %v", got.AfterCreate)
+	}
+}
+
+func TestRemoveHooksLoadStringOrArray(t *testing.T) {
+	dir := t.TempDir()
+	raw := `{"worktreeDir":"../","prefix":"x","symlink":[],"beforeRemove":"npm run stop","afterRemove":["docker compose down","rm -rf /tmp/x"]}`
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(raw), 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.BeforeRemove) != 1 || got.BeforeRemove[0] != "npm run stop" {
+		t.Fatalf("beforeRemove = %v", got.BeforeRemove)
+	}
+	if len(got.AfterRemove) != 2 || got.AfterRemove[0] != "docker compose down" || got.AfterRemove[1] != "rm -rf /tmp/x" {
+		t.Fatalf("afterRemove = %v", got.AfterRemove)
 	}
 }

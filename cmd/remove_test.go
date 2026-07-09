@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
@@ -32,6 +34,87 @@ func nonMainIndex(t *testing.T, root string) (string, string) {
 	}
 	t.Fatal("no non-main worktree found")
 	return "", ""
+}
+
+func TestRemoveRunsLifecycleHooks(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{},
+		BeforeRemove: config.HookCommands{
+			`printf "before:%s:%s:%s:%s" "$GROVE_ALIAS" "$GROVE_BRANCH" "$GROVE_PORT" "$(pwd)" > "$(dirname "$GROVE_PATH")/before-$GROVE_ALIAS.txt"`,
+		},
+		AfterRemove: config.HookCommands{
+			`printf "after:%s:%s:%s:%s" "$GROVE_ALIAS" "$GROVE_BRANCH" "$GROVE_PORT" "$(pwd)" > "$(dirname "$GROVE_PATH")/after-$GROVE_ALIAS.txt"`,
+		},
+	})
+	createName, createFrom, createDetach = "", "", false
+	if err := runCreate(createCmd, []string{"feature/hooked-remove"}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	idx, alias := nonMainIndex(t, dir)
+	resolved, _ := resolveWorktree(dir, idx)
+	path := resolved.Path
+
+	removeForce = false
+	if err := runRemove(removeCmd, []string{idx}); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+
+	before, err := os.ReadFile(filepath.Join(filepath.Dir(path), "before-"+alias+".txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(before); !strings.HasPrefix(got, "before:"+alias+":feature/hooked-remove:") || !strings.HasSuffix(got, ":"+path) {
+		t.Fatalf("unexpected beforeRemove output: %q", got)
+	}
+
+	after, err := os.ReadFile(filepath.Join(filepath.Dir(path), "after-"+alias+".txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(after); !strings.HasPrefix(got, "after:"+alias+":feature/hooked-remove:") || !strings.HasSuffix(got, ":"+dir) {
+		t.Fatalf("unexpected afterRemove output: %q", got)
+	}
+}
+
+func TestBeforeRemoveFailureBlocksRemoval(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir:  "../",
+		Prefix:       "testproject",
+		Symlink:      []string{},
+		BeforeRemove: config.HookCommands{"exit 7"},
+	})
+	createName, createFrom, createDetach = "", "", false
+	if err := runCreate(createCmd, []string{"feature/keep-me"}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	idx, alias := nonMainIndex(t, dir)
+	resolved, _ := resolveWorktree(dir, idx)
+	path := resolved.Path
+
+	removeForce = false
+	err := runRemove(removeCmd, []string{idx})
+	if err == nil {
+		t.Fatal("expected beforeRemove failure")
+	}
+	if _, statErr := os.Stat(path); statErr != nil {
+		t.Fatalf("worktree should still exist after beforeRemove failure: %v", statErr)
+	}
+	s, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.Get(alias); !ok {
+		t.Fatalf("state should still contain alias %q", alias)
+	}
+
+	if err := config.Save(dir, baseConfig()); err != nil {
+		t.Fatal(err)
+	}
+	cleanupWorktree(t, dir, path)
 }
 
 func TestResolveWorktreeByIndexMatchesAlias(t *testing.T) {
