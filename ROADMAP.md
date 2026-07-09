@@ -4,7 +4,7 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.7.2`. See `CHANGELOG` `[Unreleased]` for changes since the latest tag.
+Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section is currently empty.
 
 ## Recently shipped
 
