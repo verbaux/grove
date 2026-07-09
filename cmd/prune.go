@@ -13,9 +13,11 @@ import (
 )
 
 var (
-	pruneForce bool
-	pruneBase  string
-	pruneYes   bool
+	pruneForce  bool
+	pruneBase   string
+	pruneYes    bool
+	pruneDryRun bool
+	pruneJSON   bool
 )
 
 func init() {
@@ -23,6 +25,28 @@ func init() {
 	pruneCmd.Flags().BoolVar(&pruneForce, "force", false, "remove even if worktrees have uncommitted changes")
 	pruneCmd.Flags().StringVar(&pruneBase, "base", "", "branch to check merges against (default: auto-detected default branch)")
 	pruneCmd.Flags().BoolVarP(&pruneYes, "yes", "y", false, "skip the confirmation prompt")
+	pruneCmd.Flags().BoolVar(&pruneDryRun, "dry-run", false, "show what would be removed without removing worktrees")
+	pruneCmd.Flags().BoolVar(&pruneJSON, "json", false, "print dry-run result as JSON")
+}
+
+type pruneCandidate struct {
+	Alias  string `json:"alias"`
+	Branch string `json:"branch"`
+	Path   string `json:"path"`
+	Status string `json:"status"`
+}
+
+type pruneSkipped struct {
+	Alias  string `json:"alias"`
+	Branch string `json:"branch"`
+	Reason string `json:"reason"`
+}
+
+type pruneJSONResult struct {
+	Base       string           `json:"base"`
+	DryRun     bool             `json:"dryRun"`
+	Candidates []pruneCandidate `json:"candidates"`
+	Skipped    []pruneSkipped   `json:"skipped"`
 }
 
 var pruneCmd = &cobra.Command{
@@ -40,6 +64,10 @@ prompt and --force to remove worktrees with uncommitted changes.`,
 }
 
 func runPrune(cmd *cobra.Command, args []string) error {
+	if pruneJSON && !pruneDryRun {
+		return fmt.Errorf("--json currently requires --dry-run")
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -64,6 +92,9 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(s.Worktrees) == 0 {
+		if pruneJSON {
+			return printJSON(pruneJSONResult{Base: base, DryRun: true, Candidates: []pruneCandidate{}, Skipped: []pruneSkipped{}})
+		}
 		fmt.Println("No managed worktrees to prune.")
 		return nil
 	}
@@ -74,14 +105,9 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 	sort.Strings(aliases)
 
-	type mergedInfo struct {
-		alias  string
-		path   string
-		status string
-	}
-
-	var merged []mergedInfo
+	merged := []pruneCandidate{}
 	var dirty []string
+	skipped := []pruneSkipped{}
 
 	for _, alias := range aliases {
 		entry := s.Worktrees[alias]
@@ -90,7 +116,11 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		}
 		isMerged, err := git.IsMerged(entry.Branch, base)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  warning: could not check %q: %v\n", alias, err)
+			if pruneJSON {
+				skipped = append(skipped, pruneSkipped{Alias: alias, Branch: entry.Branch, Reason: err.Error()})
+			} else {
+				fmt.Fprintf(os.Stderr, "  warning: could not check %q: %v\n", alias, err)
+			}
 			continue
 		}
 		if !isMerged {
@@ -100,10 +130,26 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			status = "unknown"
 		}
-		merged = append(merged, mergedInfo{alias, entry.Path, status})
+		merged = append(merged, pruneCandidate{Alias: alias, Branch: entry.Branch, Path: entry.Path, Status: status})
 		if status != "clean" {
 			dirty = append(dirty, fmt.Sprintf("  %s (%s)", alias, status))
 		}
+	}
+
+	if pruneJSON {
+		return printJSON(pruneJSONResult{Base: base, DryRun: true, Candidates: merged, Skipped: skipped})
+	}
+
+	if pruneDryRun {
+		if len(merged) == 0 {
+			fmt.Printf("No worktrees merged into %q.\n", base)
+			return nil
+		}
+		fmt.Printf("Merged into %q — would remove:\n", base)
+		for _, wt := range merged {
+			fmt.Printf("  %s → %s\n", wt.Alias, wt.Path)
+		}
+		return nil
 	}
 
 	if len(merged) == 0 {
@@ -114,12 +160,12 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	// Non-interactive runs never silently discard uncommitted work: without
 	// --force, drop dirty worktrees from the removal set.
 	if pruneYes && len(dirty) > 0 && !pruneForce {
-		var clean []mergedInfo
+		var clean []pruneCandidate
 		for _, wt := range merged {
-			if wt.status == "clean" {
+			if wt.Status == "clean" {
 				clean = append(clean, wt)
 			} else {
-				fmt.Fprintf(os.Stderr, "  skipping %s (%s) — pass --force to remove\n", wt.alias, wt.status)
+				fmt.Fprintf(os.Stderr, "  skipping %s (%s) — pass --force to remove\n", wt.Alias, wt.Status)
 			}
 		}
 		merged = clean
@@ -132,7 +178,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Merged into %q — will remove:\n", base)
 	for _, wt := range merged {
-		fmt.Printf("  %s → %s\n", wt.alias, wt.path)
+		fmt.Printf("  %s → %s\n", wt.Alias, wt.Path)
 	}
 	fmt.Println()
 
@@ -163,23 +209,23 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	var removed int
 	for _, wt := range merged {
-		if _, err := os.Stat(wt.path); os.IsNotExist(err) {
-			if err := s.Remove(wt.alias); err != nil {
-				fmt.Fprintf(os.Stderr, "  warning: could not remove alias %s from state: %v\n", wt.alias, err)
+		if _, err := os.Stat(wt.Path); os.IsNotExist(err) {
+			if err := s.Remove(wt.Alias); err != nil {
+				fmt.Fprintf(os.Stderr, "  warning: could not remove alias %s from state: %v\n", wt.Alias, err)
 			}
 			removed++
-			fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.alias)
+			fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.Alias)
 			continue
 		}
-		if err := git.RemoveWorktree(wt.path, force); err != nil {
-			fmt.Printf("  failed to remove %q: %v\n", wt.alias, err)
+		if err := git.RemoveWorktree(wt.Path, force); err != nil {
+			fmt.Printf("  failed to remove %q: %v\n", wt.Alias, err)
 			continue
 		}
-		if err := s.Remove(wt.alias); err != nil {
-			fmt.Fprintf(os.Stderr, "  warning: could not remove alias %s from state: %v\n", wt.alias, err)
+		if err := s.Remove(wt.Alias); err != nil {
+			fmt.Fprintf(os.Stderr, "  warning: could not remove alias %s from state: %v\n", wt.Alias, err)
 		}
 		removed++
-		fmt.Printf("  ✓ removed %s\n", wt.alias)
+		fmt.Printf("  ✓ removed %s\n", wt.Alias)
 	}
 
 	if err := state.Save(root, s); err != nil {

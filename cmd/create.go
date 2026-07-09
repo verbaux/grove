@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +21,7 @@ var (
 	createName   string
 	createFrom   string
 	createDetach bool
+	createJSON   bool
 )
 
 func init() {
@@ -27,6 +29,18 @@ func init() {
 	createCmd.Flags().StringVar(&createName, "name", "", "alias for the worktree (default: last segment of branch name)")
 	createCmd.Flags().StringVar(&createFrom, "from", "", "base branch or commit to create the new branch from")
 	createCmd.Flags().BoolVar(&createDetach, "detach", false, "create worktree without symlinks (runs afterDetachedCreate before afterCreate)")
+	createCmd.Flags().BoolVar(&createJSON, "json", false, "print created worktree details as JSON")
+}
+
+type createResult struct {
+	Alias      string   `json:"alias"`
+	Branch     string   `json:"branch"`
+	Path       string   `json:"path"`
+	Port       int      `json:"port"`
+	Detached   bool     `json:"detached"`
+	CopiedEnv  []string `json:"copiedEnv"`
+	Symlinked  []string `json:"symlinked"`
+	CopiedDirs []string `json:"copiedDirs"`
 }
 
 var createCmd = &cobra.Command{
@@ -77,18 +91,33 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		alias = branchAlias(branch)
 	}
 
-	return doCreate(root, cfg, &s, branch, alias, createFrom, createDetach)
+	result, err := doCreate(root, cfg, &s, branch, alias, createFrom, createDetach, createJSON)
+	if err != nil {
+		return err
+	}
+	if createJSON {
+		return printJSON(result)
+	}
+	return nil
 }
 
 // doCreate is the shared worktree creation logic used by both `grove create` and `grove review`.
 // When detach is true, symlinks are skipped and afterDetachedCreate runs before afterCreate.
-func doCreate(root string, cfg config.Config, s *state.State, branch, alias, from string, detach bool) error {
+func doCreate(root string, cfg config.Config, s *state.State, branch, alias, from string, detach bool, quiet bool) (createResult, error) {
+	result := createResult{
+		Alias:      alias,
+		Branch:     branch,
+		Detached:   detach,
+		CopiedEnv:  []string{},
+		Symlinked:  []string{},
+		CopiedDirs: []string{},
+	}
 	if err := validateAlias(alias); err != nil {
-		return err
+		return result, err
 	}
 
 	if s.AliasExists(alias) {
-		return fmt.Errorf("alias %q already exists — use --name to choose a different one", alias)
+		return result, fmt.Errorf("alias %q already exists — use --name to choose a different one", alias)
 	}
 
 	wtName := alias
@@ -98,11 +127,12 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	worktreePath := filepath.Join(root, cfg.WorktreeDir, wtName)
 	worktreePath, err := filepath.Abs(worktreePath)
 	if err != nil {
-		return err
+		return result, err
 	}
 	if resolved, err := filepath.EvalSymlinks(filepath.Dir(worktreePath)); err == nil {
 		worktreePath = filepath.Join(resolved, filepath.Base(worktreePath))
 	}
+	result.Path = worktreePath
 
 	portMin, portMax := cfg.ResolvedPortRange()
 	used := make(map[int]bool)
@@ -113,20 +143,27 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	}
 	port, err := ports.Allocate(alias, portMin, portMax, used)
 	if err != nil {
-		return fmt.Errorf("port allocation: %w", err)
+		return result, fmt.Errorf("port allocation: %w", err)
 	}
+	result.Port = port
 
-	fmt.Printf("Creating worktree for branch %q at %s\n", branch, worktreePath)
+	if !quiet {
+		fmt.Printf("Creating worktree for branch %q at %s\n", branch, worktreePath)
+	}
 
 	if err := git.AddWorktree(worktreePath, branch, from); err != nil {
-		return err
+		return result, err
 	}
-	fmt.Println("  ✓ git worktree created")
+	if !quiet {
+		fmt.Println("  ✓ git worktree created")
+	}
 
 	var setupErr error
 	defer func() {
 		if setupErr != nil {
-			fmt.Printf("  rolling back: removing worktree at %s\n", worktreePath)
+			if !quiet {
+				fmt.Printf("  rolling back: removing worktree at %s\n", worktreePath)
+			}
 			if rbErr := git.RemoveWorktree(worktreePath, true); rbErr != nil {
 				fmt.Fprintf(os.Stderr, "  warning: rollback failed, manual cleanup needed: %v\n", rbErr)
 			}
@@ -136,14 +173,17 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	copied, err := files.CopyEnvFiles(root, worktreePath)
 	if err != nil {
 		setupErr = err
-		return setupErr
+		return result, setupErr
 	}
-	if len(copied) > 0 {
+	if copied != nil {
+		result.CopiedEnv = copied
+	}
+	if len(copied) > 0 && !quiet {
 		fmt.Printf("  ✓ copied %d .env file(s)\n", len(copied))
 	}
 
 	if detach {
-		if len(cfg.Symlink) > 0 {
+		if len(cfg.Symlink) > 0 && !quiet {
 			fmt.Printf("  ⚠ skipping %d symlink(s) (--detach)\n", len(cfg.Symlink))
 		}
 	} else {
@@ -156,13 +196,16 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 					continue
 				}
 				setupErr = fmt.Errorf("symlink %s: %w", name, err)
-				return setupErr
+				return result, setupErr
 			}
 			if created {
 				symlinked = append(symlinked, name)
 			}
 		}
-		if len(symlinked) > 0 {
+		if symlinked != nil {
+			result.Symlinked = symlinked
+		}
+		if len(symlinked) > 0 && !quiet {
 			fmt.Printf("  ✓ symlinked %s\n", strings.Join(symlinked, ", "))
 		}
 	}
@@ -174,13 +217,16 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		copied, err := files.CopyDir(src, dst)
 		if err != nil {
 			setupErr = fmt.Errorf("copy %s: %w", name, err)
-			return setupErr
+			return result, setupErr
 		}
 		if copied {
 			copiedDirs = append(copiedDirs, name)
 		}
 	}
-	if len(copiedDirs) > 0 {
+	if copiedDirs != nil {
+		result.CopiedDirs = copiedDirs
+	}
+	if len(copiedDirs) > 0 && !quiet {
 		fmt.Printf("  ✓ copied %s\n", strings.Join(copiedDirs, ", "))
 	}
 
@@ -191,44 +237,55 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		fmt.Sprintf("GROVE_PORT=%d", port),
 	}
 
+	hookStdout := io.Writer(os.Stdout)
+	if quiet {
+		hookStdout = os.Stderr
+	}
+
 	if detach {
 		for i, command := range cfg.AfterDetachedCreate {
-			fmt.Printf("  running afterDetachedCreate [%d/%d]: %s\n", i+1, len(cfg.AfterDetachedCreate), command)
-			if err := runShell(command, worktreePath, groveEnv); err != nil {
+			if !quiet {
+				fmt.Printf("  running afterDetachedCreate [%d/%d]: %s\n", i+1, len(cfg.AfterDetachedCreate), command)
+			}
+			if err := runShellIO(command, worktreePath, groveEnv, hookStdout, os.Stderr); err != nil {
 				setupErr = fmt.Errorf("afterDetachedCreate command %d failed: %w", i+1, err)
-				return setupErr
+				return result, setupErr
 			}
 		}
-		if len(cfg.AfterDetachedCreate) > 0 {
+		if len(cfg.AfterDetachedCreate) > 0 && !quiet {
 			fmt.Println("  ✓ afterDetachedCreate done")
 		}
 	}
 
 	for i, command := range cfg.AfterCreate {
-		fmt.Printf("  running [%d/%d]: %s\n", i+1, len(cfg.AfterCreate), command)
-		if err := runShell(command, worktreePath, groveEnv); err != nil {
+		if !quiet {
+			fmt.Printf("  running [%d/%d]: %s\n", i+1, len(cfg.AfterCreate), command)
+		}
+		if err := runShellIO(command, worktreePath, groveEnv, hookStdout, os.Stderr); err != nil {
 			setupErr = fmt.Errorf("afterCreate command %d failed: %w", i+1, err)
-			return setupErr
+			return result, setupErr
 		}
 	}
-	if len(cfg.AfterCreate) > 0 {
+	if len(cfg.AfterCreate) > 0 && !quiet {
 		fmt.Println("  ✓ afterCreate done")
 	}
 
 	if err := s.Add(alias, branch, worktreePath, port); err != nil {
 		setupErr = err
-		return setupErr
+		return result, setupErr
 	}
 	if err := state.Save(root, *s); err != nil {
 		setupErr = err
-		return setupErr
+		return result, setupErr
 	}
 
-	fmt.Println()
-	fmt.Printf("Worktree %q ready (port %d).\n", alias, port)
-	fmt.Printf("  cd $(grove cd %s)\n", alias)
+	if !quiet {
+		fmt.Println()
+		fmt.Printf("Worktree %q ready (port %d).\n", alias, port)
+		fmt.Printf("  cd $(grove cd %s)\n", alias)
+	}
 
-	return nil
+	return result, nil
 }
 
 // branchAlias returns the last segment of a branch name.
@@ -242,10 +299,14 @@ func branchAlias(branch string) string {
 // Uses "sh -c" so the string can include pipes, env vars, etc.
 // extraEnv is appended to os.Environ so callers can expose additional variables.
 func runShell(command, dir string, extraEnv []string) error {
+	return runShellIO(command, dir, extraEnv, os.Stdout, os.Stderr)
+}
+
+func runShellIO(command, dir string, extraEnv []string, stdout, stderr io.Writer) error {
 	cmd := exec.Command("sh", "-c", command)
 	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	if len(extraEnv) > 0 {
 		cmd.Env = append(os.Environ(), extraEnv...)
 	}

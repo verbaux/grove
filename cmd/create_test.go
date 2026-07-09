@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,57 @@ import (
 	"github.com/verbaux/grove/internal/config"
 	"github.com/verbaux/grove/internal/state"
 )
+
+func TestCreateJSON(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{},
+		AfterCreate: nil,
+	})
+
+	createName = ""
+	createFrom = ""
+	createDetach = false
+	createJSON = true
+	t.Cleanup(func() { createJSON = false })
+
+	out, err := captureStdout(t, func() error {
+		return runCreate(createCmd, []string{"feature/json-output"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result struct {
+		Alias      string   `json:"alias"`
+		Branch     string   `json:"branch"`
+		Path       string   `json:"path"`
+		Port       int      `json:"port"`
+		Detached   bool     `json:"detached"`
+		CopiedEnv  []string `json:"copiedEnv"`
+		Symlinked  []string `json:"symlinked"`
+		CopiedDirs []string `json:"copiedDirs"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("create --json output is not valid JSON: %v\n%s", err, out)
+	}
+	if result.Alias != "json-output" || result.Branch != "feature/json-output" {
+		t.Fatalf("unexpected JSON result: %+v", result)
+	}
+	if result.Path == "" || result.Port == 0 || result.Detached {
+		t.Fatalf("expected path, port, and detached=false, got %+v", result)
+	}
+	if result.CopiedEnv == nil || result.Symlinked == nil || result.CopiedDirs == nil {
+		t.Fatalf("expected JSON arrays instead of null slices, got %+v", result)
+	}
+
+	remove := exec.Command("git", "worktree", "remove", "--force", filepath.Join(filepath.Dir(dir), "testproject-json-output"))
+	remove.Dir = dir
+	if out, err := remove.CombinedOutput(); err != nil {
+		t.Fatalf("cleanup failed: %s", out)
+	}
+}
 
 // setupIntegrationRepo creates a real git repo with a .groverc.json and
 // changes cwd into it. Returns the repo directory and a cleanup function.

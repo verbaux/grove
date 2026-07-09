@@ -17,7 +17,10 @@ import (
 
 func init() {
 	rootCmd.AddCommand(doctorCmd)
+	doctorCmd.Flags().BoolVar(&doctorJSON, "json", false, "print diagnostics as JSON")
 }
+
+var doctorJSON bool
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
@@ -39,8 +42,13 @@ const (
 )
 
 type diagnostic struct {
-	Level   diagLevel
-	Message string
+	Level   diagLevel `json:"level"`
+	Message string    `json:"message"`
+}
+
+type doctorJSONResult struct {
+	OK          bool         `json:"ok"`
+	Diagnostics []diagnostic `json:"diagnostics"`
 }
 
 func runDoctor(cmd *cobra.Command, args []string) error {
@@ -53,7 +61,12 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 
 	root, err := config.FindRoot(cwd)
 	if err != nil {
-		printDiag(diagnostic{levelError, fmt.Sprintf("no .groverc.json found: %v", err)})
+		diags = append(diags, diagnostic{levelError, fmt.Sprintf("no .groverc.json found: %v", err)})
+		if doctorJSON {
+			_ = printJSON(doctorResult(diags))
+		} else {
+			printDiag(diags[0])
+		}
 		return err
 	}
 	diags = append(diags, diagnostic{levelOK, fmt.Sprintf("project root: %s", root)})
@@ -61,7 +74,11 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load(root)
 	if err != nil {
 		diags = append(diags, diagnostic{levelError, fmt.Sprintf("config: %v", err)})
-		printDiagnostics(diags)
+		if doctorJSON {
+			_ = printJSON(doctorResult(diags))
+		} else {
+			printDiagnostics(diags)
+		}
 		return err
 	}
 	diags = append(diags, diagnostic{levelOK, ".groverc.json valid"})
@@ -71,7 +88,11 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	s, err := state.Load(root)
 	if err != nil {
 		diags = append(diags, diagnostic{levelError, fmt.Sprintf("state: %v", err)})
-		printDiagnostics(diags)
+		if doctorJSON {
+			_ = printJSON(doctorResult(diags))
+		} else {
+			printDiagnostics(diags)
+		}
 		return err
 	}
 
@@ -90,7 +111,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	diags = append(diags, diagSuggestions(root, cfg)...)
 	diags = append(diags, diagGhCLI())
 
-	printDiagnostics(diags)
+	if doctorJSON {
+		if err := printJSON(doctorResult(diags)); err != nil {
+			return err
+		}
+	} else {
+		printDiagnostics(diags)
+	}
 
 	for _, d := range diags {
 		if d.Level == levelError {
@@ -98,6 +125,17 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func doctorResult(diags []diagnostic) doctorJSONResult {
+	ok := true
+	for _, d := range diags {
+		if d.Level == levelError {
+			ok = false
+			break
+		}
+	}
+	return doctorJSONResult{OK: ok, Diagnostics: diags}
 }
 
 func diagConfigRange(cfg config.Config) []diagnostic {

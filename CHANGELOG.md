@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `grove doctor --json`, `grove create --json`, and `grove prune --dry-run --json` for scripts and agents that need stable machine-readable output
+
 ## [0.7.2] — 2026-05-26
 
 ### Fixed

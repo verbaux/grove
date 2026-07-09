@@ -38,6 +38,7 @@ grove create feature/my-branch              # alias: "my-branch"
 grove create feature/my-branch --name fix   # custom alias
 grove create feature/my-branch --from main  # branch from main
 grove create feature/my-branch --detach     # skip symlinks; runs afterDetachedCreate before afterCreate
+grove create feature/my-branch --json       # machine-readable result
 ```
 
 Creates worktree, copies `.env*`, sets up symlinks, copies `copyDirs`, runs `afterCreate`. Rolls back `git worktree add` on setup failure.
@@ -100,10 +101,13 @@ grove detach --copy   # copy all symlink targets before removing
 ### Doctor
 
 ```sh
-grove doctor   # validates config, worktree paths, orphans, symlinks, port collisions, gh CLI
+grove doctor          # validates config, worktree paths, orphans, symlinks, port collisions, gh CLI
+grove doctor --json   # machine-readable diagnostics
 ```
 
 Exits non-zero on errors. Run before manual git-worktree surgery. Also warns on stale `symlink` / `copyDirs` entries (target missing in main repo) and on detected project conventions that the config does not yet cover (husky, package managers, direnv, mise, Python, Cargo, Gradle, Next.js, Turbo).
+
+Use JSON output when another tool needs to parse diagnostics.
 
 ### Analyze
 
@@ -135,6 +139,16 @@ Resolves by alias → branch → path → orphan.
 grove clean          # removes ALL managed worktrees, offers to remove orphans
 grove clean --force  # skip uncommitted changes check
 ```
+
+### Prune
+
+```sh
+grove prune                         # remove merged managed worktrees, prompts first
+grove prune --yes                   # non-interactive removal of clean merged worktrees
+grove prune --dry-run --json        # machine-readable preview, removes nothing
+```
+
+Use `--dry-run --json` when an agent or script needs to inspect prune candidates before asking the user to approve removal.
 
 ## Rules
 

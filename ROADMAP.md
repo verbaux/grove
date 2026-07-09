@@ -4,7 +4,7 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.7.2`. The `CHANGELOG` `[Unreleased]` section is currently empty.
+Latest published tag: `v0.7.2`. See `CHANGELOG` `[Unreleased]` for changes since the latest tag.
 
 ## Recently shipped
 
@@ -16,10 +16,10 @@ Latest published tag: `v0.7.2`. The `CHANGELOG` `[Unreleased]` section is curren
 - **Project convention detector.** `grove init` offers detected conventions as prompts; `grove doctor` warns about missing suggestions and stale configured paths.
 - **`grove open` and `grove shell-init`.** Worktree opening now resolves aliases/indexes/picker selections, and shell integration prints completion plus a `gcd` helper for common shells.
 - **JSON schema for `.groverc.json`.** `grove init` writes a version-pinned `$schema` URL; dev builds fall back to `main`.
+- **Machine-readable output.** Added stable JSON to `grove doctor --json`, `grove create --json`, and `grove prune --dry-run --json`.
 
 ## Next
 
-- **Machine-readable output.** Add stable JSON to commands agents and scripts need most: `grove doctor --json`, `grove create --json`, and `grove prune --json --dry-run`.
 - **Lifecycle hooks: `beforeRemove` / `afterRemove`.** Add remove-time command fields to `.groverc.json` with the same string-or-array behavior as `afterCreate`.
 - **`grove protect` / pinned worktrees.** Mark selected worktrees as protected so `grove clean` and `grove prune` skip them unless the user explicitly overrides.
 - **Detector expansion.** Extend the existing detector with Docker / `docker-compose`, Vite, Remix, SvelteKit, Go modules, Ruby/Bundler, PHP/Composer, and `Makefile`.

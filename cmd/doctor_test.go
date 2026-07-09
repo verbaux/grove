@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,39 @@ import (
 	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
+
+func TestDoctorJSON(t *testing.T) {
+	setupIntegrationRepo(t, config.Config{})
+	doctorJSON = true
+	t.Cleanup(func() { doctorJSON = false })
+
+	out, err := captureStdout(t, func() error {
+		return runDoctor(doctorCmd, nil)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result struct {
+		OK          bool `json:"ok"`
+		Diagnostics []struct {
+			Level   string `json:"level"`
+			Message string `json:"message"`
+		} `json:"diagnostics"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("doctor --json output is not valid JSON: %v\n%s", err, out)
+	}
+	if !result.OK {
+		t.Fatalf("expected doctor JSON ok=true, got %+v", result)
+	}
+	if len(result.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics in JSON output")
+	}
+	if result.Diagnostics[0].Level == "" || result.Diagnostics[0].Message == "" {
+		t.Fatalf("expected level and message in first diagnostic, got %+v", result.Diagnostics[0])
+	}
+}
 
 func TestDiagStatePathsAllExist(t *testing.T) {
 	dir := t.TempDir()

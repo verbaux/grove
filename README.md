@@ -109,6 +109,7 @@ If the branch doesn't exist, it's created from current HEAD.
 | `--name <alias>`  | Custom alias (default: last segment of branch name)  |
 | `--from <branch>` | Create the new branch from this base instead of HEAD |
 | `--detach`        | Skip symlinks; run `afterDetachedCreate` before `afterCreate` |
+| `--json`          | Print created worktree details as JSON               |
 
 **Examples:**
 
@@ -124,6 +125,9 @@ grove create feature/auth --from main
 
 # Standalone worktree without symlinks (e.g. branch has different deps)
 grove create feature/big-deps-bump --detach
+
+# Machine-readable result for scripts and agents
+grove create feature/auth --json
 ```
 
 If setup fails after the worktree is created, Grove rolls back the `git worktree add` so you're not left with an orphaned directory.
@@ -248,6 +252,9 @@ grove prune --yes
 
 # Also remove merged worktrees with uncommitted changes
 grove prune --force
+
+# Preview removals as JSON without deleting anything
+grove prune --dry-run --json
 ```
 
 The base branch is auto-detected from the remote's default (`origin/HEAD`), falling back to the main working tree's branch. Without `--force`, a non-interactive run (`--yes`) skips worktrees with uncommitted changes rather than discarding them.
@@ -259,6 +266,8 @@ The base branch is auto-detected from the remote's default (`origin/HEAD`), fall
 | `--base <branch>`| Branch to check merges against (default: auto-detected)    |
 | `--yes`, `-y`    | Skip the confirmation prompt                               |
 | `--force`        | Remove even if worktrees have uncommitted changes          |
+| `--dry-run`      | Show what would be removed without removing worktrees      |
+| `--json`         | Print dry-run result as JSON (requires `--dry-run`)        |
 
 ---
 
@@ -349,6 +358,9 @@ Checks:
 
 ```sh
 grove doctor
+
+# Machine-readable diagnostics
+grove doctor --json
 ```
 
 ```
