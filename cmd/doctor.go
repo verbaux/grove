@@ -105,6 +105,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	if wtErr == nil {
 		diags = append(diags, diagOrphans(s, worktrees)...)
 	}
+	diags = append(diags, diagConfigDrift(cfg, s)...)
 	diags = append(diags, diagSymlinks(root, cfg, s)...)
 	diags = append(diags, diagPortCollisions(s)...)
 	diags = append(diags, diagConfigPaths(root, cfg)...)
@@ -144,6 +145,40 @@ func diagConfigRange(cfg config.Config) []diagnostic {
 		if cfg.PortRange.Min <= 0 || cfg.PortRange.Max < cfg.PortRange.Min {
 			out = append(out, diagnostic{levelError, fmt.Sprintf("invalid portRange: min=%d max=%d", cfg.PortRange.Min, cfg.PortRange.Max)})
 		}
+	}
+	return out
+}
+
+func diagConfigDrift(cfg config.Config, s state.State) []diagnostic {
+	if len(s.Worktrees) == 0 {
+		return nil
+	}
+
+	currentHash, err := config.SetupHash(cfg)
+	if err != nil {
+		return []diagnostic{{levelError, fmt.Sprintf("config hash: %v", err)}}
+	}
+
+	var out []diagnostic
+	var checked int
+	for alias, entry := range s.Worktrees {
+		if entry.ConfigHash == "" {
+			out = append(out, diagnostic{
+				Level:   levelWarn,
+				Message: fmt.Sprintf("unknown config version for %q — recreate or sync this worktree to track config drift", alias),
+			})
+			continue
+		}
+		checked++
+		if entry.ConfigHash != currentHash {
+			out = append(out, diagnostic{
+				Level:   levelWarn,
+				Message: fmt.Sprintf("config drift for %q — worktree was created with an older .groverc.json setup hash", alias),
+			})
+		}
+	}
+	if len(out) == 0 && checked > 0 {
+		out = append(out, diagnostic{levelOK, "no config drift"})
 	}
 	return out
 }

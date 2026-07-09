@@ -157,6 +157,49 @@ func TestDiagConfigRangeValid(t *testing.T) {
 	}
 }
 
+func TestDiagConfigDriftDetectsChangedConfig(t *testing.T) {
+	oldCfg := config.Config{Symlink: []string{"node_modules"}}
+	oldHash, err := config.SetupHash(oldCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := state.State{Worktrees: map[string]state.WorktreeEntry{
+		"a": {Path: "/tmp/a", Branch: "feature/a", ConfigHash: oldHash},
+	}}
+	newCfg := config.Config{Symlink: []string{"node_modules", ".husky/_"}}
+
+	diags := diagConfigDrift(newCfg, s)
+	if len(diags) != 1 || diags[0].Level != levelWarn || !containsAll(diags[0].Message, "config drift", "a") {
+		t.Fatalf("expected config drift warning, got %+v", diags)
+	}
+}
+
+func TestDiagConfigDriftWarnsWhenHashMissing(t *testing.T) {
+	s := state.State{Worktrees: map[string]state.WorktreeEntry{
+		"a": {Path: "/tmp/a", Branch: "feature/a"},
+	}}
+	diags := diagConfigDrift(config.Config{}, s)
+	if len(diags) != 1 || diags[0].Level != levelWarn || !containsAll(diags[0].Message, "unknown config version", "a") {
+		t.Fatalf("expected missing config hash warning, got %+v", diags)
+	}
+}
+
+func TestDiagConfigDriftOKWhenHashesMatch(t *testing.T) {
+	cfg := config.Config{Symlink: []string{"node_modules"}}
+	hash, err := config.SetupHash(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := state.State{Worktrees: map[string]state.WorktreeEntry{
+		"a": {Path: "/tmp/a", Branch: "feature/a", ConfigHash: hash},
+		"b": {Path: "/tmp/b", Branch: "feature/b", ConfigHash: hash},
+	}}
+	diags := diagConfigDrift(cfg, s)
+	if len(diags) != 1 || diags[0].Level != levelOK {
+		t.Fatalf("expected config drift ok, got %+v", diags)
+	}
+}
+
 func TestDiagSymlinksBroken(t *testing.T) {
 	wtDir := t.TempDir()
 	link := filepath.Join(wtDir, "node_modules")

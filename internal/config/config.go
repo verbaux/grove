@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -82,6 +84,19 @@ type Config struct {
 	Editor              string       `json:"editor,omitempty"`
 }
 
+type setupFingerprint struct {
+	WorktreeDir         string   `json:"worktreeDir"`
+	Prefix              string   `json:"prefix"`
+	Symlink             []string `json:"symlink"`
+	CopyDirs            []string `json:"copyDirs"`
+	AfterCreate         []string `json:"afterCreate"`
+	AfterDetachedCreate []string `json:"afterDetachedCreate"`
+	BeforeRemove        []string `json:"beforeRemove"`
+	AfterRemove         []string `json:"afterRemove"`
+	PortMin             int      `json:"portMin"`
+	PortMax             int      `json:"portMax"`
+}
+
 // DefaultPortMin, DefaultPortMax — fallback range when cfg.PortRange is nil.
 const (
 	DefaultPortMin = 3001
@@ -94,6 +109,39 @@ func (c Config) ResolvedPortRange() (int, int) {
 		return c.PortRange.Min, c.PortRange.Max
 	}
 	return DefaultPortMin, DefaultPortMax
+}
+
+// SetupHash returns a stable hash of the config fields that affect worktree
+// setup. Non-setup metadata like $schema and editor is intentionally ignored.
+func SetupHash(c Config) (string, error) {
+	minPort, maxPort := c.ResolvedPortRange()
+	fp := setupFingerprint{
+		WorktreeDir:         c.WorktreeDir,
+		Prefix:              c.Prefix,
+		Symlink:             copyStringSlice(c.Symlink),
+		CopyDirs:            copyStringSlice(c.CopyDirs),
+		AfterCreate:         copyStringSlice([]string(c.AfterCreate)),
+		AfterDetachedCreate: copyStringSlice([]string(c.AfterDetachedCreate)),
+		BeforeRemove:        copyStringSlice([]string(c.BeforeRemove)),
+		AfterRemove:         copyStringSlice([]string(c.AfterRemove)),
+		PortMin:             minPort,
+		PortMax:             maxPort,
+	}
+	data, err := json.Marshal(fp)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
+}
+
+func copyStringSlice(in []string) []string {
+	if len(in) == 0 {
+		return []string{}
+	}
+	out := make([]string, len(in))
+	copy(out, in)
+	return out
 }
 
 // Default returns a config with sensible defaults.

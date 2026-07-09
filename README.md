@@ -154,6 +154,63 @@ payments   feature/payments    /home/dev/myapp-payments      3214   protected, �
 
 ---
 
+### `grove status`
+
+Shows a read-only daily overview of managed worktrees. Use it when you want a broader picture than `grove list` without running the full diagnostic checklist from `grove doctor`.
+
+Checks:
+- dirty worktree summary
+- stale paths in `.grove/state.json`
+- config drift against the current `.groverc.json` setup
+- symlink health
+- port assignment collisions
+- orphan worktree count
+- branch freshness against the local default branch
+
+```sh
+grove status
+
+# Machine-readable summary and rows
+grove status --json
+```
+
+```
+Base: main
+Managed: 2  Dirty: 1  Stale: 0  Config drift: 1  Symlink issues: 1  Port collisions: 0  Orphans: 0
+
+ALIAS     BRANCH          WORKTREE       CONFIG  SYMLINKS    PORT  FRESHNESS
+auth      feature/auth    1 modified     ok      ok          3487  ahead 2
+payments  feature/pay     clean          drift   1 missing   3214  behind 3, no unique commits
+```
+
+---
+
+### `grove sync <name>`
+
+Bring an existing managed worktree up to the current `.groverc.json` setup. This is useful after adding new `symlink`, `copyDirs`, or `afterCreate` entries to the config.
+
+By default, sync is conservative:
+- copies only missing `.env*` files, leaving existing worktree env files untouched
+- creates missing configured symlinks
+- copies configured `copyDirs` only when the destination is absent
+- updates the worktree's stored config hash
+- skips hooks unless explicitly requested
+
+```sh
+grove sync auth
+grove sync 2
+
+# Run afterCreate hooks after syncing files
+grove sync auth --hooks
+
+# Machine-readable result
+grove sync auth --json
+```
+
+`grove sync` only works on Grove-managed worktrees. Adopt orphan worktrees first with `grove adopt`.
+
+---
+
 ### `grove cd <name>`
 
 Prints the path to a worktree so you can `cd` into it. Supports tab completion for aliases.
@@ -377,6 +434,7 @@ Checks:
 - `.groverc.json` is valid and `portRange` is sane
 - every worktree path in `.grove/state.json` exists on disk
 - no orphan worktrees (git knows about them, grove doesn't)
+- tracked worktrees were created with the current `.groverc.json` setup
 - configured symlinks in each worktree point to real targets
 - no port collisions in state
 - configured `symlink` and `copyDirs` paths still exist in the main repo (warn on stale entries)
@@ -395,11 +453,12 @@ grove doctor --json
   ✓ .groverc.json valid
   ✓ 3 tracked worktree(s), all paths exist
   ⚠ orphan worktree: /home/dev/myapp-legacy (branch feature/legacy) — run 'grove adopt'
+  ✓ no config drift
   ✓ 6 symlink(s) checked, all healthy
   ✓ no port collisions
   ✓ gh CLI available
 
-Summary: 6 ok, 1 warn, 0 error
+Summary: 7 ok, 1 warn, 0 error
 ```
 
 ---
@@ -559,7 +618,7 @@ Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`
 
 ### `.grove/state.json` — don't commit this
 
-Local state that maps aliases to paths. Add `.grove/` to your `.gitignore`.
+Local state that maps aliases to paths, ports, protection flags, and the `.groverc.json` setup hash used when each worktree was created. Add `.grove/` to your `.gitignore`.
 
 ```
 echo '.grove/' >> .gitignore
@@ -570,7 +629,7 @@ echo '.grove/' >> .gitignore
 Grove ships with a built-in detector that recognizes common project conventions (husky hooks, package managers, direnv, mise, Python/Cargo/Gradle ecosystems, Next.js, Turbo, …) and proposes matching `.groverc.json` entries.
 
 - **`grove init`** offers detected suggestions as y/n prompts during the wizard.
-- **`grove doctor`** warns when a detected suggestion is missing from the config, or when an existing `symlink` / `copyDirs` entry points to a path that no longer exists in the main repo.
+- **`grove doctor`** warns when a detected suggestion is missing from the config, when an existing `symlink` / `copyDirs` entry points to a path that no longer exists in the main repo, or when a tracked worktree was created with an older or unknown config setup.
 - **`grove analyze`** is the dedicated command for inspecting and applying detector output (see above).
 
 The detector is conservative: symlink suggestions only fire when the target actually exists in the main repo, so applying a suggestion will not produce broken symlinks in fresh worktrees.

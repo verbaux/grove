@@ -17,7 +17,7 @@ func TestFindEnvFiles(t *testing.T) {
 	touch(t, dir, "README.md")
 	touch(t, dir, "packages/api/.env")
 	touch(t, dir, "node_modules/some-pkg/.env") // should be skipped
-	touch(t, dir, ".git/config")                 // should be skipped
+	touch(t, dir, ".git/config")                // should be skipped
 
 	found, err := FindEnvFiles(dir)
 	if err != nil {
@@ -25,10 +25,10 @@ func TestFindEnvFiles(t *testing.T) {
 	}
 
 	want := map[string]bool{
-		".env":                    true,
-		".env.local":              true,
-		".env.development":        true,
-		"packages/api/.env":       true,
+		".env":              true,
+		".env.local":        true,
+		".env.development":  true,
+		"packages/api/.env": true,
 	}
 
 	if len(found) != len(want) {
@@ -68,6 +68,35 @@ func TestCopyEnvFiles(t *testing.T) {
 	}
 	if string(data) != "PORT=3000\n" {
 		t.Errorf(".env content = %q, want %q", string(data), "PORT=3000\n")
+	}
+}
+
+func TestCopyMissingEnvFilesDoesNotOverwrite(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(src, ".env"), []byte("source\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	touch(t, src, "packages/api/.env")
+	if err := os.WriteFile(filepath.Join(dst, ".env"), []byte("local\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	copied, err := CopyMissingEnvFiles(src, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(copied) != 1 || filepath.ToSlash(copied[0]) != "packages/api/.env" {
+		t.Fatalf("copied = %v, want only packages/api/.env", copied)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dst, ".env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "local\n" {
+		t.Fatalf(".env was overwritten: %q", string(data))
 	}
 }
 

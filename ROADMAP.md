@@ -4,7 +4,7 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section is currently empty.
+Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes config drift detection, `grove status`, and `grove sync`.
 
 ## Recently shipped
 
@@ -20,12 +20,12 @@ Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section is curren
 - **Lifecycle hooks: `beforeRemove` / `afterRemove`.** Remove-time hooks now run for managed worktrees removed by `grove remove`, `grove clean`, and `grove prune`.
 - **`grove protect` / protected worktrees.** Protected worktrees are skipped by `grove clean` and `grove prune`, and refused by `grove remove` unless `--include-protected` is passed.
 - **Detector expansion.** Added conservative suggestions for Docker Compose, Vite, Remix, SvelteKit, Go modules, Ruby/Bundler, PHP/Composer, and explicit `Makefile` `setup` targets.
+- **Config drift detection.** `grove create` records the setup hash for `.groverc.json`; `grove doctor` warns when tracked worktrees were created with an older or unknown config setup.
+- **`grove status`.** Read-only daily status view covering dirty worktrees, stale paths, config drift, symlink issues, port collisions, orphans, and branch freshness.
+- **`grove sync`.** Updates an existing managed worktree for the current `.groverc.json` setup: missing env files, symlinks, new `copyDirs`, optional `afterCreate` hooks, and refreshed config hash.
 
 ## Next
 
-- **Config drift detection.** Store the config version or hash used at worktree creation so Grove can report worktrees created before newer symlinks, copy dirs, or hooks were added.
-- **`grove status`.** Add a daily status view broader than `grove list`: dirty summary, stale state, broken symlinks, config drift, port status, and branch freshness hints.
-- **`grove sync`.** Bring an existing worktree up to the current `.groverc.json`: apply missing symlinks, refresh copied env files where safe, copy new `copyDirs`, and optionally run newly added hooks.
 - **`grove rename`.** Rename a tracked worktree alias: updates `state.json` and, where needed, calls `git worktree move` to relocate the directory. Needed once aliased worktrees accumulate over time.
 - **`grove ps`.** Read-only live view: query `netstat`/`lsof` against the ports tracked in `state.json` and print which dev servers are actually running. Does not change port assignments — that's "Smarter ports" (0.3+).
 

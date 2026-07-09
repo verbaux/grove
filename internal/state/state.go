@@ -13,11 +13,12 @@ const fileName = "state.json"
 
 // WorktreeEntry holds info about one grove-managed worktree.
 type WorktreeEntry struct {
-	Branch    string    `json:"branch"`
-	Path      string    `json:"path"`
-	Port      int       `json:"port,omitempty"`
-	Protected bool      `json:"protected,omitempty"`
-	Created   time.Time `json:"created"`
+	Branch     string    `json:"branch"`
+	Path       string    `json:"path"`
+	Port       int       `json:"port,omitempty"`
+	Protected  bool      `json:"protected,omitempty"`
+	ConfigHash string    `json:"configHash,omitempty"`
+	Created    time.Time `json:"created"`
 }
 
 // State is the top-level structure of .grove/state.json.
@@ -95,15 +96,22 @@ func Save(dir string, s State) error {
 
 // Add registers a new worktree alias. Returns an error if the alias is taken.
 func (s *State) Add(alias, branch, path string, port int) error {
+	return s.AddWithConfigHash(alias, branch, path, port, "")
+}
+
+// AddWithConfigHash registers a new worktree alias with the config hash used
+// during setup. Returns an error if the alias is taken.
+func (s *State) AddWithConfigHash(alias, branch, path string, port int, configHash string) error {
 	if _, exists := s.Worktrees[alias]; exists {
 		return errors.New("alias \"" + alias + "\" already exists")
 	}
 
 	s.Worktrees[alias] = WorktreeEntry{
-		Branch:  branch,
-		Path:    path,
-		Port:    port,
-		Created: time.Now(),
+		Branch:     branch,
+		Path:       path,
+		Port:       port,
+		ConfigHash: configHash,
+		Created:    time.Now(),
 	}
 	return nil
 }

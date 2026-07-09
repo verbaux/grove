@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- Config drift detection: `grove create` now records the setup hash for `.groverc.json`, and `grove doctor` warns when tracked worktrees were created with an older or unknown config setup
+- `grove status` for a read-only daily overview of managed worktrees: dirty state, stale paths, config drift, symlink issues, port collisions, orphan count, and branch freshness
+- `grove sync` to bring an existing managed worktree up to the current `.groverc.json` setup by applying missing env files, symlinks, copy dirs, and optionally `afterCreate` hooks
+
 ## [0.8.0] — 2026-07-09
 
 ### Added

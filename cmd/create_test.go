@@ -62,6 +62,42 @@ func TestCreateJSON(t *testing.T) {
 	}
 }
 
+func TestCreateStoresConfigHash(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{},
+		AfterCreate: nil,
+	})
+
+	createName = ""
+	createFrom = ""
+	createDetach = false
+	createJSON = false
+
+	if err := runCreate(createCmd, []string{"feature/config-hash"}); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := s.Get("config-hash")
+	if !ok {
+		t.Fatal("expected config-hash alias in state")
+	}
+	if entry.ConfigHash == "" {
+		t.Fatal("expected config hash to be stored in state")
+	}
+
+	remove := exec.Command("git", "worktree", "remove", "--force", filepath.Join(filepath.Dir(dir), "testproject-config-hash"))
+	remove.Dir = dir
+	if out, err := remove.CombinedOutput(); err != nil {
+		t.Fatalf("cleanup failed: %s", out)
+	}
+}
+
 // setupIntegrationRepo creates a real git repo with a .groverc.json and
 // changes cwd into it. Returns the repo directory and a cleanup function.
 func setupIntegrationRepo(t *testing.T, cfg config.Config) string {

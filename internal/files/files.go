@@ -87,6 +87,33 @@ func CopyEnvFiles(srcDir, dstDir string) ([]string, error) {
 	return copied, nil
 }
 
+// CopyMissingEnvFiles copies .env* files that do not already exist in dstDir.
+// Existing destination files are left untouched.
+func CopyMissingEnvFiles(srcDir, dstDir string) ([]string, error) {
+	files, err := FindEnvFiles(srcDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var copied []string
+	for _, rel := range files {
+		dst := filepath.Join(dstDir, rel)
+		if _, err := os.Stat(dst); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return copied, err
+		}
+
+		src := filepath.Join(srcDir, rel)
+		if err := copyFile(src, dst); err != nil {
+			return copied, err
+		}
+		copied = append(copied, rel)
+	}
+
+	return copied, nil
+}
+
 // Symlink creates a symlink at dstDir/name pointing to srcDir/name.
 // Returns (true, nil) if the symlink was created.
 // Returns (false, nil) if src doesn't exist — caller can decide whether to warn.

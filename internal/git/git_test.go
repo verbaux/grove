@@ -114,6 +114,28 @@ func TestStatusClean(t *testing.T) {
 	}
 }
 
+func TestAheadBehind(t *testing.T) {
+	dir := setupTestRepo(t)
+	base := "main"
+	if _, err := run("rev-parse", "--verify", "refs/heads/main"); err != nil {
+		base = "master"
+	}
+	gitIn(t, dir, "checkout", "-b", "feature/ahead")
+	if err := os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, dir, "add", "feature.txt")
+	gitIn(t, dir, "commit", "-m", "feature")
+
+	ahead, behind, err := AheadBehind("feature/ahead", base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ahead != 1 || behind != 0 {
+		t.Fatalf("AheadBehind = ahead %d behind %d, want ahead 1 behind 0", ahead, behind)
+	}
+}
+
 // gitIn runs a git command with its working directory set to dir.
 // Fails the test immediately if the command errors — use this for test setup, not assertions.
 func gitIn(t *testing.T, dir string, args ...string) {

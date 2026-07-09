@@ -102,3 +102,26 @@ func TestSetProtectedPersists(t *testing.T) {
 		t.Fatal("expected auth to be protected")
 	}
 }
+
+func TestAddWithConfigHashPersists(t *testing.T) {
+	dir := t.TempDir()
+	s := State{Worktrees: map[string]WorktreeEntry{}}
+	if err := s.AddWithConfigHash("auth", "feature/auth", "/tmp/project-auth", 3001, "sha256:abc123"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(dir, s); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := loaded.Get("auth")
+	if !ok {
+		t.Fatal("expected auth entry")
+	}
+	if entry.ConfigHash != "sha256:abc123" {
+		t.Fatalf("ConfigHash = %q, want sha256:abc123", entry.ConfigHash)
+	}
+}

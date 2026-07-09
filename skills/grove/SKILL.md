@@ -82,6 +82,26 @@ grove list --json     # parse programmatically
 grove list --plain    # aliases only
 ```
 
+### Status
+
+```sh
+grove status          # daily read-only overview: dirty, drift, stale paths, symlinks, ports, orphans, freshness
+grove status --json   # machine-readable summary and rows
+```
+
+Use `grove status` for a quick project overview. Use `grove doctor` when you need a diagnostic checklist with error-level validation.
+
+### Sync
+
+```sh
+grove sync my-branch          # apply current config setup to an existing managed worktree
+grove sync 2                  # by list index
+grove sync my-branch --hooks  # also run afterCreate hooks
+grove sync my-branch --json   # machine-readable result
+```
+
+Sync is conservative: it copies only missing `.env*` files, creates missing configured symlinks, copies `copyDirs` only when the destination is absent, and updates the stored config hash. It refuses unmanaged/orphan worktrees; run `grove adopt` first.
+
 ### Adopt orphan
 
 Worktree created via `git worktree add` directly shows as `?` in `grove list`.
@@ -103,11 +123,11 @@ grove detach --copy   # copy all symlink targets before removing
 ### Doctor
 
 ```sh
-grove doctor          # validates config, worktree paths, orphans, symlinks, port collisions, gh CLI
+grove doctor          # validates config, config drift, worktree paths, orphans, symlinks, port collisions, gh CLI
 grove doctor --json   # machine-readable diagnostics
 ```
 
-Exits non-zero on errors. Run before manual git-worktree surgery. Also warns on stale `symlink` / `copyDirs` entries (target missing in main repo) and on detected project conventions that the config does not yet cover (husky, package managers, direnv, mise, Python, Cargo, Gradle, Next.js, Turbo).
+Exits non-zero on errors. Run before manual git-worktree surgery. Also warns on config drift (tracked worktrees created with an older or unknown `.groverc.json` setup), stale `symlink` / `copyDirs` entries (target missing in main repo), and detected project conventions that the config does not yet cover (husky, package managers, direnv, mise, Python, Cargo, Gradle, Next.js, Turbo).
 
 Use JSON output when another tool needs to parse diagnostics.
 

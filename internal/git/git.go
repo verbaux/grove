@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -191,6 +192,30 @@ func DefaultBranch() string {
 		return worktrees[0].Branch
 	}
 	return ""
+}
+
+// AheadBehind returns how many commits branch is ahead of and behind base.
+func AheadBehind(branch, base string) (int, int, error) {
+	if branch == "" || base == "" || strings.HasPrefix(branch, "(") {
+		return 0, 0, nil
+	}
+	out, err := run("rev-list", "--left-right", "--count", base+"..."+branch)
+	if err != nil {
+		return 0, 0, err
+	}
+	parts := strings.Fields(out)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("unexpected rev-list output: %q", out)
+	}
+	behind, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("parse behind count: %w", err)
+	}
+	ahead, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("parse ahead count: %w", err)
+	}
+	return ahead, behind, nil
 }
 
 // IsMerged reports whether branch has already been merged into base.

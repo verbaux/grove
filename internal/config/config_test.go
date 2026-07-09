@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -223,6 +224,45 @@ func TestHookCommandsMarshalEmpty(t *testing.T) {
 	}
 	if string(data) != `""` {
 		t.Errorf("got %s, want empty string", data)
+	}
+}
+
+func TestSetupHashStableAcrossNonSetupFields(t *testing.T) {
+	base := Config{
+		Schema:      "https://example.com/schema.json",
+		WorktreeDir: "../",
+		Prefix:      "project",
+		Symlink:     []string{"node_modules"},
+		AfterCreate: HookCommands{"npm install"},
+		Editor:      "code",
+	}
+	changedNonSetup := base
+	changedNonSetup.Schema = "https://example.com/other-schema.json"
+	changedNonSetup.Editor = "vim"
+
+	baseHash, err := SetupHash(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonSetupHash, err := SetupHash(changedNonSetup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if baseHash != nonSetupHash {
+		t.Fatalf("non-setup fields changed setup hash: %q != %q", baseHash, nonSetupHash)
+	}
+
+	changedSetup := base
+	changedSetup.Symlink = append(changedSetup.Symlink, ".husky/_")
+	setupHash, err := SetupHash(changedSetup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if setupHash == baseHash {
+		t.Fatal("setup field change did not change setup hash")
+	}
+	if !strings.HasPrefix(baseHash, "sha256:") {
+		t.Fatalf("hash should include algorithm prefix, got %q", baseHash)
 	}
 }
 

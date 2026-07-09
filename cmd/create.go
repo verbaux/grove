@@ -270,7 +270,12 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		fmt.Println("  ✓ afterCreate done")
 	}
 
-	if err := s.Add(alias, branch, worktreePath, port); err != nil {
+	configHash, err := config.SetupHash(cfg)
+	if err != nil {
+		setupErr = fmt.Errorf("config hash: %w", err)
+		return result, setupErr
+	}
+	if err := s.AddWithConfigHash(alias, branch, worktreePath, port, configHash); err != nil {
 		setupErr = err
 		return result, setupErr
 	}
