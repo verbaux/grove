@@ -47,12 +47,20 @@ var rules = []rule{
 	detectNodeModules,
 	detectPackageManager,
 	detectNext,
+	detectDockerCompose,
+	detectVite,
+	detectRemix,
+	detectSvelteKit,
 	detectTurbo,
 	detectDirenv,
 	detectMise,
 	detectPython,
+	detectGoModules,
 	detectCargo,
 	detectGradle,
+	detectBundler,
+	detectComposer,
+	detectMakeSetup,
 }
 
 // Analyze walks the configured rule set and returns every suggestion that fires.
@@ -229,6 +237,65 @@ func detectTurbo(root string) []Suggestion {
 	}}
 }
 
+func detectDockerCompose(root string) []Suggestion {
+	for _, name := range []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"} {
+		if fileExists(filepath.Join(root, name)) {
+			return []Suggestion{{
+				Kind:   KindAfterCreate,
+				Value:  "docker compose pull",
+				Reason: name + " detected; pull declared images for the worktree without starting containers",
+			}}
+		}
+	}
+	return nil
+}
+
+func detectVite(root string) []Suggestion {
+	if !anyFileExists(root, "vite.config.js", "vite.config.mjs", "vite.config.ts", "vite.config.cjs", "vite.config.mts", "vite.config.cts") {
+		return nil
+	}
+	return nodeFrameworkInstallFallback(root, "Vite config detected")
+}
+
+func detectRemix(root string) []Suggestion {
+	if !anyFileExists(root, "remix.config.js", "remix.config.mjs", "remix.config.ts", "remix.config.cjs") {
+		return nil
+	}
+	return nodeFrameworkInstallFallback(root, "Remix config detected")
+}
+
+func detectSvelteKit(root string) []Suggestion {
+	if !anyFileExists(root, "svelte.config.js", "svelte.config.mjs", "svelte.config.ts") {
+		return nil
+	}
+	out := nodeFrameworkInstallFallback(root, "SvelteKit config detected")
+	out = append(out, Suggestion{
+		Kind:   KindCopyDir,
+		Value:  ".svelte-kit",
+		Reason: "SvelteKit config detected; copy .svelte-kit cache for faster first build in worktree",
+	})
+	return out
+}
+
+func nodeFrameworkInstallFallback(root, reason string) []Suggestion {
+	if !fileExists(filepath.Join(root, "package.json")) || hasPackageManagerSignal(root) {
+		return nil
+	}
+	return []Suggestion{{
+		Kind:          KindAfterCreate,
+		Value:         "npm install",
+		Reason:        reason + " with package.json but no packageManager field or lockfile; install Node dependencies after worktree create",
+		LinkedSymlink: "node_modules",
+	}}
+}
+
+func hasPackageManagerSignal(root string) bool {
+	if _, ok := readPackageManagerField(filepath.Join(root, "package.json")); ok {
+		return true
+	}
+	return anyFileExists(root, "pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock", "package-lock.json")
+}
+
 func detectDirenv(root string) []Suggestion {
 	if !fileExists(filepath.Join(root, ".envrc")) {
 		return nil
@@ -263,6 +330,17 @@ func detectPython(root string) []Suggestion {
 	return nil
 }
 
+func detectGoModules(root string) []Suggestion {
+	if !fileExists(filepath.Join(root, "go.mod")) {
+		return nil
+	}
+	return []Suggestion{{
+		Kind:   KindAfterCreate,
+		Value:  "go mod download",
+		Reason: "go.mod detected; predownload Go modules into the module cache",
+	}}
+}
+
 func detectCargo(root string) []Suggestion {
 	if !fileExists(filepath.Join(root, "Cargo.toml")) {
 		return nil
@@ -294,6 +372,41 @@ func detectGradle(root string) []Suggestion {
 	}}
 }
 
+func detectBundler(root string) []Suggestion {
+	if !anyFileExists(root, "Gemfile.lock", "Gemfile") {
+		return nil
+	}
+	return []Suggestion{{
+		Kind:          KindAfterCreate,
+		Value:         "bundle install",
+		Reason:        "Gemfile detected; install Ruby gems after worktree create",
+		LinkedSymlink: "vendor/bundle",
+	}}
+}
+
+func detectComposer(root string) []Suggestion {
+	if !anyFileExists(root, "composer.lock", "composer.json") {
+		return nil
+	}
+	return []Suggestion{{
+		Kind:          KindAfterCreate,
+		Value:         "composer install",
+		Reason:        "composer.json detected; install PHP dependencies after worktree create",
+		LinkedSymlink: "vendor",
+	}}
+}
+
+func detectMakeSetup(root string) []Suggestion {
+	if !makefileHasTarget(root, "setup") {
+		return nil
+	}
+	return []Suggestion{{
+		Kind:   KindAfterCreate,
+		Value:  "make setup",
+		Reason: "Makefile has an explicit setup target; run it after worktree create",
+	}}
+}
+
 func detectMise(root string) []Suggestion {
 	for _, name := range []string{".mise.toml", "mise.toml", ".tool-versions"} {
 		if fileExists(filepath.Join(root, name)) {
@@ -310,6 +423,15 @@ func detectMise(root string) []Suggestion {
 func fileExists(p string) bool {
 	info, err := os.Stat(p)
 	return err == nil && !info.IsDir()
+}
+
+func anyFileExists(root string, names ...string) bool {
+	for _, name := range names {
+		if fileExists(filepath.Join(root, name)) {
+			return true
+		}
+	}
+	return false
 }
 
 func dirExists(p string) bool {
@@ -358,6 +480,38 @@ func huskyHooksReferenceUnderscore(root string) bool {
 			continue
 		}
 		if strings.Contains(string(data), "husky.sh") {
+			return true
+		}
+	}
+	return false
+}
+
+func makefileHasTarget(root, target string) bool {
+	var path string
+	for _, name := range []string{"Makefile", "makefile", "GNUmakefile"} {
+		p := filepath.Join(root, name)
+		if fileExists(p) {
+			path = p
+			break
+		}
+	}
+	if path == "" {
+		return false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	prefix := target + ":"
+	scan := bufio.NewScanner(f)
+	for scan.Scan() {
+		line := strings.TrimSpace(scan.Text())
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ".") {
+			continue
+		}
+		if strings.HasPrefix(line, prefix) {
 			return true
 		}
 	}

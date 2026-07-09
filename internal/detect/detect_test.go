@@ -200,6 +200,117 @@ func TestDetectTurbo(t *testing.T) {
 	}
 }
 
+func TestDetectDockerCompose(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "compose.yaml", "services: {}\n")
+
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "docker compose pull") {
+		t.Errorf("expected docker compose pull, got %+v", sugs)
+	}
+}
+
+func TestDetectViteFallbackInstall(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "package.json", "{}")
+	writeFile(t, dir, "vite.config.ts", "export default {}\n")
+
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "npm install") {
+		t.Errorf("expected npm install fallback for Vite project, got %+v", sugs)
+	}
+}
+
+func TestDetectViteSkipsFallbackWhenLockfilePresent(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "package.json", "{}")
+	writeFile(t, dir, "vite.config.ts", "export default {}\n")
+	writeFile(t, dir, "pnpm-lock.yaml", "")
+
+	sugs := Analyze(dir)
+	if hasSuggestion(sugs, KindAfterCreate, "npm install") {
+		t.Errorf("did not expect npm install fallback when package manager detection applies, got %+v", sugs)
+	}
+	if !hasSuggestion(sugs, KindAfterCreate, "pnpm install") {
+		t.Errorf("expected pnpm install from lockfile, got %+v", sugs)
+	}
+}
+
+func TestDetectRemixFallbackInstall(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "package.json", "{}")
+	writeFile(t, dir, "remix.config.js", "module.exports = {}\n")
+
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "npm install") {
+		t.Errorf("expected npm install fallback for Remix project, got %+v", sugs)
+	}
+}
+
+func TestDetectSvelteKit(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "package.json", "{}")
+	writeFile(t, dir, "svelte.config.js", "export default {}\n")
+
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "npm install") {
+		t.Errorf("expected npm install fallback for SvelteKit project, got %+v", sugs)
+	}
+	if !hasSuggestion(sugs, KindCopyDir, ".svelte-kit") {
+		t.Errorf("expected .svelte-kit copyDir, got %+v", sugs)
+	}
+}
+
+func TestDetectGoModules(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "go.mod", "module example.com/app\n")
+
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "go mod download") {
+		t.Errorf("expected go mod download, got %+v", sugs)
+	}
+}
+
+func TestDetectBundler(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "Gemfile.lock", "")
+
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "bundle install") {
+		t.Errorf("expected bundle install, got %+v", sugs)
+	}
+}
+
+func TestDetectComposer(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "composer.lock", "")
+
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "composer install") {
+		t.Errorf("expected composer install, got %+v", sugs)
+	}
+}
+
+func TestDetectMakeSetupTarget(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "Makefile", "setup:\n\t./script/setup\n")
+
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "make setup") {
+		t.Errorf("expected make setup, got %+v", sugs)
+	}
+}
+
+func TestDetectMakefileSkipsWithoutSetupTarget(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "Makefile", "test:\n\tgo test ./...\n")
+
+	sugs := Analyze(dir)
+	if hasSuggestion(sugs, KindAfterCreate, "make setup") {
+		t.Errorf("did not expect make setup without explicit setup target, got %+v", sugs)
+	}
+}
+
 func TestDetectDirenv(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, ".envrc", "export FOO=bar\n")

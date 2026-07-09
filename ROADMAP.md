@@ -19,10 +19,10 @@ Latest published tag: `v0.7.2`. See `CHANGELOG` `[Unreleased]` for changes since
 - **Machine-readable output.** Added stable JSON to `grove doctor --json`, `grove create --json`, and `grove prune --dry-run --json`.
 - **Lifecycle hooks: `beforeRemove` / `afterRemove`.** Remove-time hooks now run for managed worktrees removed by `grove remove`, `grove clean`, and `grove prune`.
 - **`grove protect` / protected worktrees.** Protected worktrees are skipped by `grove clean` and `grove prune`, and refused by `grove remove` unless `--include-protected` is passed.
+- **Detector expansion.** Added conservative suggestions for Docker Compose, Vite, Remix, SvelteKit, Go modules, Ruby/Bundler, PHP/Composer, and explicit `Makefile` `setup` targets.
 
 ## Next
 
-- **Detector expansion.** Extend the existing detector with Docker / `docker-compose`, Vite, Remix, SvelteKit, Go modules, Ruby/Bundler, PHP/Composer, and `Makefile`.
 - **Config drift detection.** Store the config version or hash used at worktree creation so Grove can report worktrees created before newer symlinks, copy dirs, or hooks were added.
 - **`grove status`.** Add a daily status view broader than `grove list`: dirty summary, stale state, broken symlinks, config drift, port status, and branch freshness hints.
 - **`grove sync`.** Bring an existing worktree up to the current `.groverc.json`: apply missing symlinks, refresh copied env files where safe, copy new `copyDirs`, and optionally run newly added hooks.

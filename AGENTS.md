@@ -21,6 +21,7 @@
 - `beforeRemove` and `afterRemove` accept the same string-or-array hook format for managed worktrees. `beforeRemove` runs in the worktree and can block deletion; `afterRemove` runs from the project root after deletion and state update. Orphan cleanup and stale state cleanup do not run remove hooks.
 - Protected worktrees are persisted in state. `grove clean` and `grove prune` skip them, and `grove remove` refuses them unless `--include-protected` is explicitly passed.
 - `--detach` skips configured symlinks and runs `afterDetachedCreate` before `afterCreate`; normal `.env*` copying and `copyDirs` still apply.
+- The detector is conservative: Docker Compose only pulls images; Vite/Remix/SvelteKit get an `npm install` fallback only when no package-manager signal exists; Makefile suggestions require an explicit `setup:` target.
 - `.env*` copying is recursive but intentionally skips `node_modules`, `.git`, `dist`, `.next`, and `build`.
 - Ports are deterministic from alias within the configured range, collision-resolved against existing state, and persisted in `.grove/state.json`.
 

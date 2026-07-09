@@ -437,12 +437,19 @@ Detected today:
 | `package.json` `packageManager` field | `afterCreate: <pnpm\|yarn\|bun\|npm> install` |
 | `pnpm-lock.yaml` / `yarn.lock` / `bun.lockb` / `package-lock.json` | matching `<pm> install` afterCreate |
 | `next.config.*` | copyDir `.next/cache` |
+| `compose.yaml` / `docker-compose.yml` | `afterCreate: docker compose pull` |
+| `vite.config.*` / `remix.config.*` / `svelte.config.*` without a lockfile | `afterCreate: npm install` fallback |
+| `svelte.config.*` | copyDir `.svelte-kit` |
 | `turbo.json` | copyDir `.turbo` |
 | `.envrc` | `afterCreate: direnv allow` |
 | `.mise.toml` / `.tool-versions` | `afterCreate: mise install` |
 | `uv.lock` / `poetry.lock` / `Pipfile.lock` / `requirements.txt` | matching Python install command |
+| `go.mod` | `afterCreate: go mod download` |
 | `Cargo.toml` | `afterCreate: cargo fetch` |
 | `build.gradle*` + `gradlew` | `afterCreate: ./gradlew --no-daemon dependencies` |
+| `Gemfile` / `Gemfile.lock` | `afterCreate: bundle install` |
+| `composer.json` / `composer.lock` | `afterCreate: composer install` |
+| `Makefile` with `setup:` target | `afterCreate: make setup` |
 
 Suggestions already covered by your config are filtered out automatically. `grove init` runs the same detector and offers each suggestion as a y/n prompt during the wizard.
 
