@@ -4,10 +4,12 @@ package processes
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -72,7 +74,9 @@ func findListeners(lookPath lookPathFunc, run runFunc) (Snapshot, error) {
 }
 
 func runTool(path string, args ...string) ([]byte, error) {
-	output, err := exec.Command(path, args...).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, path, args...).CombinedOutput()
 	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 && len(bytes.TrimSpace(output)) == 0 {
 		return output, nil
 	}
