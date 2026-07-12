@@ -126,6 +126,25 @@ func (s *State) Remove(alias string) error {
 	return nil
 }
 
+// Rename changes a worktree alias and path while preserving all other metadata.
+// Returns an error if the source alias is missing or the destination is taken.
+func (s *State) Rename(oldAlias, newAlias, newPath string) error {
+	entry, exists := s.Worktrees[oldAlias]
+	if !exists {
+		return errors.New("alias \"" + oldAlias + "\" not found")
+	}
+	if oldAlias != newAlias {
+		if _, exists := s.Worktrees[newAlias]; exists {
+			return errors.New("alias \"" + newAlias + "\" already exists")
+		}
+	}
+
+	entry.Path = newPath
+	delete(s.Worktrees, oldAlias)
+	s.Worktrees[newAlias] = entry
+	return nil
+}
+
 func (s *State) SetProtected(alias string, protected bool) error {
 	entry, exists := s.Worktrees[alias]
 	if !exists {

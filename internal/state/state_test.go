@@ -1,7 +1,9 @@
 package state
 
 import (
+	"reflect"
 	"testing"
+	"time"
 )
 
 func TestSaveAndLoad(t *testing.T) {
@@ -123,5 +125,54 @@ func TestAddWithConfigHashPersists(t *testing.T) {
 	}
 	if entry.ConfigHash != "sha256:abc123" {
 		t.Fatalf("ConfigHash = %q, want sha256:abc123", entry.ConfigHash)
+	}
+}
+
+func TestRenamePreservesEntryMetadata(t *testing.T) {
+	created := time.Date(2026, time.July, 13, 12, 0, 0, 0, time.UTC)
+	original := WorktreeEntry{
+		Branch:     "feature/auth",
+		Path:       "/tmp/project-auth",
+		Port:       3487,
+		Protected:  true,
+		ConfigHash: "sha256:abc123",
+		Created:    created,
+	}
+	s := State{Worktrees: map[string]WorktreeEntry{"auth": original}}
+
+	if err := s.Rename("auth", "login", "/tmp/project-login"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.Get("auth"); ok {
+		t.Fatal("old alias should be removed")
+	}
+
+	want := original
+	want.Path = "/tmp/project-login"
+	got, ok := s.Get("login")
+	if !ok {
+		t.Fatal("new alias should exist")
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("renamed entry = %+v, want %+v", got, want)
+	}
+}
+
+func TestRenameRejectsExistingAliasWithoutChangingState(t *testing.T) {
+	auth := WorktreeEntry{Branch: "feature/auth", Path: "/tmp/project-auth"}
+	payments := WorktreeEntry{Branch: "feature/payments", Path: "/tmp/project-payments"}
+	s := State{Worktrees: map[string]WorktreeEntry{
+		"auth":     auth,
+		"payments": payments,
+	}}
+
+	if err := s.Rename("auth", "payments", "/tmp/project-payments"); err == nil {
+		t.Fatal("expected duplicate alias error")
+	}
+	if got, _ := s.Get("auth"); !reflect.DeepEqual(got, auth) {
+		t.Fatalf("source entry changed: %+v", got)
+	}
+	if got, _ := s.Get("payments"); !reflect.DeepEqual(got, payments) {
+		t.Fatalf("destination entry changed: %+v", got)
 	}
 }

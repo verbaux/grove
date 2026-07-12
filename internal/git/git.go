@@ -56,6 +56,12 @@ func RemoveWorktree(path string, force bool) error {
 	return err
 }
 
+// MoveWorktree relocates a linked worktree and updates git's worktree metadata.
+func MoveWorktree(oldPath, newPath string) error {
+	_, err := run("worktree", "move", oldPath, newPath)
+	return err
+}
+
 // PruneWorktrees cleans up stale worktree references.
 func PruneWorktrees() error {
 	_, err := run("worktree", "prune")

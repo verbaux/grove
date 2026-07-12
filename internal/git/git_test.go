@@ -102,6 +102,46 @@ func TestAddAndRemoveWorktree(t *testing.T) {
 	}
 }
 
+func TestMoveWorktree(t *testing.T) {
+	setupTestRepo(t)
+
+	parent := t.TempDir()
+	oldPath := filepath.Join(parent, "old-worktree")
+	newPath := filepath.Join(parent, "new-worktree")
+	if err := AddWorktree(oldPath, "move-branch", ""); err != nil {
+		t.Fatal("AddWorktree failed:", err)
+	}
+	t.Cleanup(func() { _ = RemoveWorktree(newPath, true) })
+
+	if err := MoveWorktree(oldPath, newPath); err != nil {
+		t.Fatal("MoveWorktree failed:", err)
+	}
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		t.Fatalf("old path should not exist after move: %v", err)
+	}
+	if _, err := os.Stat(newPath); err != nil {
+		t.Fatalf("new path should exist after move: %v", err)
+	}
+	resolvedNewPath, err := filepath.EvalSymlinks(newPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	worktrees, err := ListWorktrees()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, wt := range worktrees {
+		if wt.Path == resolvedNewPath && wt.Branch == "move-branch" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("moved worktree not found in git worktree list: %+v", worktrees)
+	}
+}
+
 func TestStatusClean(t *testing.T) {
 	dir := setupTestRepo(t)
 
