@@ -120,17 +120,9 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		return result, fmt.Errorf("alias %q already exists — use --name to choose a different one", alias)
 	}
 
-	wtName := alias
-	if cfg.Prefix != "" {
-		wtName = cfg.Prefix + "-" + alias
-	}
-	worktreePath := filepath.Join(root, cfg.WorktreeDir, wtName)
-	worktreePath, err := filepath.Abs(worktreePath)
+	worktreePath, err := configuredWorktreePath(root, cfg, alias)
 	if err != nil {
 		return result, err
-	}
-	if resolved, err := filepath.EvalSymlinks(filepath.Dir(worktreePath)); err == nil {
-		worktreePath = filepath.Join(resolved, filepath.Base(worktreePath))
 	}
 	result.Path = worktreePath
 
@@ -291,6 +283,22 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	}
 
 	return result, nil
+}
+
+// configuredWorktreePath returns the canonical path Grove derives for an alias.
+func configuredWorktreePath(root string, cfg config.Config, alias string) (string, error) {
+	name := alias
+	if cfg.Prefix != "" {
+		name = cfg.Prefix + "-" + alias
+	}
+	path, err := filepath.Abs(filepath.Join(root, cfg.WorktreeDir, name))
+	if err != nil {
+		return "", err
+	}
+	if resolved, err := filepath.EvalSymlinks(filepath.Dir(path)); err == nil {
+		path = filepath.Join(resolved, filepath.Base(path))
+	}
+	return path, nil
 }
 
 // branchAlias returns the last segment of a branch name.
