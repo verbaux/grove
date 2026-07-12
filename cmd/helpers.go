@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
@@ -20,6 +22,21 @@ func isNumericAlias(alias string) bool {
 
 // validateAlias checks that an alias is valid for use as a worktree name.
 func validateAlias(alias string) error {
+	if alias == "" {
+		return fmt.Errorf("alias cannot be empty")
+	}
+	if strings.TrimSpace(alias) != alias {
+		return fmt.Errorf("alias %q cannot have leading or trailing whitespace", alias)
+	}
+	if alias == "." || alias == ".." {
+		return fmt.Errorf("alias %q is not allowed", alias)
+	}
+	if strings.ContainsAny(alias, `/\`) {
+		return fmt.Errorf("alias %q cannot contain path separators", alias)
+	}
+	if strings.IndexFunc(alias, unicode.IsControl) >= 0 {
+		return fmt.Errorf("alias %q cannot contain control characters", alias)
+	}
 	if isNumericAlias(alias) {
 		return fmt.Errorf("alias %q is not allowed — numeric-only names are reserved for index-based access (grove cd 3)", alias)
 	}

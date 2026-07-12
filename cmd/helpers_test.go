@@ -4,12 +4,42 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
 	"github.com/verbaux/grove/internal/state"
 )
+
+func TestValidateAliasRejectsUnsafeNames(t *testing.T) {
+	tests := []string{
+		"",
+		".",
+		"..",
+		"../escape",
+		"nested/name",
+		`nested\name`,
+		" leading",
+		"trailing ",
+		"line\nbreak",
+	}
+	for _, alias := range tests {
+		t.Run(strings.ReplaceAll(alias, "\n", `\n`), func(t *testing.T) {
+			if err := validateAlias(alias); err == nil {
+				t.Fatalf("validateAlias(%q) succeeded, want error", alias)
+			}
+		})
+	}
+}
+
+func TestValidateAliasAcceptsFileNameSafeNames(t *testing.T) {
+	for _, alias := range []string{"auth", "payment-redesign", "release.v2", "feature_42"} {
+		if err := validateAlias(alias); err != nil {
+			t.Fatalf("validateAlias(%q) = %v", alias, err)
+		}
+	}
+}
 
 func TestCompleteAliases(t *testing.T) {
 	dir := setupIntegrationRepo(t, config.Config{

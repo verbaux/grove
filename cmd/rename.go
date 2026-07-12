@@ -11,10 +11,7 @@ import (
 	"github.com/verbaux/grove/internal/state"
 )
 
-var (
-	renameJSON      bool
-	renameSaveState = state.Save
-)
+var renameJSON bool
 
 func init() {
 	rootCmd.AddCommand(renameCmd)
@@ -44,7 +41,11 @@ type renameResult struct {
 	Moved    bool   `json:"moved"`
 }
 
-func runRename(cmd *cobra.Command, args []string) error {
+func runRename(_ *cobra.Command, args []string) error {
+	return runRenameWithSave(args, state.Save)
+}
+
+func runRenameWithSave(args []string, saveState func(string, state.State) error) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -109,7 +110,7 @@ func runRename(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	if err := renameSaveState(root, s); err != nil {
+	if err := saveState(root, s); err != nil {
 		if !moved {
 			return fmt.Errorf("save state: %w", err)
 		}

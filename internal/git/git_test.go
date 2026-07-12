@@ -111,7 +111,10 @@ func TestMoveWorktree(t *testing.T) {
 	if err := AddWorktree(oldPath, "move-branch", ""); err != nil {
 		t.Fatal("AddWorktree failed:", err)
 	}
-	t.Cleanup(func() { _ = RemoveWorktree(newPath, true) })
+	t.Cleanup(func() {
+		_ = RemoveWorktree(oldPath, true)
+		_ = RemoveWorktree(newPath, true)
+	})
 
 	if err := MoveWorktree(oldPath, newPath); err != nil {
 		t.Fatal("MoveWorktree failed:", err)

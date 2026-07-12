@@ -83,11 +83,9 @@ func TestRenameRollsBackMoveWhenStateSaveFails(t *testing.T) {
 		_ = git.RemoveWorktree(newPath, true)
 	})
 
-	originalSave := renameSaveState
-	renameSaveState = func(string, state.State) error { return errors.New("forced save failure") }
-	t.Cleanup(func() { renameSaveState = originalSave })
-
-	err = runRename(renameCmd, []string{"rollback", "restored"})
+	err = runRenameWithSave([]string{"rollback", "restored"}, func(string, state.State) error {
+		return errors.New("forced save failure")
+	})
 	if err == nil || !strings.Contains(err.Error(), "forced save failure") {
 		t.Fatalf("rename error = %v, want forced save failure", err)
 	}
