@@ -91,6 +91,15 @@ grove status --json   # machine-readable summary and rows
 
 Use `grove status` for a quick project overview. Use `grove doctor` when you need a diagnostic checklist with error-level validation.
 
+### Live processes
+
+```sh
+grove ps          # running/stopped/unassigned status for managed worktree ports
+grove ps --json   # machine-readable source + worktree rows + listeners
+```
+
+`grove ps` is read-only. It scans TCP listeners once with `lsof`, falling back to `netstat`; the fallback may omit PID/process details. It never changes port assignments. At least one of those tools must be on `PATH`.
+
 ### Sync
 
 ```sh

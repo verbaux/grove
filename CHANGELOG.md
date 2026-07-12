@@ -8,6 +8,7 @@
 - `grove status` for a read-only daily overview of managed worktrees: dirty state, stale paths, config drift, symlink issues, port collisions, orphan count, and branch freshness
 - `grove sync` to bring an existing managed worktree up to the current `.groverc.json` setup by applying missing env files, symlinks, copy dirs, and optionally `afterCreate` hooks
 - `grove rename <name-or-number> <new-alias>` to rename managed worktrees while preserving their branch, port, protection, creation time, and config hash; standard Grove paths move with rollback on state-save failure, while custom paths stay in place
+- `grove ps` for a read-only live view of TCP listeners on managed worktree ports, with PID/process details from `lsof`, a portable `netstat` fallback, and stable `--json` output
 
 ## [0.8.0] — 2026-07-09
 

@@ -25,6 +25,7 @@
 - `.env*` copying is recursive but intentionally skips `node_modules`, `.git`, `dist`, `.next`, and `build`.
 - Ports are deterministic from alias within the configured range, collision-resolved against existing state, and persisted in `.grove/state.json`.
 - `grove rename` preserves the assigned port and all state metadata. It moves only worktrees still at the standard path for the old alias; adopted/custom paths stay in place, and a failed state save rolls a directory move back.
+- `grove ps` is read-only: it scans TCP listeners once with `lsof`, falls back to `netstat`, and never changes ports or state. `netstat` results may lack PID/process details.
 
 ## Orphans And PRs
 - An orphan is a git worktree not tracked in Grove state. `grove list` shows it as `?`; `grove adopt`, `grove clean`, `grove doctor`, and `grove remove` all have orphan-specific behavior in `cmd/helpers.go`.

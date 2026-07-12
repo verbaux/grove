@@ -185,6 +185,29 @@ payments  feature/pay     clean          drift   1 missing   3214  behind 3, no 
 
 ---
 
+### `grove ps`
+
+Shows whether managed worktree ports currently have a local TCP listener.
+
+```sh
+grove ps
+grove ps --json
+```
+
+```
+Listener source: lsof
+
+ALIAS     BRANCH          PORT  STATUS   PID    PROCESS
+auth      feature/auth    3487  running  42117  node
+payments  feature/pay     3214  stopped  -      -
+```
+
+Grove scans listeners once with `lsof`, falling back to `netstat`. The fallback can report `running` without PID/process details. Worktrees without an assigned port appear as `unassigned`. The command is read-only and never changes port assignments or state.
+
+At least one of `lsof` or `netstat` must be available on `PATH`.
+
+---
+
 ### `grove sync <name>`
 
 Bring an existing managed worktree up to the current `.groverc.json` setup. This is useful after adding new `symlink`, `copyDirs`, or `afterCreate` entries to the config.

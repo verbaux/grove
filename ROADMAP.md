@@ -4,7 +4,7 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes config drift detection, `grove status`, `grove sync`, and `grove rename`.
+Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes config drift detection, `grove status`, `grove sync`, `grove rename`, and `grove ps`.
 
 ## Recently shipped
 
@@ -24,10 +24,7 @@ Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes 
 - **`grove status`.** Read-only daily status view covering dirty worktrees, stale paths, config drift, symlink issues, port collisions, orphans, and branch freshness.
 - **`grove sync`.** Updates an existing managed worktree for the current `.groverc.json` setup: missing env files, symlinks, new `copyDirs`, optional `afterCreate` hooks, and refreshed config hash.
 - **`grove rename`.** Renames a tracked worktree alias while preserving its port and metadata. Standard Grove paths move with rollback on state-save failure; adopted/custom paths stay in place.
-
-## Next
-
-- **`grove ps`.** Read-only live view: query `netstat`/`lsof` against the ports tracked in `state.json` and print which dev servers are actually running. Does not change port assignments — that's "Smarter ports" (0.3+).
+- **`grove ps`.** Shows which assigned worktree ports have live TCP listeners, including PID/process details from `lsof`, a `netstat` fallback, and stable JSON output. It does not change port assignments.
 
 ## Later
 

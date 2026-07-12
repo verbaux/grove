@@ -16,6 +16,7 @@ Worktree path formula: ` + "`<worktreeDir>/<prefix>-<alias>/`" + `.
 - ` + "`cd $(grove cd <alias>) && <next command>`" + ` — switch to worktree (always combine cd with next command in a single shell call)
 - ` + "`grove list`" + ` — show all worktrees
 - ` + "`grove list --json`" + ` — machine-readable output
+- ` + "`grove ps --json`" + ` — inspect live listeners on assigned worktree ports without changing state
 - ` + "`grove review <pr-number>`" + ` — checkout PR into worktree (requires gh CLI)
 - ` + "`grove rename <alias-or-index> <new-alias>`" + ` — rename a managed worktree; preserves its port
 - ` + "`grove remove <alias>`" + ` — remove worktree
