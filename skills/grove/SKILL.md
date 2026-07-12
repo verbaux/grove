@@ -102,6 +102,16 @@ grove sync my-branch --json   # machine-readable result
 
 Sync is conservative: it copies only missing `.env*` files, creates missing configured symlinks, copies `copyDirs` only when the destination is absent, and updates the stored config hash. It refuses unmanaged/orphan worktrees; run `grove adopt` first.
 
+### Rename
+
+```sh
+grove rename my-branch better-name         # rename alias; move standard Grove path
+grove rename 2 better-name                 # by list index
+grove rename my-branch better-name --json  # machine-readable result
+```
+
+Only managed non-main worktrees can be renamed. Worktrees at custom/adopted paths stay in place. The existing branch, port, protection, creation time, and config hash are preserved. If saving Grove state fails after a directory move, Grove rolls the move back.
+
 ### Adopt orphan
 
 Worktree created via `git worktree add` directly shows as `?` in `grove list`.
@@ -195,3 +205,4 @@ Use `--dry-run --json` when an agent or script needs to inspect prune candidates
 - If `beforeRemove` fails, treat it as an intentional block and do not bypass it unless the user explicitly asks.
 - When the user asks why hooks/builds/installs aren't running in a worktree, run `grove analyze` (or `grove doctor`) first — most setup gaps are surfaced as detector suggestions or stale-path warnings.
 - Reference `$GROVE_PORT` in `afterCreate` / dev commands (stable hash of alias in `portRange`).
+- Renaming a worktree preserves its assigned port; do not assume the port is re-hashed from the new alias.

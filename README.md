@@ -268,6 +268,22 @@ The `editor` config field lets different projects open in different editors. The
 
 ---
 
+### `grove rename <name-or-number> <new-alias>`
+
+Rename a managed worktree alias. The first argument can be an alias or a list index.
+
+```sh
+grove rename auth login
+grove rename 2 login
+grove rename auth login --json
+```
+
+For worktrees created at Grove's standard `<worktreeDir>/<prefix>-<alias>` path, the directory is moved to match the new alias. Adopted worktrees at custom paths stay in place. The branch, assigned port, protection, creation time, and config hash are preserved.
+
+If updating `.grove/state.json` fails after the directory move, Grove moves the worktree back to its original path.
+
+---
+
 ### `grove remove <name>`
 
 Removes a worktree by alias. Checks for uncommitted changes first and asks for confirmation. Supports tab completion for aliases.
@@ -571,7 +587,7 @@ grove completion fish > ~/.config/fish/completions/grove.fish
 
 Tab completion works for:
 - Subcommands and flags
-- Worktree aliases in `cd`, `remove`
+- Worktree aliases in `cd`, `rename`, `remove`
 - Orphan branch names in `adopt`
 
 ## Config

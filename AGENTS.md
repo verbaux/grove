@@ -24,6 +24,7 @@
 - The detector is conservative: Docker Compose only pulls images; Vite/Remix/SvelteKit get an `npm install` fallback only when no package-manager signal exists; Makefile suggestions require an explicit `setup:` target.
 - `.env*` copying is recursive but intentionally skips `node_modules`, `.git`, `dist`, `.next`, and `build`.
 - Ports are deterministic from alias within the configured range, collision-resolved against existing state, and persisted in `.grove/state.json`.
+- `grove rename` preserves the assigned port and all state metadata. It moves only worktrees still at the standard path for the old alias; adopted/custom paths stay in place, and a failed state save rolls a directory move back.
 
 ## Orphans And PRs
 - An orphan is a git worktree not tracked in Grove state. `grove list` shows it as `?`; `grove adopt`, `grove clean`, `grove doctor`, and `grove remove` all have orphan-specific behavior in `cmd/helpers.go`.

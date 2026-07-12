@@ -17,6 +17,7 @@ Worktree path formula: ` + "`<worktreeDir>/<prefix>-<alias>/`" + `.
 - ` + "`grove list`" + ` — show all worktrees
 - ` + "`grove list --json`" + ` — machine-readable output
 - ` + "`grove review <pr-number>`" + ` — checkout PR into worktree (requires gh CLI)
+- ` + "`grove rename <alias-or-index> <new-alias>`" + ` — rename a managed worktree; preserves its port
 - ` + "`grove remove <alias>`" + ` — remove worktree
 - ` + "`grove detach`" + ` — remove symlinks in current worktree for independent dependencies (run from inside worktree)
 - ` + "`grove clean`" + ` — remove all managed worktrees
