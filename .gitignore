@@ -5,8 +5,8 @@ dist/
 # Grove local state (machine-specific)
 .grove/
 
-# Internal code docs (not for users)
-docs/CODEMAPS/
+# Personal architecture notes
+/ARCHITECTURE.md
 
 # Ephemeral reports / agent working files
 .reports/

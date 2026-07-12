@@ -35,5 +35,5 @@
 - `grove skill install|uninstall|path` autodetects `~/.claude` and `~/.agents`; flags include `--target`, `--dir`, and `--force`.
 
 ## Repo Hygiene
-- `CLAUDE.md`, `.reports/`, `docs/CODEMAPS/`, `.grove/`, and the built `/grove` binary are ignored as local or generated artifacts. Do not copy their prose into this file unless verified against code or CI.
+- `CLAUDE.md`, `.reports/`, `.grove/`, and the built `/grove` binary are ignored as local or generated artifacts. Do not copy their prose into this file unless verified against code or CI.
 - `.claude/settings.json` is tracked and currently blocks hand edits to `go.sum` and `/grove`, formats edited Go files with `gofmt`, and runs `go vet ./...` after Go edits for Claude Code sessions.

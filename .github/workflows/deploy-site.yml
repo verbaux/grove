@@ -35,7 +35,6 @@ jobs:
           SSH_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           rsync -avz --delete \
-            --exclude 'CODEMAPS/' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
             docs/ "$SSH_USER@$SSH_HOST:$SSH_PATH"
 
