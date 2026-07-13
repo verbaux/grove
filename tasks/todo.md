@@ -19,7 +19,7 @@
   - Files: `cmd/helpers.go`, `cmd/list.go`, `cmd/status.go`, their tests.
 - [x] Update docs and automate site release version.
   - Acceptance: README/skill/site/roadmap/changelog/AGENTS and local architecture
-    agree; deploy runs on published releases and stamps the release tag.
+    agree; a successful release calls deploy and passes the tag to stamp.
   - Verify: workflow review, browser desktop/mobile check.
   - Files: documentation, `docs/index.html`, `.github/workflows/deploy-site.yml`.
 - [ ] Review, verify, publish v0.9.0.

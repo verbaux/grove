@@ -33,9 +33,10 @@ published release tag.
 - ROADMAP reports v0.9.0 and moves per-worktree notes to Recently shipped.
 - README, embedded skill, AGENTS.md, public site, and local ARCHITECTURE.md
   describe notes and the completed doctor behavior.
-- The public site keeps its runtime GitHub latest-release lookup. The deploy
-  workflow also runs on a published release and stamps the release tag into the
-  deployed HTML, so the displayed fallback does not depend on API availability.
+- The public site keeps its runtime GitHub latest-release lookup. After
+  GoReleaser succeeds, the release workflow calls the reusable site deploy with
+  the tag, which stamps it into deployed HTML and the CSS cache-buster. Manual
+  dispatch accepts the same optional version input.
 - A `v0.9.0` tag triggers the existing GoReleaser workflow. Release/deploy
   workflows must complete successfully before the task is done.
 
@@ -64,8 +65,8 @@ published release tag.
   behavior, and concurrent identity revalidation.
 - List/status tests prove human and JSON note visibility plus unchanged plain
   output semantics.
-- Workflow changes are syntax-reviewed and the release path is verified on
-  GitHub after the tag is pushed.
+- Workflow changes are syntax-reviewed; the release and versioned deploy paths
+  are verified on GitHub after the tag is pushed.
 - Site content is checked in a real browser at desktop and mobile widths with a
   clean console.
 

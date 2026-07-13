@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Release automation now invokes the reusable site deploy after GoReleaser succeeds and passes the tag used for the HTML fallback and CSS cache-buster
+
 ## [0.9.0] — 2026-07-13
 
 ### Added
