@@ -69,7 +69,7 @@ func runNote(_ *cobra.Command, args []string) error {
 			fmt.Printf("No note set for %q.\n", resolved.Alias)
 			return nil
 		}
-		fmt.Println(note)
+		fmt.Println(terminalSafe(note))
 		return nil
 	}
 

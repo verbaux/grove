@@ -350,6 +350,59 @@ func TestDoctorFixSkipsAmbiguousOrphanAliases(t *testing.T) {
 	}
 }
 
+func TestDoctorFixDoesNotReadoptPrunableStaleWorktree(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(parent, "stale-prunable")
+	if err := git.AddWorktree(path, "feature/stale-prunable", ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = git.PruneWorktrees() })
+	if err := state.Save(root, state.State{Worktrees: map[string]state.WorktreeEntry{
+		"stale-prunable": {Branch: "feature/stale-prunable", Path: path},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(path); err != nil {
+		t.Fatal(err)
+	}
+
+	doctorJSON = true
+	doctorFixMode = true
+	t.Cleanup(func() {
+		doctorJSON = false
+		doctorFixMode = false
+	})
+	out, err := captureStdout(t, func() error { return runDoctor(doctorCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result doctorJSONResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("doctor output is not JSON: %v\n%s", err, out)
+	}
+	if len(result.Fixes) != 2 {
+		t.Fatalf("fixes = %+v, want stale removal and skipped orphan adoption", result.Fixes)
+	}
+	if result.Fixes[0].Action != "remove-stale-state" || result.Fixes[0].Status != "fixed" {
+		t.Fatalf("stale fix = %+v", result.Fixes[0])
+	}
+	if result.Fixes[1].Action != "adopt-orphan" || result.Fixes[1].Status != "skipped" {
+		t.Fatalf("orphan fix = %+v", result.Fixes[1])
+	}
+	loaded, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.Worktrees) != 0 {
+		t.Fatalf("prunable stale worktree was re-adopted: %+v", loaded.Worktrees)
+	}
+}
+
 func TestDiagStatePathsAllExist(t *testing.T) {
 	dir := t.TempDir()
 	s := state.State{Worktrees: map[string]state.WorktreeEntry{

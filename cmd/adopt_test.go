@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -55,11 +57,43 @@ func TestAdoptWorktreeRejectsTargetMissingFromGit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := orphanWorktree{Path: filepath.Join(t.TempDir(), "vanished"), Branch: "feature/vanished"}
+	target := orphanWorktree{Path: t.TempDir(), Branch: "feature/vanished"}
 
 	_, err = adoptWorktree(root, cfg, target, "vanished")
 	if err == nil || !strings.Contains(err.Error(), "no longer present") {
 		t.Fatalf("adoptWorktree error = %v, want missing git worktree error", err)
+	}
+	loaded, loadErr := state.Load(root)
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	if len(loaded.Worktrees) != 0 {
+		t.Fatalf("missing worktree was registered: %+v", loaded.Worktrees)
+	}
+}
+
+func TestAdoptWorktreeRejectsMissingPathStillKnownToGit(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	cfg, err := config.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(parent, "vanished")
+	if err := git.AddWorktree(path, "feature/vanished-path", ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = git.PruneWorktrees() })
+	if err := os.RemoveAll(path); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = adoptWorktree(root, cfg, orphanWorktree{Path: path, Branch: "feature/vanished-path"}, "vanished-path")
+	if !errors.Is(err, errAdoptTargetUnavailable) {
+		t.Fatalf("adoptWorktree error = %v, want errAdoptTargetUnavailable", err)
 	}
 	loaded, loadErr := state.Load(root)
 	if loadErr != nil {

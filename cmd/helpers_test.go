@@ -41,6 +41,12 @@ func TestValidateAliasAcceptsFileNameSafeNames(t *testing.T) {
 	}
 }
 
+func TestDisplayNoteSanitizesControlCharacters(t *testing.T) {
+	if got := displayNote("waiting\x1b[31m\nreview"); got != "waiting?[31m?review" {
+		t.Fatalf("displayNote() = %q", got)
+	}
+}
+
 func TestCompleteAliases(t *testing.T) {
 	dir := setupIntegrationRepo(t, config.Config{
 		WorktreeDir: "../",

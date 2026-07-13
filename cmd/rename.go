@@ -25,7 +25,7 @@ var renameCmd = &cobra.Command{
 
 Worktrees created at Grove's configured path are moved to the path derived
 from the new alias. Adopted worktrees at custom paths remain in place. The
-existing branch, port, protection, creation time, and config hash are kept.`,
+existing branch, port, protection, note, creation time, and config hash are kept.`,
 	Args:              cobra.ExactArgs(2),
 	ValidArgsFunction: completeAliases,
 	RunE:              runRename,

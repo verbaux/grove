@@ -137,7 +137,18 @@ func displayNote(note string) string {
 	if note == "" {
 		return "-"
 	}
-	return note
+	return terminalSafe(note)
+}
+
+// terminalSafe replaces control characters in values originating outside the
+// current command invocation before they are rendered in a terminal.
+func terminalSafe(value string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return '?'
+		}
+		return r
+	}, value)
 }
 
 func completeAliases(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {

@@ -20,7 +20,7 @@ func init() {
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all worktrees",
-	Long:  "Show a table of all active worktrees with their branch, path, and git status.",
+	Long:  "Show a table of all active worktrees with their branch, path, port, note, and git status.",
 	RunE:  runList,
 }
 

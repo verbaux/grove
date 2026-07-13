@@ -28,8 +28,8 @@ var statusCmd = &cobra.Command{
 	Long: `Show a read-only daily status view for managed worktrees.
 
 Includes dirty state, stale state paths, config drift, symlink health,
-port assignment issues, orphan count, and branch freshness against the
-local default branch.`,
+port assignment issues, orphan count, branch freshness against the local
+default branch, and local worktree notes.`,
 	RunE: runStatus,
 }
 

@@ -7,7 +7,7 @@
 - Config drift detection: `grove create` now records the setup hash for `.groverc.json`, and `grove doctor` warns when tracked worktrees were created with an older or unknown config setup
 - `grove status` for a read-only daily overview of managed worktrees: dirty state, stale paths, config drift, symlink issues, port collisions, orphan count, and branch freshness
 - `grove sync` to bring an existing managed worktree up to the current `.groverc.json` setup by applying missing env files, symlinks, copy dirs, and optionally `afterCreate` hooks
-- `grove rename <name-or-number> <new-alias>` to rename managed worktrees while preserving their branch, port, protection, creation time, and config hash; standard Grove paths move with rollback on state-save failure, while custom paths stay in place
+- `grove rename <name-or-number> <new-alias>` to rename managed worktrees while preserving their branch, port, protection, note, creation time, and config hash; standard Grove paths move with rollback on state-save failure, while custom paths stay in place
 - `grove ps` for a read-only live view of TCP listeners on managed worktree ports, with PID/process details from `lsof`, a portable `netstat` fallback, and stable `--json` output
 - `grove doctor --fix` for non-interactive repair of revalidated stale state entries, broken configured symlinks with an existing canonical target, and orphan worktrees whose default alias is valid, available, and unambiguous; repair mode never removes worktrees and reports a machine-readable `fixes` audit trail with `--json`
 - `grove note <name-or-number> [text]` for short local worktree notes that appear in `grove list`, `grove status`, and their JSON output, survive rename, and can be removed with `--clear`

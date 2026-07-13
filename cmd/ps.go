@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -182,13 +181,4 @@ func psValues(row psRow) []string {
 		fallback(strings.Join(pids, ","), "-"),
 		fallback(strings.Join(commands, ","), "-"),
 	}
-}
-
-func terminalSafe(value string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) {
-			return '?'
-		}
-		return r
-	}, value)
 }

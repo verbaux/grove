@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/verbaux/grove/internal/config"
@@ -11,8 +12,9 @@ import (
 )
 
 type orphanFixCandidate struct {
-	target orphanWorktree
-	alias  string
+	target      orphanWorktree
+	alias       string
+	unavailable bool
 }
 
 func fixOrphanWorktrees(root string, cfg config.Config, snapshot state.State, worktrees []git.Worktree) ([]doctorFix, []diagnostic) {
@@ -28,11 +30,18 @@ func fixOrphanWorktrees(root string, cfg config.Config, snapshot state.State, wo
 			continue
 		}
 		alias := branchAlias(worktree.Branch)
+		unavailable := false
+		if _, err := os.Stat(worktree.Path); errors.Is(err, os.ErrNotExist) {
+			unavailable = true
+		}
 		candidates = append(candidates, orphanFixCandidate{
-			target: orphanWorktree{Path: worktree.Path, Branch: worktree.Branch},
-			alias:  alias,
+			target:      orphanWorktree{Path: worktree.Path, Branch: worktree.Branch},
+			alias:       alias,
+			unavailable: unavailable,
 		})
-		aliasCounts[alias]++
+		if !unavailable {
+			aliasCounts[alias]++
+		}
 	}
 	sort.Slice(candidates, func(i, j int) bool {
 		return candidates[i].target.Path < candidates[j].target.Path
@@ -42,6 +51,12 @@ func fixOrphanWorktrees(root string, cfg config.Config, snapshot state.State, wo
 	var diags []diagnostic
 	for _, candidate := range candidates {
 		fix := doctorFix{Action: "adopt-orphan", Target: candidate.target.Path}
+		if candidate.unavailable {
+			fix.Status = "skipped"
+			fix.Message = "worktree path no longer exists"
+			fixes = append(fixes, fix)
+			continue
+		}
 		if err := validateAlias(candidate.alias); err != nil {
 			fix.Status = "skipped"
 			fix.Message = fmt.Sprintf("default alias %q is unsafe: %v", candidate.alias, err)
@@ -93,7 +108,7 @@ func fixOrphanWorktrees(root string, cfg config.Config, snapshot state.State, wo
 
 		port, err := adoptWorktree(root, cfg, candidate.target, candidate.alias)
 		if err != nil {
-			if errors.Is(err, errAdoptTargetChanged) {
+			if errors.Is(err, errAdoptTargetChanged) || errors.Is(err, errAdoptTargetUnavailable) {
 				fix.Status = "skipped"
 				fix.Message = err.Error()
 				fixes = append(fixes, fix)

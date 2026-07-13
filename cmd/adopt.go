@@ -14,6 +14,7 @@ import (
 )
 
 var errAdoptTargetChanged = errors.New("worktree is no longer present in git worktree list")
+var errAdoptTargetUnavailable = errors.New("worktree path is no longer available")
 
 func init() {
 	rootCmd.AddCommand(adoptCmd)
@@ -133,6 +134,16 @@ func adoptWorktree(root string, cfg config.Config, target orphanWorktree, alias 
 			if entry.Path == target.Path {
 				return fmt.Errorf("worktree path %s is already managed as %q", target.Path, existingAlias)
 			}
+		}
+		info, err := os.Stat(target.Path)
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w: %s", errAdoptTargetUnavailable, target.Path)
+		}
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("worktree path is not a directory: %s", target.Path)
 		}
 		worktrees, err := git.ListWorktrees()
 		if err != nil {
