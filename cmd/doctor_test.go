@@ -46,6 +46,88 @@ func TestDoctorJSON(t *testing.T) {
 	}
 }
 
+func TestDoctorFixRemovesStaleStateAndReportsJSON(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{})
+	s := state.State{Worktrees: map[string]state.WorktreeEntry{
+		"stale": {
+			Branch:  "feature/stale",
+			Path:    filepath.Join(root, "missing-worktree"),
+			Port:    3123,
+			Created: time.Now(),
+		},
+	}}
+	if err := state.Save(root, s); err != nil {
+		t.Fatal(err)
+	}
+
+	doctorJSON = true
+	doctorFixMode = true
+	t.Cleanup(func() {
+		doctorJSON = false
+		doctorFixMode = false
+	})
+
+	out, err := captureStdout(t, func() error {
+		return runDoctor(doctorCmd, nil)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result doctorJSONResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("doctor --fix --json output is not valid JSON: %v\n%s", err, out)
+	}
+	if !result.OK {
+		t.Fatalf("result = %+v", result)
+	}
+	if len(result.Fixes) != 1 {
+		t.Fatalf("fixes = %+v, want one stale-state fix", result.Fixes)
+	}
+	fix := result.Fixes[0]
+	if fix.Action != "remove-stale-state" || fix.Target != "stale" || fix.Status != "fixed" {
+		t.Fatalf("fix = %+v", fix)
+	}
+	for _, diag := range result.Diagnostics {
+		if strings.Contains(diag.Message, "stale state") {
+			t.Fatalf("post-fix diagnostics still contain stale error: %+v", result.Diagnostics)
+		}
+	}
+
+	loaded, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := loaded.Get("stale"); ok {
+		t.Fatal("stale state entry was not removed")
+	}
+}
+
+func TestDoctorWithoutFixLeavesStaleState(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{})
+	s := state.State{Worktrees: map[string]state.WorktreeEntry{
+		"stale": {Branch: "feature/stale", Path: filepath.Join(root, "missing-worktree")},
+	}}
+	if err := state.Save(root, s); err != nil {
+		t.Fatal(err)
+	}
+
+	doctorJSON = true
+	doctorFixMode = false
+	t.Cleanup(func() { doctorJSON = false })
+	if _, err := captureStdout(t, func() error { return runDoctor(doctorCmd, nil) }); err == nil {
+		t.Fatal("doctor without --fix should still report stale state as an error")
+	}
+
+	loaded, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := loaded.Get("stale"); !ok {
+		t.Fatal("read-only doctor removed stale state")
+	}
+}
+
 func TestDiagStatePathsAllExist(t *testing.T) {
 	dir := t.TempDir()
 	s := state.State{Worktrees: map[string]state.WorktreeEntry{

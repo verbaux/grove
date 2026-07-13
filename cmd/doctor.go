@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -18,9 +19,13 @@ import (
 func init() {
 	rootCmd.AddCommand(doctorCmd)
 	doctorCmd.Flags().BoolVar(&doctorJSON, "json", false, "print diagnostics as JSON")
+	doctorCmd.Flags().BoolVar(&doctorFixMode, "fix", false, "repair safe, unambiguous local issues")
 }
 
-var doctorJSON bool
+var (
+	doctorJSON    bool
+	doctorFixMode bool
+)
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
@@ -29,7 +34,10 @@ var doctorCmd = &cobra.Command{
 state, and worktrees. Reports problems with config validity, missing paths,
 orphan worktrees, broken symlinks, port collisions, and required tools.
 
-Exit code is non-zero if any error-level issues are found.`,
+With --fix, Grove repairs safe, unambiguous local issues and then runs the
+diagnostics again. It never removes a worktree.
+
+Exit code is non-zero if any final error-level issues are found.`,
 	RunE: runDoctor,
 }
 
@@ -49,6 +57,14 @@ type diagnostic struct {
 type doctorJSONResult struct {
 	OK          bool         `json:"ok"`
 	Diagnostics []diagnostic `json:"diagnostics"`
+	Fixes       []doctorFix  `json:"fixes,omitempty"`
+}
+
+type doctorFix struct {
+	Action  string `json:"action"`
+	Target  string `json:"target"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
 func runDoctor(cmd *cobra.Command, args []string) error {
@@ -101,6 +117,19 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		diags = append(diags, diagnostic{levelError, fmt.Sprintf("git worktree list: %v", wtErr)})
 	}
 
+	var fixes []doctorFix
+	if doctorFixMode {
+		staleFixes, fixDiags := fixStaleState(root, s)
+		fixes = append(fixes, staleFixes...)
+		diags = append(diags, fixDiags...)
+
+		s, err = state.Load(root)
+		if err != nil {
+			diags = append(diags, diagnostic{levelError, fmt.Sprintf("state after fixes: %v", err)})
+			return printDoctorOutcome(diags, fixes, err)
+		}
+	}
+
 	diags = append(diags, diagStatePaths(s)...)
 	if wtErr == nil {
 		diags = append(diags, diagOrphans(s, worktrees)...)
@@ -113,10 +142,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	diags = append(diags, diagGhCLI())
 
 	if doctorJSON {
-		if err := printJSON(doctorResult(diags)); err != nil {
+		result := doctorResult(diags)
+		result.Fixes = fixes
+		if err := printJSON(result); err != nil {
 			return err
 		}
 	} else {
+		printDoctorFixes(fixes)
 		printDiagnostics(diags)
 	}
 
@@ -126,6 +158,86 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func fixStaleState(root string, snapshot state.State) ([]doctorFix, []diagnostic) {
+	candidates := make([]string, 0)
+	paths := make(map[string]string)
+	for alias, entry := range snapshot.Worktrees {
+		if _, err := os.Stat(entry.Path); errors.Is(err, os.ErrNotExist) {
+			candidates = append(candidates, alias)
+			paths[alias] = entry.Path
+		}
+	}
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+	sort.Strings(candidates)
+
+	var removed []string
+	skipped := make(map[string]string)
+	err := state.Update(root, func(latest *state.State) error {
+		for _, alias := range candidates {
+			entry, ok := latest.Get(alias)
+			if !ok {
+				skipped[alias] = "state entry was already removed"
+				continue
+			}
+			if entry.Path != paths[alias] {
+				skipped[alias] = "state entry changed before repair"
+				continue
+			}
+			if _, statErr := os.Stat(entry.Path); !errors.Is(statErr, os.ErrNotExist) {
+				skipped[alias] = "worktree path exists again"
+				continue
+			}
+			if err := latest.Remove(alias); err != nil {
+				return err
+			}
+			removed = append(removed, alias)
+		}
+		return nil
+	})
+	if err != nil {
+		fixes := make([]doctorFix, 0, len(candidates))
+		for _, alias := range candidates {
+			fixes = append(fixes, doctorFix{
+				Action: "remove-stale-state", Target: alias, Status: "failed", Message: err.Error(),
+			})
+		}
+		return fixes, []diagnostic{{levelError, fmt.Sprintf("fix stale state: %v", err)}}
+	}
+
+	fixes := make([]doctorFix, 0, len(candidates))
+	removedSet := make(map[string]bool, len(removed))
+	for _, alias := range removed {
+		removedSet[alias] = true
+	}
+	for _, alias := range candidates {
+		if removedSet[alias] {
+			fixes = append(fixes, doctorFix{
+				Action: "remove-stale-state", Target: alias, Status: "fixed",
+				Message: fmt.Sprintf("removed stale state entry %q", alias),
+			})
+			continue
+		}
+		fixes = append(fixes, doctorFix{
+			Action: "remove-stale-state", Target: alias, Status: "skipped", Message: skipped[alias],
+		})
+	}
+	return fixes, nil
+}
+
+func printDoctorOutcome(diags []diagnostic, fixes []doctorFix, cause error) error {
+	if doctorJSON {
+		result := doctorResult(diags)
+		result.Fixes = fixes
+		_ = printJSON(result)
+	} else {
+		printDoctorFixes(fixes)
+		printDiagnostics(diags)
+	}
+	return cause
 }
 
 func doctorResult(diags []diagnostic) doctorJSONResult {
@@ -361,4 +473,15 @@ func printDiagnostics(diags []diagnostic) {
 		}
 	}
 	fmt.Printf("Summary: %d ok, %d warn, %d error\n", ok, warn, errCount)
+}
+
+func printDoctorFixes(fixes []doctorFix) {
+	if len(fixes) == 0 {
+		return
+	}
+	fmt.Println("Fixes:")
+	for _, fix := range fixes {
+		fmt.Printf("  %s %s: %s\n", fix.Status, fix.Action, fix.Message)
+	}
+	fmt.Println()
 }

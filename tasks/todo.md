@@ -1,6 +1,6 @@
 # Tasks: `grove doctor --fix`
 
-- [ ] Add fix result contract and stale-state repair.
+- [x] Add fix result contract and stale-state repair.
   - Acceptance: stale entries are removed transactionally and JSON reports the action.
   - Verify: `go test ./cmd -run 'TestDoctorFix.*Stale'`.
   - Files: `cmd/doctor.go`, `cmd/doctor_test.go`.
