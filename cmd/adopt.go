@@ -106,8 +106,22 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("alias %q already exists — choose a different one", alias)
 	}
 
+	port, err := adoptWorktree(root, cfg, target, alias)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Worktree %q adopted (%s, port %d).\n", alias, target.Path, port)
+	return nil
+}
+
+func adoptWorktree(root string, cfg config.Config, target orphanWorktree, alias string) (int, error) {
+	if err := validateAlias(alias); err != nil {
+		return 0, err
+	}
+
 	var port int
-	if err := updateManagedState(root, &s, func(latest *state.State) error {
+	if err := state.Update(root, func(latest *state.State) error {
 		if latest.AliasExists(alias) {
 			return fmt.Errorf("alias %q already exists — choose a different one", alias)
 		}
@@ -131,9 +145,7 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 		port = allocated
 		return latest.Add(alias, target.Branch, target.Path, port)
 	}); err != nil {
-		return err
+		return 0, err
 	}
-
-	fmt.Printf("Worktree %q adopted (%s, port %d).\n", alias, target.Path, port)
-	return nil
+	return port, nil
 }
