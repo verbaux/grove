@@ -13,7 +13,7 @@
     main/orphans are refused.
   - Verify: `go test ./cmd -run TestNote`.
   - Files: `cmd/note.go`, `cmd/note_test.go`, command completion if needed.
-- [ ] Surface notes in list and status.
+- [x] Surface notes in list and status.
   - Acceptance: human and JSON output contain notes; `list --plain` is unchanged.
   - Verify: `go test ./cmd -run 'Test(List.*Note|Status.*Note)'`.
   - Files: `cmd/helpers.go`, `cmd/list.go`, `cmd/status.go`, their tests.

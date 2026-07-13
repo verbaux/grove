@@ -49,6 +49,7 @@ type statusRow struct {
 	Path           string `json:"path"`
 	Port           int    `json:"port,omitempty"`
 	Protected      bool   `json:"protected,omitempty"`
+	Note           string `json:"note,omitempty"`
 	WorktreeStatus string `json:"worktreeStatus"`
 	ConfigStatus   string `json:"configStatus"`
 	SymlinkStatus  string `json:"symlinkStatus"`
@@ -132,6 +133,7 @@ func buildStatus(_ string, cfg config.Config, s state.State) (statusJSONResult, 
 			Path:           entry.Path,
 			Port:           entry.Port,
 			Protected:      entry.Protected,
+			Note:           entry.Note,
 			WorktreeStatus: worktreeStatus(entry.Path),
 			ConfigStatus:   configStatus(entry.ConfigHash, currentHash),
 			SymlinkStatus:  symlinkStatus(entry.Path, cfg),
@@ -300,7 +302,7 @@ func renderStatusTable(rows []statusRow) string {
 	nameStyle := lipgloss.NewStyle().Bold(true)
 	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 
-	cols := []string{"ALIAS", "BRANCH", "WORKTREE", "CONFIG", "SYMLINKS", "PORT", "FRESHNESS"}
+	cols := []string{"ALIAS", "BRANCH", "WORKTREE", "CONFIG", "SYMLINKS", "PORT", "FRESHNESS", "NOTE"}
 	widths := make([]int, len(cols))
 	for i, col := range cols {
 		widths[i] = len(col)
@@ -308,13 +310,13 @@ func renderStatusTable(rows []statusRow) string {
 	for _, r := range rows {
 		values := statusValues(r)
 		for i, v := range values {
-			if len(v) > widths[i] {
-				widths[i] = len(v)
+			if lipgloss.Width(v) > widths[i] {
+				widths[i] = lipgloss.Width(v)
 			}
 		}
 	}
 	pad := func(s string, w int) string {
-		return s + strings.Repeat(" ", w-len(s)+2)
+		return s + strings.Repeat(" ", w-lipgloss.Width(s)+2)
 	}
 
 	var sb strings.Builder
@@ -354,6 +356,7 @@ func statusValues(r statusRow) []string {
 		r.SymlinkStatus,
 		r.PortStatus,
 		r.Freshness,
+		displayNote(r.Note),
 	}
 }
 

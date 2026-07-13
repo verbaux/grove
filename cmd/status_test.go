@@ -117,6 +117,48 @@ func TestStatusHumanNoManagedWorktreesSuggestsDoctorFixForOrphans(t *testing.T) 
 	}
 }
 
+func TestStatusOutputsWorktreeNote(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	createName, createFrom, createDetach, createJSON = "", "", false, false
+	if err := runCreate(createCmd, []string{"feature/noted-status"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Update(root, func(latest *state.State) error {
+		return latest.SetNote("noted-status", "blocked by upstream")
+	}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, _ := loaded.Get("noted-status")
+	t.Cleanup(func() { cleanupWorktree(t, root, entry.Path) })
+
+	statusJSON = true
+	t.Cleanup(func() { statusJSON = false })
+	jsonOut, err := captureStdout(t, func() error { return runStatus(statusCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result statusJSONResult
+	if err := json.Unmarshal([]byte(jsonOut), &result); err != nil {
+		t.Fatalf("status JSON invalid: %v\n%s", err, jsonOut)
+	}
+	if len(result.Worktrees) != 1 || result.Worktrees[0].Note != "blocked by upstream" {
+		t.Fatalf("status JSON omitted note: %+v", result.Worktrees)
+	}
+
+	statusJSON = false
+	humanOut, err := captureStdout(t, func() error { return runStatus(statusCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(humanOut, "NOTE") || !strings.Contains(humanOut, "blocked by upstream") {
+		t.Fatalf("human status omitted note column: %q", humanOut)
+	}
+}
+
 func TestStatusHelpersReportSymlinkAndPortIssues(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Symlink("/definitely/missing/target", filepath.Join(dir, "node_modules")); err != nil {

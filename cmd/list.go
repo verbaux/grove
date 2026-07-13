@@ -54,11 +54,12 @@ func runList(cmd *cobra.Command, args []string) error {
 			Path      string `json:"path"`
 			Port      int    `json:"port,omitempty"`
 			Protected bool   `json:"protected,omitempty"`
+			Note      string `json:"note,omitempty"`
 			Status    string `json:"status"`
 		}
 		out := make([]jsonRow, len(rows))
 		for i, r := range rows {
-			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Port: r.Port, Protected: r.Protected, Status: r.Status}
+			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Port: r.Port, Protected: r.Protected, Note: r.Note, Status: r.Status}
 		}
 		data, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
@@ -96,6 +97,7 @@ func renderTable(rows []worktreeRow) string {
 	branchW := len("BRANCH")
 	pathW := len("PATH")
 	portW := len("PORT")
+	noteW := len("NOTE")
 
 	for _, r := range rows {
 		w := len(fmt.Sprintf("%d", r.Index))
@@ -114,10 +116,13 @@ func renderTable(rows []worktreeRow) string {
 		if w := len(portStr(r.Port)); w > portW {
 			portW = w
 		}
+		if w := lipgloss.Width(displayNote(r.Note)); w > noteW {
+			noteW = w
+		}
 	}
 
 	pad := func(s string, w int) string {
-		return s + strings.Repeat(" ", w-len(s)+2)
+		return s + strings.Repeat(" ", w-lipgloss.Width(s)+2)
 	}
 
 	var sb strings.Builder
@@ -128,6 +133,7 @@ func renderTable(rows []worktreeRow) string {
 			header.Render(pad("BRANCH", branchW)) +
 			header.Render(pad("PATH", pathW)) +
 			header.Render(pad("PORT", portW)) +
+			header.Render(pad("NOTE", noteW)) +
 			header.Render("STATUS") + "\n",
 	)
 
@@ -155,6 +161,7 @@ func renderTable(rows []worktreeRow) string {
 				pad(r.Branch, branchW) +
 				pad(r.Path, pathW) +
 				pad(portStr(r.Port), portW) +
+				pad(displayNote(r.Note), noteW) +
 				statusRendered + "\n",
 		)
 	}
