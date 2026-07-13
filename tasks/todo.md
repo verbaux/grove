@@ -4,7 +4,7 @@
   - Acceptance: stale entries are removed transactionally and JSON reports the action.
   - Verify: `go test ./cmd -run 'TestDoctorFix.*Stale'`.
   - Files: `cmd/doctor.go`, `cmd/doctor_test.go`.
-- [ ] Repair broken configured symlinks conservatively.
+- [x] Repair broken configured symlinks conservatively.
   - Acceptance: broken links are replaced only when the main target exists.
   - Verify: `go test ./cmd -run 'TestDoctorFix.*Symlink'`.
   - Files: `cmd/doctor.go`, `cmd/doctor_test.go`.

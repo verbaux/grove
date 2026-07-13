@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
 	"github.com/verbaux/grove/internal/detect"
+	"github.com/verbaux/grove/internal/files"
 	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
@@ -128,6 +129,10 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			diags = append(diags, diagnostic{levelError, fmt.Sprintf("state after fixes: %v", err)})
 			return printDoctorOutcome(diags, fixes, err)
 		}
+
+		symlinkFixes, symlinkDiags := fixBrokenSymlinks(root, cfg, s)
+		fixes = append(fixes, symlinkFixes...)
+		diags = append(diags, symlinkDiags...)
 	}
 
 	diags = append(diags, diagStatePaths(s)...)
@@ -226,6 +231,98 @@ func fixStaleState(root string, snapshot state.State) ([]doctorFix, []diagnostic
 		})
 	}
 	return fixes, nil
+}
+
+type brokenSymlinkCandidate struct {
+	alias  string
+	branch string
+	path   string
+	name   string
+	link   string
+}
+
+func fixBrokenSymlinks(root string, cfg config.Config, snapshot state.State) ([]doctorFix, []diagnostic) {
+	aliases := make([]string, 0, len(snapshot.Worktrees))
+	for alias := range snapshot.Worktrees {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+
+	var candidates []brokenSymlinkCandidate
+	seen := make(map[string]bool)
+	for _, alias := range aliases {
+		entry := snapshot.Worktrees[alias]
+		for _, name := range cfg.Symlink {
+			link := filepath.Join(entry.Path, name)
+			if seen[link] {
+				continue
+			}
+			seen[link] = true
+			info, err := os.Lstat(link)
+			if err != nil || info.Mode()&os.ModeSymlink == 0 {
+				continue
+			}
+			target, err := os.Readlink(link)
+			if err != nil {
+				continue
+			}
+			if !filepath.IsAbs(target) {
+				target = filepath.Join(filepath.Dir(link), target)
+			}
+			if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			candidates = append(candidates, brokenSymlinkCandidate{
+				alias: alias, branch: entry.Branch, path: entry.Path, name: name, link: link,
+			})
+		}
+	}
+
+	fixes := make([]doctorFix, 0, len(candidates))
+	var diags []diagnostic
+	for _, candidate := range candidates {
+		latest, err := state.Load(root)
+		if err != nil {
+			fixes = append(fixes, doctorFix{
+				Action: "repair-symlink", Target: candidate.link, Status: "failed", Message: err.Error(),
+			})
+			diags = append(diags, diagnostic{levelError, fmt.Sprintf("fix symlink %s: %v", candidate.link, err)})
+			continue
+		}
+		entry, ok := latest.Get(candidate.alias)
+		if !ok || entry.Path != candidate.path || entry.Branch != candidate.branch {
+			fixes = append(fixes, doctorFix{
+				Action: "repair-symlink", Target: candidate.link, Status: "skipped",
+				Message: "state entry changed before repair",
+			})
+			continue
+		}
+
+		repaired, err := files.RepairBrokenSymlink(root, candidate.path, candidate.name)
+		if err != nil {
+			fixes = append(fixes, doctorFix{
+				Action: "repair-symlink", Target: candidate.link, Status: "failed", Message: err.Error(),
+			})
+			diags = append(diags, diagnostic{levelError, fmt.Sprintf("fix symlink %s: %v", candidate.link, err)})
+			continue
+		}
+		if repaired {
+			fixes = append(fixes, doctorFix{
+				Action: "repair-symlink", Target: candidate.link, Status: "fixed",
+				Message: fmt.Sprintf("repaired symlink to %s", filepath.Join(root, candidate.name)),
+			})
+			continue
+		}
+
+		message := "symlink is no longer broken"
+		if _, err := os.Stat(filepath.Join(root, candidate.name)); errors.Is(err, os.ErrNotExist) {
+			message = "canonical target is missing in the main worktree"
+		}
+		fixes = append(fixes, doctorFix{
+			Action: "repair-symlink", Target: candidate.link, Status: "skipped", Message: message,
+		})
+	}
+	return fixes, diags
 }
 
 func printDoctorOutcome(diags []diagnostic, fixes []doctorFix, cause error) error {

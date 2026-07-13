@@ -128,6 +128,108 @@ func TestDoctorWithoutFixLeavesStaleState(t *testing.T) {
 	}
 }
 
+func TestDoctorFixRepairsBrokenSymlink(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{Symlink: []string{"node_modules"}})
+	canonical := filepath.Join(root, "node_modules")
+	if err := os.Mkdir(canonical, 0755); err != nil {
+		t.Fatal(err)
+	}
+	worktree := t.TempDir()
+	link := filepath.Join(worktree, "node_modules")
+	if err := os.Symlink(filepath.Join(worktree, "missing-target"), link); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash, err := config.SetupHash(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(root, state.State{Worktrees: map[string]state.WorktreeEntry{
+		"auth": {Branch: "feature/auth", Path: worktree, ConfigHash: hash, Created: time.Now()},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	doctorJSON = true
+	doctorFixMode = true
+	t.Cleanup(func() {
+		doctorJSON = false
+		doctorFixMode = false
+	})
+	out, err := captureStdout(t, func() error { return runDoctor(doctorCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result doctorJSONResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("doctor output is not JSON: %v\n%s", err, out)
+	}
+	if len(result.Fixes) != 1 {
+		t.Fatalf("fixes = %+v, want one symlink repair", result.Fixes)
+	}
+	fix := result.Fixes[0]
+	if fix.Action != "repair-symlink" || fix.Target != link || fix.Status != "fixed" {
+		t.Fatalf("fix = %+v", fix)
+	}
+	for _, diag := range result.Diagnostics {
+		if strings.Contains(diag.Message, "broken symlink") {
+			t.Fatalf("post-fix diagnostics still contain broken symlink: %+v", result.Diagnostics)
+		}
+	}
+	target, err := os.Readlink(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target != canonical {
+		t.Fatalf("repaired target = %q, want %q", target, canonical)
+	}
+}
+
+func TestDoctorFixSkipsBrokenSymlinkWithoutCanonicalTarget(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{Symlink: []string{"node_modules"}})
+	worktree := t.TempDir()
+	link := filepath.Join(worktree, "node_modules")
+	originalTarget := filepath.Join(worktree, "missing-target")
+	if err := os.Symlink(originalTarget, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(root, state.State{Worktrees: map[string]state.WorktreeEntry{
+		"auth": {Branch: "feature/auth", Path: worktree, Created: time.Now()},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	doctorJSON = true
+	doctorFixMode = true
+	t.Cleanup(func() {
+		doctorJSON = false
+		doctorFixMode = false
+	})
+	out, runErr := captureStdout(t, func() error { return runDoctor(doctorCmd, nil) })
+	if runErr == nil {
+		t.Fatal("unrepairable broken symlink should keep doctor exit non-zero")
+	}
+
+	var result doctorJSONResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("doctor output is not JSON: %v\n%s", err, out)
+	}
+	if len(result.Fixes) != 1 || result.Fixes[0].Action != "repair-symlink" || result.Fixes[0].Status != "skipped" {
+		t.Fatalf("fixes = %+v", result.Fixes)
+	}
+	target, err := os.Readlink(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target != originalTarget {
+		t.Fatalf("unrepairable link changed to %q", target)
+	}
+}
+
 func TestDiagStatePathsAllExist(t *testing.T) {
 	dir := t.TempDir()
 	s := state.State{Worktrees: map[string]state.WorktreeEntry{
