@@ -634,7 +634,7 @@ grove completion fish > ~/.config/fish/completions/grove.fish
 
 Tab completion works for:
 - Subcommands and flags
-- Worktree aliases in `cd`, `rename`, `remove`
+- Worktree aliases in `cd`, `open`, `sync`, `rename`, `note`, `remove`, and protection commands
 - Orphan branch names in `adopt`
 
 ## Config
@@ -645,7 +645,7 @@ Project config, lives in the repo root.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/verbaux/grove/v0.6.1/groverc.schema.json",
+  "$schema": "https://raw.githubusercontent.com/verbaux/grove/v0.9.0/groverc.schema.json",
   "worktreeDir": "../",
   "prefix": "myapp",
   "symlink": ["node_modules"],

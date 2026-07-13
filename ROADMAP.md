@@ -4,7 +4,7 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes config drift detection, `grove status`, `grove sync`, `grove rename`, `grove note`, `grove ps`, concurrent-safe state updates, and `grove doctor --fix`.
+Latest published tag: `v0.9.0`. This release includes config drift detection, `grove status`, `grove sync`, `grove rename`, `grove note`, `grove ps`, concurrent-safe state updates, and `grove doctor --fix`.
 
 ## Recently shipped
 

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-07-13
+
 ### Added
 
 - Config drift detection: `grove create` now records the setup hash for `.groverc.json`, and `grove doctor` warns when tracked worktrees were created with an older or unknown config setup
