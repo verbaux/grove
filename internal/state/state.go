@@ -19,6 +19,7 @@ type WorktreeEntry struct {
 	Path       string    `json:"path"`
 	Port       int       `json:"port,omitempty"`
 	Protected  bool      `json:"protected,omitempty"`
+	Note       string    `json:"note,omitempty"`
 	ConfigHash string    `json:"configHash,omitempty"`
 	Created    time.Time `json:"created"`
 }
@@ -186,6 +187,18 @@ func (s *State) SetProtected(alias string, protected bool) error {
 		return errors.New("alias \"" + alias + "\" not found")
 	}
 	entry.Protected = protected
+	s.Worktrees[alias] = entry
+	return nil
+}
+
+// SetNote replaces the local note for a managed worktree. An empty note clears
+// it and is omitted from state JSON.
+func (s *State) SetNote(alias, note string) error {
+	entry, exists := s.Worktrees[alias]
+	if !exists {
+		return errors.New("alias \"" + alias + "\" not found")
+	}
+	entry.Note = note
 	s.Worktrees[alias] = entry
 	return nil
 }

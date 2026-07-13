@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -111,6 +112,42 @@ func TestSetProtectedPersists(t *testing.T) {
 	}
 }
 
+func TestSetNotePersistsAndClears(t *testing.T) {
+	dir := t.TempDir()
+	s := State{Worktrees: map[string]WorktreeEntry{}}
+	if err := s.Add("auth", "feature/auth", "/tmp/project-auth", 3001); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetNote("auth", "waiting for API review"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(dir, s); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := loaded.Get("auth")
+	if !ok || entry.Note != "waiting for API review" {
+		t.Fatalf("loaded note = %q, want persisted note", entry.Note)
+	}
+	if err := loaded.SetNote("auth", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(dir, loaded); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, stateDir, fileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"note"`) {
+		t.Fatalf("cleared note should be omitted from state JSON: %s", raw)
+	}
+}
+
 func TestAddWithConfigHashPersists(t *testing.T) {
 	dir := t.TempDir()
 	s := State{Worktrees: map[string]WorktreeEntry{}}
@@ -141,6 +178,7 @@ func TestRenamePreservesEntryMetadata(t *testing.T) {
 		Path:       "/tmp/project-auth",
 		Port:       3487,
 		Protected:  true,
+		Note:       "keep until launch",
 		ConfigHash: "sha256:abc123",
 		Created:    created,
 	}

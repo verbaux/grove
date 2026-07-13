@@ -4,7 +4,7 @@
   - Acceptance: human output names `grove doctor --fix`.
   - Verify: focused status test.
   - Files: `cmd/status.go`, `cmd/status_test.go`.
-- [ ] Add optional note state metadata.
+- [x] Add optional note state metadata.
   - Acceptance: set/clear persists; rename preserves notes; old JSON loads.
   - Verify: `go test ./internal/state -run 'Test(SetNote|Rename.*Note|Load)'`.
   - Files: `internal/state/state.go`, `internal/state/state_test.go`.
