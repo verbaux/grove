@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
@@ -134,4 +135,33 @@ func TestListJSONIncludesProtected(t *testing.T) {
 	}
 	removeIncludeProtected = true
 	cleanupWorktree(t, dir, entry.Path)
+}
+
+func TestProtectionRejectsReusedAlias(t *testing.T) {
+	dir := setupIntegrationRepo(t, baseConfig())
+	original := &resolvedWorktree{
+		Alias: "auth", Branch: "feature/auth", Path: "/tmp/auth", InState: true,
+	}
+	if err := state.Update(dir, func(latest *state.State) error {
+		return latest.Add("auth", "feature/replacement", "/tmp/replacement", 3001)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	err := updateProtection(dir, original, true)
+	if err == nil || !strings.Contains(err.Error(), "changed while updating protection") {
+		t.Fatalf("updateProtection error = %v, want identity conflict", err)
+	}
+
+	loaded, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, ok := loaded.Get("auth")
+	if !ok {
+		t.Fatal("replacement entry is missing")
+	}
+	if replacement.Protected {
+		t.Fatal("replacement worktree must not inherit protection intended for the old alias")
+	}
 }
