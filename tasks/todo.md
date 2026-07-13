@@ -17,7 +17,7 @@
   - Acceptance: human and JSON output contain notes; `list --plain` is unchanged.
   - Verify: `go test ./cmd -run 'Test(List.*Note|Status.*Note)'`.
   - Files: `cmd/helpers.go`, `cmd/list.go`, `cmd/status.go`, their tests.
-- [ ] Update docs and automate site release version.
+- [x] Update docs and automate site release version.
   - Acceptance: README/skill/site/roadmap/changelog/AGENTS and local architecture
     agree; deploy runs on published releases and stamps the release tag.
   - Verify: workflow review, browser desktop/mobile check.

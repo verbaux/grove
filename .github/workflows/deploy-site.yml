@@ -6,6 +6,8 @@ on:
     paths:
       - "docs/**"
       - ".github/workflows/deploy-site.yml"
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -17,6 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Stamp release version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          perl -0pi -e 's{(<span data-version>)[^<]+(</span>)}{$1 . $ENV{RELEASE_VERSION} . $2}e; s{(style\.css\?v=)[^"]+}{$1 . $ENV{RELEASE_VERSION}}e' docs/index.html
+          grep -q "<span data-version>${RELEASE_VERSION}</span>" docs/index.html
+          grep -q "style.css?v=${RELEASE_VERSION}" docs/index.html
 
       - name: Setup SSH
         env:
