@@ -139,17 +139,17 @@ If setup fails after the worktree is created, Grove rolls back the `git worktree
 Shows all active worktrees with their status.
 
 ```
-NAME       BRANCH              PATH                          PORT   STATUS
-main       main                /home/dev/myapp               -      ✓ clean
-auth       feature/auth        /home/dev/myapp-auth          3487   3 modified
-payments   feature/payments    /home/dev/myapp-payments      3214   protected, ✓ clean
+NAME       BRANCH              PATH                          PORT   NOTE                     STATUS
+main       main                /home/dev/myapp               -      -                        ✓ clean
+auth       feature/auth        /home/dev/myapp-auth          3487   waiting for API review   3 modified
+payments   feature/payments    /home/dev/myapp-payments      3214   keep through launch      protected, ✓ clean
 ```
 
 **Flags:**
 
 | Flag      | Description                                  |
 | --------- | -------------------------------------------- |
-| `--json`  | Output as JSON array (for scripts and tools) |
+| `--json`  | Output as JSON array, including optional `note` fields |
 | `--plain` | Print only worktree aliases, one per line    |
 
 ---
@@ -178,9 +178,9 @@ grove status --json
 Base: main
 Managed: 2  Dirty: 1  Stale: 0  Config drift: 1  Symlink issues: 1  Port collisions: 0  Orphans: 0
 
-ALIAS     BRANCH          WORKTREE       CONFIG  SYMLINKS    PORT  FRESHNESS
-auth      feature/auth    1 modified     ok      ok          3487  ahead 2
-payments  feature/pay     clean          drift   1 missing   3214  behind 3, no unique commits
+ALIAS     BRANCH          WORKTREE       CONFIG  SYMLINKS    PORT  FRESHNESS                    NOTE
+auth      feature/auth    1 modified     ok      ok          3487  ahead 2                      waiting for API review
+payments  feature/pay     clean          drift   1 missing   3214  behind 3, no unique commits   keep through launch
 ```
 
 ---
@@ -301,9 +301,23 @@ grove rename 2 login
 grove rename auth login --json
 ```
 
-For worktrees created at Grove's standard `<worktreeDir>/<prefix>-<alias>` path, the directory is moved to match the new alias. Adopted worktrees at custom paths stay in place. The branch, assigned port, protection, creation time, and config hash are preserved.
+For worktrees created at Grove's standard `<worktreeDir>/<prefix>-<alias>` path, the directory is moved to match the new alias. Adopted worktrees at custom paths stay in place. The branch, assigned port, protection, note, creation time, and config hash are preserved.
 
 If updating `.grove/state.json` fails after the directory move, Grove moves the worktree back to its original path.
+
+---
+
+### `grove note <name-or-number> [text]`
+
+Attach a short local note to a managed worktree, show its current note, or clear it. Notes appear in `grove list`, `grove status`, and their JSON output.
+
+```sh
+grove note auth "waiting for API review"
+grove note auth
+grove note auth --clear
+```
+
+Notes are stored only in `.grove/state.json`, are limited to one line and 200 Unicode characters, and are preserved by `grove rename`. Main and orphan worktrees cannot have Grove notes.
 
 ---
 
@@ -667,7 +681,7 @@ Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`
 
 ### `.grove/state.json` — don't commit this
 
-Local state that maps aliases to paths, ports, protection flags, and the `.groverc.json` setup hash used when each worktree was created. Add `.grove/` to your `.gitignore`.
+Local state that maps aliases to paths, ports, protection flags, optional notes, and the `.groverc.json` setup hash used when each worktree was created. Add `.grove/` to your `.gitignore`.
 
 Grove writes this file atomically. Mutating commands also coordinate through `.grove/state.lock`, wait up to 10 seconds for another Grove process, and reread the latest state before applying a change. The lock file may remain on disk; the operating system releases the actual lock when the process exits.
 

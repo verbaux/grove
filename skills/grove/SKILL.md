@@ -3,8 +3,8 @@ name: grove
 description: >-
   Use when project has .groverc.json, or user wants isolated branch for a
   feature/bugfix/PR review, or wants to switch branches without stashing.
-  Triggers: "create a worktree", "review PR", "switch branch", "grove",
-  "isolated branch", "worktree".
+  Triggers: "create a worktree", "review PR", "switch branch", "note a
+  worktree", "grove", "isolated branch", "worktree".
 ---
 
 # Grove — Git Worktree Manager
@@ -77,7 +77,7 @@ Requires `gh` CLI. Handles fork PRs.
 ### List
 
 ```sh
-grove list            # human table (shows port, status)
+grove list            # human table (shows port, note, status)
 grove list --json     # parse programmatically
 grove list --plain    # aliases only
 ```
@@ -85,7 +85,7 @@ grove list --plain    # aliases only
 ### Status
 
 ```sh
-grove status          # daily read-only overview: dirty, drift, stale paths, symlinks, ports, orphans, freshness
+grove status          # daily read-only overview: dirty, drift, stale paths, symlinks, ports, orphans, freshness, notes
 grove status --json   # machine-readable summary and rows
 ```
 
@@ -119,7 +119,17 @@ grove rename 2 better-name                 # by list index
 grove rename my-branch better-name --json  # machine-readable result
 ```
 
-Only managed non-main worktrees can be renamed. Worktrees at custom/adopted paths stay in place. The existing branch, port, protection, creation time, and config hash are preserved. If saving Grove state fails after a directory move, Grove rolls the move back.
+Only managed non-main worktrees can be renamed. Worktrees at custom/adopted paths stay in place. The existing branch, port, protection, note, creation time, and config hash are preserved. If saving Grove state fails after a directory move, Grove rolls the move back.
+
+### Notes
+
+```sh
+grove note my-branch "waiting for API review"  # set or replace
+grove note 2                                    # print the full note
+grove note my-branch --clear                    # remove it
+```
+
+Notes are local metadata in `.grove/state.json`. They are limited to one line and 200 Unicode characters, appear in `grove list` / `grove status` and their JSON output, and survive `grove rename`. Only managed non-main worktrees can be annotated; adopt an orphan first.
 
 ### Adopt orphan
 

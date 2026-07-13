@@ -6,7 +6,7 @@
 <title>Grove — Git worktree manager that handles the setup</title>
 <meta name="description" content="Grove automates .env copying, node_modules symlinks, and setup scripts for git worktrees. Written in Go.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=v0.8.0">
 <script>
   (function(){
     try {
@@ -57,7 +57,7 @@
     <div class="hero-text">
       <div class="eyebrow">
         <span class="dot"></span>
-        git worktree manager · <span data-version>v0.7.2</span>
+        git worktree manager · <span data-version>v0.8.0</span>
       </div>
       <h1>Git worktrees <span class="hi">without</span><br>the setup friction.</h1>
       <p class="lede">
@@ -265,6 +265,10 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
         <p><code>grove cd</code> with no args opens a fuzzy picker. Tab completion everywhere.</p>
       </article>
       <article class="fcard">
+        <h3>Worktree notes</h3>
+        <p><code>grove note auth "waiting for review"</code> keeps short local context beside the worktree and shows it in list/status output.</p>
+      </article>
+      <article class="fcard">
         <h3>Project detection</h3>
         <p><code>grove analyze</code> scans for husky, package managers, Docker Compose, Vite/Remix/SvelteKit, Go, Python, Ruby, PHP, Cargo, Gradle, Next.js, Turbo, and Makefile setup targets — then proposes <code>.groverc.json</code> entries. Same detector runs inside <code>grove init</code> and <code>grove doctor</code>.</p>
       </article>
@@ -358,10 +362,11 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
         <li><code>grove create &lt;branch&gt;</code><span>Create worktree + setup; <code>--name</code>, <code>--from</code>, <code>--detach</code></span></li>
         <li><code>grove cd [name|index]</code><span>Print path to cd into; fuzzy picker without args</span></li>
         <li><code>grove open [name|index]</code><span>Open a worktree in your editor; <code>editor</code> config / <code>$EDITOR</code> / <code>--editor</code></span></li>
-        <li><code>grove list</code><span>Table of worktrees with status, port, and index; <code>--json</code>, <code>--plain</code></span></li>
+        <li><code>grove list</code><span>Table of worktrees with status, port, note, and index; <code>--json</code>, <code>--plain</code></span></li>
         <li><code>grove ps</code><span>Live running/stopped status for assigned worktree ports; <code>--json</code></span></li>
         <li><code>grove review [pr]</code><span>List open PRs or check one out; <code>--name</code> sets the alias</span></li>
         <li><code>grove rename &lt;name|index&gt; &lt;new-alias&gt;</code><span>Rename a managed worktree; moves standard paths and preserves the assigned port</span></li>
+        <li><code>grove note &lt;name|index&gt; [text]</code><span>Show or set a short local worktree note; <code>--clear</code> removes it</span></li>
       </ul>
     </div>
 
