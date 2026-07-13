@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
 
@@ -184,7 +185,7 @@ func TestCreateRollbackOnStateSaveFailure(t *testing.T) {
 	createFrom = ""
 	createDetach = false
 
-	// Make .grove directory a file so state.Save fails
+	// Make .grove directory a file so the state transaction cannot start.
 	groveDir := filepath.Join(dir, ".grove")
 	if err := os.WriteFile(groveDir, []byte("not a dir"), 0644); err != nil {
 		t.Fatal(err)
@@ -358,5 +359,40 @@ func TestCreateSkipsMissingCopyDirs(t *testing.T) {
 	remove.Dir = dir
 	if out, err := remove.CombinedOutput(); err != nil {
 		t.Fatalf("cleanup failed: %s", out)
+	}
+}
+
+func TestCreatePreservesStateAddedAfterInitialLoad(t *testing.T) {
+	dir := setupIntegrationRepo(t, baseConfig())
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := state.Update(dir, func(latest *state.State) error {
+		return latest.Add("payments", "feature/payments", "/tmp/payments", 0)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := doCreate(dir, cfg, &stale, "feature/auth", "auth", "", false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(result.Path, true) })
+
+	loaded, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := loaded.Get("payments"); !ok {
+		t.Fatal("concurrent payments entry was lost")
+	}
+	if _, ok := loaded.Get("auth"); !ok {
+		t.Fatal("created auth entry is missing")
 	}
 }

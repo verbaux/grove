@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
 
@@ -199,5 +200,51 @@ func TestSyncRunsHooksOnlyWhenRequested(t *testing.T) {
 	}
 	if string(data) != "hook" {
 		t.Fatalf("hook.txt = %q, want hook", string(data))
+	}
+}
+
+func TestSyncPreservesConcurrentProtectionChange(t *testing.T) {
+	dir := setupIntegrationRepo(t, baseConfig())
+	createName, createFrom, createDetach, createJSON = "sync-lock", "", false, false
+	t.Cleanup(func() { createName = "" })
+	if err := runCreate(createCmd, []string{"feature/sync-lock"}); err != nil {
+		t.Fatal(err)
+	}
+
+	stale, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := stale.Get("sync-lock")
+	if !ok {
+		t.Fatal("expected sync-lock entry")
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(entry.Path, true) })
+
+	if err := state.Update(dir, func(latest *state.State) error {
+		return latest.SetProtected("sync-lock", true)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.AfterCreate = config.HookCommands{"true"}
+	if _, err := syncManagedWorktree(dir, cfg, &stale, "sync-lock", entry, true); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, ok := loaded.Get("sync-lock")
+	if !ok {
+		t.Fatal("sync-lock entry is missing")
+	}
+	if !updated.Protected {
+		t.Fatal("concurrent protection change was lost")
 	}
 }

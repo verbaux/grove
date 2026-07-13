@@ -23,9 +23,9 @@ var adoptCmd = &cobra.Command{
 If there is only one orphan worktree, it will be selected automatically.
 Otherwise, pass a branch name or path to identify which one to adopt.
 You will be prompted for an alias (defaults to the branch name).`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeOrphans,
-	RunE: runAdopt,
+	RunE:              runAdopt,
 }
 
 func runAdopt(cmd *cobra.Command, args []string) error {
@@ -106,22 +106,31 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("alias %q already exists — choose a different one", alias)
 	}
 
-	portMin, portMax := cfg.ResolvedPortRange()
-	used := make(map[int]bool)
-	for _, e := range s.Worktrees {
-		if e.Port != 0 {
-			used[e.Port] = true
+	var port int
+	if err := updateManagedState(root, &s, func(latest *state.State) error {
+		if latest.AliasExists(alias) {
+			return fmt.Errorf("alias %q already exists — choose a different one", alias)
 		}
-	}
-	port, err := ports.Allocate(alias, portMin, portMax, used)
-	if err != nil {
-		return fmt.Errorf("port allocation: %w", err)
-	}
+		for existingAlias, entry := range latest.Worktrees {
+			if entry.Path == target.Path {
+				return fmt.Errorf("worktree path %s is already managed as %q", target.Path, existingAlias)
+			}
+		}
 
-	if err := s.Add(alias, target.Branch, target.Path, port); err != nil {
-		return err
-	}
-	if err := state.Save(root, s); err != nil {
+		portMin, portMax := cfg.ResolvedPortRange()
+		used := make(map[int]bool)
+		for _, entry := range latest.Worktrees {
+			if entry.Port != 0 {
+				used[entry.Port] = true
+			}
+		}
+		allocated, err := ports.Allocate(alias, portMin, portMax, used)
+		if err != nil {
+			return fmt.Errorf("port allocation: %w", err)
+		}
+		port = allocated
+		return latest.Add(alias, target.Branch, target.Path, port)
+	}); err != nil {
 		return err
 	}
 

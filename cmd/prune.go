@@ -226,10 +226,11 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	var removeErr error
 	for _, wt := range merged {
 		ok, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
-			Alias:  wt.Alias,
-			Branch: wt.Branch,
-			Path:   wt.Path,
-			Port:   wt.Port,
+			Alias:            wt.Alias,
+			Branch:           wt.Branch,
+			Path:             wt.Path,
+			Port:             wt.Port,
+			IncludeProtected: pruneIncludeProtected,
 		}, force)
 		if err != nil {
 			fmt.Printf("  failed to remove %q: %v\n", wt.Alias, err)

@@ -43,6 +43,26 @@ func validateAlias(alias string) error {
 	return nil
 }
 
+// updateManagedState applies a mutation to the latest on-disk state and, after
+// a successful save, refreshes the caller's snapshot. Callers can perform slow
+// setup work before this short transaction without overwriting other commands.
+func updateManagedState(root string, snapshot *state.State, mutate func(*state.State) error) error {
+	var updated state.State
+	if err := state.Update(root, func(latest *state.State) error {
+		if err := mutate(latest); err != nil {
+			return err
+		}
+		updated = *latest
+		return nil
+	}); err != nil {
+		return err
+	}
+	if snapshot != nil {
+		*snapshot = updated
+	}
+	return nil
+}
+
 // worktreeRow holds display info for a single worktree in the list.
 type worktreeRow struct {
 	Index     int

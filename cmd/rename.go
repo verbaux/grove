@@ -42,10 +42,10 @@ type renameResult struct {
 }
 
 func runRename(_ *cobra.Command, args []string) error {
-	return runRenameWithSave(args, state.Save)
+	return runRenameWithUpdate(args, state.Update)
 }
 
-func runRenameWithSave(args []string, saveState func(string, state.State) error) error {
+func runRenameWithUpdate(args []string, updateState func(string, func(*state.State) error) error) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -101,32 +101,48 @@ func runRenameWithSave(args []string, saveState func(string, state.State) error)
 		}
 	}
 
-	if err := s.Rename(resolved.Alias, newAlias, newPath); err != nil {
-		return err
-	}
 	moved := newPath != oldPath
-	if moved {
-		if err := git.MoveWorktree(oldPath, newPath); err != nil {
+	moveCompleted := false
+	var updatedEntry state.WorktreeEntry
+	if err := updateState(root, func(latest *state.State) error {
+		current, ok := latest.Get(resolved.Alias)
+		if !ok {
+			return fmt.Errorf("state entry %q disappeared while renaming", resolved.Alias)
+		}
+		if current.Path != oldPath || current.Branch != entry.Branch {
+			return fmt.Errorf("state entry %q changed while renaming — retry", resolved.Alias)
+		}
+		if newAlias != resolved.Alias && latest.AliasExists(newAlias) {
+			return fmt.Errorf("alias %q already exists — choose a different one", newAlias)
+		}
+		if moved {
+			if err := git.MoveWorktree(oldPath, newPath); err != nil {
+				return err
+			}
+			moveCompleted = true
+		}
+		if err := latest.Rename(resolved.Alias, newAlias, newPath); err != nil {
 			return err
 		}
-	}
-	if err := saveState(root, s); err != nil {
-		if !moved {
-			return fmt.Errorf("save state: %w", err)
+		updatedEntry, _ = latest.Get(newAlias)
+		return nil
+	}); err != nil {
+		if !moveCompleted {
+			return err
 		}
 		if rollbackErr := git.MoveWorktree(newPath, oldPath); rollbackErr != nil {
-			return fmt.Errorf("save state: %w; rollback worktree move: %v", err, rollbackErr)
+			return fmt.Errorf("update state: %w; rollback worktree move: %v", err, rollbackErr)
 		}
-		return fmt.Errorf("save state: %w (worktree move rolled back)", err)
+		return fmt.Errorf("update state: %w (worktree move rolled back)", err)
 	}
 
 	result := renameResult{
 		OldAlias: resolved.Alias,
 		Alias:    newAlias,
-		Branch:   entry.Branch,
+		Branch:   updatedEntry.Branch,
 		OldPath:  oldPath,
 		Path:     newPath,
-		Port:     entry.Port,
+		Port:     updatedEntry.Port,
 		Moved:    moved,
 	}
 	if renameJSON {

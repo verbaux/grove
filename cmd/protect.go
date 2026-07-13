@@ -61,14 +61,9 @@ func setProtection(query string, protected bool) error {
 		return fmt.Errorf("cannot protect orphan worktree %q — run 'grove adopt' first", query)
 	}
 
-	s, err := state.Load(root)
-	if err != nil {
-		return err
-	}
-	if err := s.SetProtected(resolved.Alias, protected); err != nil {
-		return err
-	}
-	if err := state.Save(root, s); err != nil {
+	if err := state.Update(root, func(latest *state.State) error {
+		return latest.SetProtected(resolved.Alias, protected)
+	}); err != nil {
 		return err
 	}
 	if protected {

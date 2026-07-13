@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
 
@@ -201,6 +202,95 @@ func TestRemoveRefusesMainWorktree(t *testing.T) {
 	// Main worktree must still exist.
 	if _, statErr := os.Stat(dir); statErr != nil {
 		t.Errorf("main worktree dir disturbed: %v", statErr)
+	}
+}
+
+func TestRemovePreservesStateAddedAfterInitialLoad(t *testing.T) {
+	dir := setupIntegrationRepo(t, baseConfig())
+	createName, createFrom, createDetach, createJSON = "remove-lock", "", false, false
+	t.Cleanup(func() { createName = "" })
+	if err := runCreate(createCmd, []string{"feature/remove-lock"}); err != nil {
+		t.Fatal(err)
+	}
+
+	stale, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := stale.Get("remove-lock")
+	if !ok {
+		t.Fatal("expected remove-lock entry")
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(entry.Path, true) })
+
+	if err := state.Update(dir, func(latest *state.State) error {
+		return latest.Add("payments", "feature/payments", "/tmp/payments", 0)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := removeManagedWorktree(dir, baseConfig(), &stale, managedRemoveTarget{
+		Alias: "remove-lock", Branch: entry.Branch, Path: entry.Path, Port: entry.Port,
+	}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !removed {
+		t.Fatal("expected worktree removal")
+	}
+
+	loaded, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := loaded.Get("payments"); !ok {
+		t.Fatal("concurrent payments entry was lost")
+	}
+	if _, ok := loaded.Get("remove-lock"); ok {
+		t.Fatal("removed entry still exists")
+	}
+}
+
+func TestRemoveRechecksConcurrentProtectionChange(t *testing.T) {
+	dir := setupIntegrationRepo(t, baseConfig())
+	createName, createFrom, createDetach, createJSON = "protect-race", "", false, false
+	t.Cleanup(func() { createName = "" })
+	if err := runCreate(createCmd, []string{"feature/protect-race"}); err != nil {
+		t.Fatal(err)
+	}
+
+	stale, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := stale.Get("protect-race")
+	if !ok {
+		t.Fatal("expected protect-race entry")
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(entry.Path, true) })
+
+	if err := state.Update(dir, func(latest *state.State) error {
+		return latest.SetProtected("protect-race", true)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = removeManagedWorktree(dir, baseConfig(), &stale, managedRemoveTarget{
+		Alias: "protect-race", Branch: entry.Branch, Path: entry.Path, Port: entry.Port,
+	}, true)
+	if err == nil || !strings.Contains(err.Error(), "became protected") {
+		t.Fatalf("remove error = %v, want concurrent protection error", err)
+	}
+	if _, err := os.Stat(entry.Path); err != nil {
+		t.Fatalf("protected worktree should remain: %v", err)
+	}
+	loaded, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	protected, ok := loaded.Get("protect-race")
+	if !ok || !protected.Protected {
+		t.Fatalf("protected state should remain: %+v", protected)
 	}
 }
 

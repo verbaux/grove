@@ -80,10 +80,11 @@ func runRemove(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("state entry %q disappeared", resolved.Alias)
 		}
 		_, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
-			Alias:  resolved.Alias,
-			Branch: entry.Branch,
-			Path:   entry.Path,
-			Port:   entry.Port,
+			Alias:            resolved.Alias,
+			Branch:           entry.Branch,
+			Path:             entry.Path,
+			Port:             entry.Port,
+			IncludeProtected: removeIncludeProtected,
 		}, removeForce)
 		if err != nil {
 			return err
@@ -122,36 +123,48 @@ func runRemove(cmd *cobra.Command, args []string) error {
 }
 
 type managedRemoveTarget struct {
-	Alias  string
-	Branch string
-	Path   string
-	Port   int
+	Alias            string
+	Branch           string
+	Path             string
+	Port             int
+	IncludeProtected bool
 }
 
 func removeManagedWorktree(root string, cfg config.Config, s *state.State, wt managedRemoveTarget, force bool) (bool, error) {
-	if _, err := os.Stat(wt.Path); os.IsNotExist(err) {
-		if err := s.Remove(wt.Alias); err != nil {
-			return false, err
-		}
-		if err := state.Save(root, *s); err != nil {
-			return false, err
-		}
-		fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.Alias)
-		return true, nil
-	}
+	_, statErr := os.Stat(wt.Path)
+	pathMissing := os.IsNotExist(statErr)
 
 	env := groveHookEnv(wt)
-	if err := runLifecycleHook("beforeRemove", cfg.BeforeRemove, wt.Path, env); err != nil {
+	if !pathMissing {
+		if err := runLifecycleHook("beforeRemove", cfg.BeforeRemove, wt.Path, env); err != nil {
+			return false, err
+		}
+	}
+
+	if err := updateManagedState(root, s, func(latest *state.State) error {
+		current, ok := latest.Get(wt.Alias)
+		if !ok {
+			return fmt.Errorf("state entry %q disappeared while removing", wt.Alias)
+		}
+		if current.Path != wt.Path || current.Branch != wt.Branch {
+			return fmt.Errorf("state entry %q changed while removing — retry", wt.Alias)
+		}
+		if current.Protected && !wt.IncludeProtected {
+			return fmt.Errorf("worktree %q became protected while removing — pass --include-protected to remove it", wt.Alias)
+		}
+		if !pathMissing {
+			if err := git.RemoveWorktree(wt.Path, force); err != nil {
+				return err
+			}
+		}
+		return latest.Remove(wt.Alias)
+	}); err != nil {
 		return false, err
 	}
-	if err := git.RemoveWorktree(wt.Path, force); err != nil {
-		return false, err
-	}
-	if err := s.Remove(wt.Alias); err != nil {
-		return false, err
-	}
-	if err := state.Save(root, *s); err != nil {
-		return false, err
+
+	if pathMissing {
+		fmt.Printf("  ✓ cleaned stale entry %s (path no longer exists)\n", wt.Alias)
+		return true, nil
 	}
 	if err := runLifecycleHook("afterRemove", cfg.AfterRemove, root, env); err != nil {
 		return true, err

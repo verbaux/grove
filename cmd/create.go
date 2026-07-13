@@ -267,11 +267,17 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		setupErr = fmt.Errorf("config hash: %w", err)
 		return result, setupErr
 	}
-	if err := s.AddWithConfigHash(alias, branch, worktreePath, port, configHash); err != nil {
-		setupErr = err
-		return result, setupErr
-	}
-	if err := state.Save(root, *s); err != nil {
+	if err := updateManagedState(root, s, func(latest *state.State) error {
+		if latest.AliasExists(alias) {
+			return fmt.Errorf("alias %q was created by another Grove process", alias)
+		}
+		for otherAlias, entry := range latest.Worktrees {
+			if entry.Port == port {
+				return fmt.Errorf("port %d was assigned to worktree %q by another Grove process — retry create", port, otherAlias)
+			}
+		}
+		return latest.AddWithConfigHash(alias, branch, worktreePath, port, configHash)
+	}); err != nil {
 		setupErr = err
 		return result, setupErr
 	}

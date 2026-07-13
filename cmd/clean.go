@@ -142,10 +142,11 @@ func runClean(cmd *cobra.Command, args []string) error {
 	var removeErr error
 	for _, wt := range toRemove {
 		ok, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
-			Alias:  wt.alias,
-			Branch: wt.branch,
-			Path:   wt.path,
-			Port:   wt.port,
+			Alias:            wt.alias,
+			Branch:           wt.branch,
+			Path:             wt.path,
+			Port:             wt.port,
+			IncludeProtected: cleanIncludeProtected,
 		}, force)
 		if err != nil {
 			fmt.Printf("  failed to remove %q: %v\n", wt.alias, err)

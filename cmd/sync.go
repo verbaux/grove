@@ -178,9 +178,18 @@ func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias s
 		return result, err
 	}
 	if entry.ConfigHash != configHash {
-		entry.ConfigHash = configHash
-		s.Worktrees[alias] = entry
-		if err := state.Save(root, *s); err != nil {
+		if err := updateManagedState(root, s, func(latest *state.State) error {
+			current, ok := latest.Get(alias)
+			if !ok {
+				return fmt.Errorf("state entry %q disappeared while syncing", alias)
+			}
+			if current.Path != entry.Path || current.Branch != entry.Branch {
+				return fmt.Errorf("state entry %q changed while syncing — retry", alias)
+			}
+			current.ConfigHash = configHash
+			latest.Worktrees[alias] = current
+			return nil
+		}); err != nil {
 			return result, err
 		}
 		result.UpdatedConfigHash = true
