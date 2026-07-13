@@ -129,6 +129,26 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			diags = append(diags, diagnostic{levelError, fmt.Sprintf("state after fixes: %v", err)})
 			return printDoctorOutcome(diags, fixes, err)
 		}
+		if wtErr == nil {
+			worktrees, wtErr = git.ListWorktrees()
+			if wtErr != nil {
+				diags = append(diags, diagnostic{levelError, fmt.Sprintf("git worktree list after fixes: %v", wtErr)})
+			} else {
+				orphanFixes, orphanDiags := fixOrphanWorktrees(root, cfg, s, worktrees)
+				fixes = append(fixes, orphanFixes...)
+				diags = append(diags, orphanDiags...)
+
+				s, err = state.Load(root)
+				if err != nil {
+					diags = append(diags, diagnostic{levelError, fmt.Sprintf("state after orphan fixes: %v", err)})
+					return printDoctorOutcome(diags, fixes, err)
+				}
+				worktrees, wtErr = git.ListWorktrees()
+				if wtErr != nil {
+					diags = append(diags, diagnostic{levelError, fmt.Sprintf("git worktree list after orphan fixes: %v", wtErr)})
+				}
+			}
+		}
 
 		symlinkFixes, symlinkDiags := fixBrokenSymlinks(root, cfg, s)
 		fixes = append(fixes, symlinkFixes...)

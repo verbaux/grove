@@ -8,7 +8,7 @@
   - Acceptance: broken links are replaced only when the main target exists.
   - Verify: `go test ./cmd -run 'TestDoctorFix.*Symlink'`.
   - Files: `cmd/doctor.go`, `cmd/doctor_test.go`.
-- [ ] Adopt only unambiguous orphan worktrees.
+- [x] Adopt only unambiguous orphan worktrees.
   - Acceptance: unique valid defaults are adopted; collisions remain unresolved.
   - Verify: `go test ./cmd -run 'TestDoctorFix.*Orphan'`.
   - Files: `cmd/adopt.go`, `cmd/doctor.go`, their tests.

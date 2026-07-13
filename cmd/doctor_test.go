@@ -230,6 +230,119 @@ func TestDoctorFixSkipsBrokenSymlinkWithoutCanonicalTarget(t *testing.T) {
 	}
 }
 
+func TestDoctorFixAdoptsUnambiguousOrphan(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	orphanRoot, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	orphanPath := filepath.Join(orphanRoot, "orphan")
+	if err := git.AddWorktree(orphanPath, "feature/orphan", ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(orphanPath, true) })
+
+	doctorJSON = true
+	doctorFixMode = true
+	t.Cleanup(func() {
+		doctorJSON = false
+		doctorFixMode = false
+	})
+	out, err := captureStdout(t, func() error { return runDoctor(doctorCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result doctorJSONResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("doctor output is not JSON: %v\n%s", err, out)
+	}
+	if len(result.Fixes) != 1 {
+		t.Fatalf("fixes = %+v, want one orphan adoption", result.Fixes)
+	}
+	fix := result.Fixes[0]
+	if fix.Action != "adopt-orphan" || fix.Target != orphanPath || fix.Status != "fixed" {
+		t.Fatalf("fix = %+v", fix)
+	}
+	for _, diag := range result.Diagnostics {
+		if diag.Level != levelOK && strings.Contains(diag.Message, "orphan worktree") {
+			t.Fatalf("post-fix diagnostics still contain orphan: %+v", result.Diagnostics)
+		}
+	}
+	loaded, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := loaded.Get("orphan")
+	if !ok || entry.Path != orphanPath || entry.Branch != "feature/orphan" || entry.Port == 0 {
+		t.Fatalf("adopted entry = %+v", entry)
+	}
+}
+
+func TestDoctorFixSkipsAmbiguousOrphanAliases(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	firstRoot, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondRoot, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstPath := filepath.Join(firstRoot, "feature-auth")
+	secondPath := filepath.Join(secondRoot, "fix-auth")
+	if err := git.AddWorktree(firstPath, "feature/auth", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := git.AddWorktree(secondPath, "fix/auth", ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = git.RemoveWorktree(firstPath, true)
+		_ = git.RemoveWorktree(secondPath, true)
+	})
+
+	doctorJSON = true
+	doctorFixMode = true
+	t.Cleanup(func() {
+		doctorJSON = false
+		doctorFixMode = false
+	})
+	out, err := captureStdout(t, func() error { return runDoctor(doctorCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result doctorJSONResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("doctor output is not JSON: %v\n%s", err, out)
+	}
+	if len(result.Fixes) != 2 {
+		t.Fatalf("fixes = %+v, want two skipped adoptions", result.Fixes)
+	}
+	for _, fix := range result.Fixes {
+		if fix.Action != "adopt-orphan" || fix.Status != "skipped" || !strings.Contains(fix.Message, "ambiguous") {
+			t.Fatalf("fix = %+v", fix)
+		}
+	}
+	loaded, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.Worktrees) != 0 {
+		t.Fatalf("ambiguous orphans were adopted: %+v", loaded.Worktrees)
+	}
+	orphanWarnings := 0
+	for _, diag := range result.Diagnostics {
+		if strings.Contains(diag.Message, "orphan worktree") {
+			orphanWarnings++
+		}
+	}
+	if orphanWarnings != 2 {
+		t.Fatalf("orphan warnings = %d, want 2: %+v", orphanWarnings, result.Diagnostics)
+	}
+}
+
 func TestDiagStatePathsAllExist(t *testing.T) {
 	dir := t.TempDir()
 	s := state.State{Worktrees: map[string]state.WorktreeEntry{
