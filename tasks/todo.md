@@ -22,6 +22,6 @@
     agree; a successful release calls deploy and passes the tag to stamp.
   - Verify: workflow review, browser desktop/mobile check.
   - Files: documentation, `docs/index.html`, `.github/workflows/deploy-site.yml`.
-- [ ] Review, verify, publish v0.9.0.
+- [x] Review, verify, publish v0.9.0.
   - Acceptance: strict CI green, branch/main and tag pushed, release/deploy green.
   - Verify: GitHub Actions and release inspection.

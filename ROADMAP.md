@@ -28,6 +28,7 @@ Latest published tag: `v0.9.0`. This release includes config drift detection, `g
 - **Concurrent-safe local state.** Mutating commands serialize `.grove/state.json` transactions through an advisory `.grove/state.lock`, reread the latest state before changing it, and preserve unrelated updates from parallel Grove processes.
 - **`grove doctor --fix`.** Explicit, non-interactive repair mode removes revalidated stale state entries, repairs broken configured symlinks when the canonical target exists, and adopts only orphans with a valid, available, unique default alias. It never deletes worktrees and reruns diagnostics afterward.
 - **Per-worktree notes.** `grove note` stores short local context for managed worktrees, preserves it across rename, and exposes it in human and JSON list/status output.
+- **Release-coupled site version.** A successful GoReleaser job calls the reusable site deploy with the release tag, which stamps both the HTML fallback and CSS cache-buster.
 
 ## Later
 
