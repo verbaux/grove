@@ -1,7 +1,13 @@
 package state
 
 import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -174,5 +180,107 @@ func TestRenameRejectsExistingAliasWithoutChangingState(t *testing.T) {
 	}
 	if got, _ := s.Get("payments"); !reflect.DeepEqual(got, payments) {
 		t.Fatalf("destination entry changed: %+v", got)
+	}
+}
+
+func TestUpdateSerializesConcurrentWriters(t *testing.T) {
+	dir := t.TempDir()
+
+	var active atomic.Int32
+	var maxActive atomic.Int32
+	const writers = 8
+
+	start := make(chan struct{})
+	errs := make(chan error, writers)
+	var wg sync.WaitGroup
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			errs <- Update(dir, func(s *State) error {
+				current := active.Add(1)
+				for {
+					maximum := maxActive.Load()
+					if current <= maximum || maxActive.CompareAndSwap(maximum, current) {
+						break
+					}
+				}
+				defer active.Add(-1)
+
+				time.Sleep(10 * time.Millisecond)
+				alias := fmt.Sprintf("writer-%d", i)
+				return s.Add(alias, "feature/"+alias, "/tmp/"+alias, 3001+i)
+			})
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("Update failed: %v", err)
+		}
+	}
+	if got := maxActive.Load(); got != 1 {
+		t.Fatalf("concurrent callbacks = %d, want 1", got)
+	}
+
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(s.Worktrees); got != writers {
+		t.Fatalf("worktrees = %d, want %d", got, writers)
+	}
+}
+
+func TestUpdateDoesNotSaveWhenCallbackFails(t *testing.T) {
+	dir := t.TempDir()
+	original := State{Worktrees: map[string]WorktreeEntry{
+		"auth": {Branch: "feature/auth", Path: "/tmp/auth", Port: 3001},
+	}}
+	if err := Save(dir, original); err != nil {
+		t.Fatal(err)
+	}
+
+	wantErr := errors.New("mutation failed")
+	err := Update(dir, func(s *State) error {
+		delete(s.Worktrees, "auth")
+		return wantErr
+	})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("Update error = %v, want %v", err, wantErr)
+	}
+
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(loaded, original) {
+		t.Fatalf("state changed after callback failure: %+v", loaded)
+	}
+}
+
+func TestUpdateTimesOutWhenStateLockIsHeld(t *testing.T) {
+	dir := t.TempDir()
+	lockDir := filepath.Join(dir, stateDir)
+	if err := os.MkdirAll(lockDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	lock, err := acquireLock(filepath.Join(lockDir, lockFileName), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.release()
+
+	err = updateWithTimeout(dir, 25*time.Millisecond, func(*State) error {
+		t.Fatal("callback must not run without the lock")
+		return nil
+	})
+	if !errors.Is(err, ErrLockTimeout) {
+		t.Fatalf("Update error = %v, want ErrLockTimeout", err)
 	}
 }

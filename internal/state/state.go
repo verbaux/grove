@@ -11,6 +11,8 @@ import (
 const stateDir = ".grove"
 const fileName = "state.json"
 
+const defaultLockTimeout = 10 * time.Second
+
 // WorktreeEntry holds info about one grove-managed worktree.
 type WorktreeEntry struct {
 	Branch     string    `json:"branch"`
@@ -92,6 +94,39 @@ func Save(dir string, s State) error {
 		return err
 	}
 	return nil
+}
+
+// Update serializes a read-modify-write transaction for state.json across
+// Grove processes. The callback receives the latest state after the lock is
+// acquired. Returning an error from the callback leaves state.json unchanged.
+func Update(dir string, mutate func(*State) error) error {
+	return updateWithTimeout(dir, defaultLockTimeout, mutate)
+}
+
+func updateWithTimeout(dir string, timeout time.Duration, mutate func(*State) error) error {
+	if mutate == nil {
+		return errors.New("state update callback is nil")
+	}
+
+	dirPath := filepath.Join(dir, stateDir)
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		return err
+	}
+
+	lock, err := acquireLock(filepath.Join(dirPath, lockFileName), timeout)
+	if err != nil {
+		return err
+	}
+	defer lock.release()
+
+	s, err := Load(dir)
+	if err != nil {
+		return err
+	}
+	if err := mutate(&s); err != nil {
+		return err
+	}
+	return Save(dir, s)
 }
 
 // Add registers a new worktree alias. Returns an error if the alias is taken.
