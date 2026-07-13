@@ -8,7 +8,7 @@
   - Acceptance: set/clear persists; rename preserves notes; old JSON loads.
   - Verify: `go test ./internal/state -run 'Test(SetNote|Rename.*Note|Load)'`.
   - Files: `internal/state/state.go`, `internal/state/state_test.go`.
-- [ ] Add the transactional `grove note` command.
+- [x] Add the transactional `grove note` command.
   - Acceptance: set/show/clear work for managed targets; invalid notes and
     main/orphans are refused.
   - Verify: `go test ./cmd -run TestNote`.
