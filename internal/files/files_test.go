@@ -170,6 +170,102 @@ func TestSymlinkConflict(t *testing.T) {
 	}
 }
 
+func TestRepairBrokenSymlinkUsesCanonicalSource(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	canonical := filepath.Join(src, "node_modules")
+	if err := os.Mkdir(canonical, 0755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dst, "node_modules")
+	if err := os.Symlink(filepath.Join(dst, "missing-target"), link); err != nil {
+		t.Fatal(err)
+	}
+
+	repaired, err := RepairBrokenSymlink(src, dst, "node_modules")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !repaired {
+		t.Fatal("expected broken symlink to be repaired")
+	}
+	target, err := os.Readlink(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target != canonical {
+		t.Fatalf("symlink target = %q, want %q", target, canonical)
+	}
+}
+
+func TestRepairBrokenSymlinkLeavesHealthyLink(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	canonical := filepath.Join(src, "node_modules")
+	if err := os.Mkdir(canonical, 0755); err != nil {
+		t.Fatal(err)
+	}
+	otherTarget := t.TempDir()
+	link := filepath.Join(dst, "node_modules")
+	if err := os.Symlink(otherTarget, link); err != nil {
+		t.Fatal(err)
+	}
+
+	repaired, err := RepairBrokenSymlink(src, dst, "node_modules")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repaired {
+		t.Fatal("healthy symlink must not be replaced")
+	}
+	target, _ := os.Readlink(link)
+	if target != otherTarget {
+		t.Fatalf("healthy symlink changed to %q", target)
+	}
+}
+
+func TestRepairBrokenSymlinkLeavesLinkWhenCanonicalSourceMissing(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	originalTarget := filepath.Join(dst, "missing-target")
+	link := filepath.Join(dst, "node_modules")
+	if err := os.Symlink(originalTarget, link); err != nil {
+		t.Fatal(err)
+	}
+
+	repaired, err := RepairBrokenSymlink(src, dst, "node_modules")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repaired {
+		t.Fatal("repair must be skipped without a canonical source")
+	}
+	target, _ := os.Readlink(link)
+	if target != originalTarget {
+		t.Fatalf("broken symlink changed to %q", target)
+	}
+}
+
+func TestRepairBrokenSymlinkRefusesRealDestination(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	if err := os.Mkdir(filepath.Join(src, "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	realDestination := filepath.Join(dst, "node_modules")
+	if err := os.Mkdir(realDestination, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := RepairBrokenSymlink(src, dst, "node_modules")
+	if !errors.Is(err, ErrSymlinkDestinationConflict) {
+		t.Fatalf("RepairBrokenSymlink error = %v, want ErrSymlinkDestinationConflict", err)
+	}
+	if info, statErr := os.Stat(realDestination); statErr != nil || !info.IsDir() {
+		t.Fatalf("real destination was changed: info=%v err=%v", info, statErr)
+	}
+}
+
 func TestCopyDir(t *testing.T) {
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "copied")

@@ -145,6 +145,82 @@ func Symlink(srcDir, dstDir, name string) (bool, error) {
 	return true, os.Symlink(src, dst)
 }
 
+// RepairBrokenSymlink replaces an existing broken symlink with one pointing
+// to srcDir/name. Healthy symlinks and missing destinations are left alone.
+// A real destination is never overwritten, and a missing canonical source
+// leaves the broken link unchanged.
+func RepairBrokenSymlink(srcDir, dstDir, name string) (bool, error) {
+	src := filepath.Join(srcDir, name)
+	dst := filepath.Join(dstDir, name)
+
+	info, err := os.Lstat(dst)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return false, SymlinkConflictError{Name: name}
+	}
+
+	originalTarget, err := os.Readlink(dst)
+	if err != nil {
+		return false, err
+	}
+	resolvedTarget := originalTarget
+	if !filepath.IsAbs(resolvedTarget) {
+		resolvedTarget = filepath.Join(filepath.Dir(dst), resolvedTarget)
+	}
+	if _, err := os.Stat(resolvedTarget); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+
+	if _, err := os.Stat(src); os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	// Recheck immediately before removal so a concurrent healthy replacement
+	// or real destination is not overwritten.
+	info, err = os.Lstat(dst)
+	if err != nil {
+		return false, err
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return false, SymlinkConflictError{Name: name}
+	}
+	currentTarget, err := os.Readlink(dst)
+	if err != nil {
+		return false, err
+	}
+	currentResolved := currentTarget
+	if !filepath.IsAbs(currentResolved) {
+		currentResolved = filepath.Join(filepath.Dir(dst), currentResolved)
+	}
+	if _, err := os.Stat(currentResolved); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+
+	if err := os.Remove(dst); err != nil {
+		return false, err
+	}
+	if err := os.Symlink(src, dst); err != nil {
+		// The original link carried no reachable data, but restore it when the
+		// destination is still free so a failed repair is non-destructive.
+		if _, statErr := os.Lstat(dst); os.IsNotExist(statErr) {
+			_ = os.Symlink(currentTarget, dst)
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // CopyDir recursively copies a directory from src to dst.
 // Returns (true, nil) if copied, (false, nil) if src doesn't exist.
 func CopyDir(src, dst string) (bool, error) {
