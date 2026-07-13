@@ -144,9 +144,12 @@ grove detach --copy   # copy all symlink targets before removing
 ```sh
 grove doctor          # validates config, config drift, worktree paths, orphans, symlinks, port collisions, gh CLI
 grove doctor --json   # machine-readable diagnostics
+grove doctor --fix    # repair safe, unambiguous issues, then diagnose again
 ```
 
 Exits non-zero on errors. Run before manual git-worktree surgery. Also warns on config drift (tracked worktrees created with an older or unknown `.groverc.json` setup), stale `symlink` / `copyDirs` entries (target missing in main repo), and detected project conventions that the config does not yet cover (husky, package managers, direnv, mise, Python, Cargo, Gradle, Next.js, Turbo).
+
+Without `--fix`, doctor is read-only. Repair mode runs without prompts: it revalidates and removes stale state entries, repairs an existing broken configured symlink only when the main-worktree target exists, and adopts only orphans with a valid, free, unique branch-derived alias. It skips ambiguous cases, never deletes a worktree or runs hooks, and reruns diagnostics afterward. Combine `--fix --json` for a machine-readable `fixes` audit trail.
 
 Use JSON output when another tool needs to parse diagnostics.
 

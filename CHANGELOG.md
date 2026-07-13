@@ -9,6 +9,7 @@
 - `grove sync` to bring an existing managed worktree up to the current `.groverc.json` setup by applying missing env files, symlinks, copy dirs, and optionally `afterCreate` hooks
 - `grove rename <name-or-number> <new-alias>` to rename managed worktrees while preserving their branch, port, protection, creation time, and config hash; standard Grove paths move with rollback on state-save failure, while custom paths stay in place
 - `grove ps` for a read-only live view of TCP listeners on managed worktree ports, with PID/process details from `lsof`, a portable `netstat` fallback, and stable `--json` output
+- `grove doctor --fix` for non-interactive repair of revalidated stale state entries, broken configured symlinks with an existing canonical target, and orphan worktrees whose default alias is valid, available, and unambiguous; repair mode never removes worktrees and reports a machine-readable `fixes` audit trail with `--json`
 
 ### Changed
 

@@ -250,7 +250,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
       </article>
       <article class="fcard">
         <h3>Orphan handling</h3>
-        <p><code>grove adopt</code> registers outside worktrees. <code>grove doctor</code> finds stale state.</p>
+        <p><code>grove adopt</code> registers outside worktrees. <code>grove doctor --fix</code> safely repairs only unambiguous local issues.</p>
       </article>
       <article class="fcard">
         <h3>Merged-branch cleanup</h3>
@@ -376,7 +376,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
         <li><code>grove prune</code><span>Remove managed worktrees whose branch is merged; <code>--base</code>, <code>--yes</code>, <code>--force</code></span></li>
         <li><code>grove adopt</code><span>Register an orphan worktree</span></li>
         <li><code>grove detach</code><span>Remove symlinks; <code>--copy</code> preserves contents first</span></li>
-        <li><code>grove doctor</code><span>Diagnose config, state, symlinks, ports, deps, stale paths, missing detector suggestions</span></li>
+        <li><code>grove doctor</code><span>Diagnose config, state, symlinks, ports, deps; <code>--fix</code> safely repairs unambiguous local issues</span></li>
       </ul>
     </div>
   </div>

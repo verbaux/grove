@@ -4,7 +4,7 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes config drift detection, `grove status`, `grove sync`, `grove rename`, and `grove ps`.
+Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes config drift detection, `grove status`, `grove sync`, `grove rename`, `grove ps`, concurrent-safe state updates, and `grove doctor --fix`.
 
 ## Recently shipped
 
@@ -26,10 +26,10 @@ Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes 
 - **`grove rename`.** Renames a tracked worktree alias while preserving its port and metadata. Standard Grove paths move with rollback on state-save failure; adopted/custom paths stay in place.
 - **`grove ps`.** Shows which assigned worktree ports have live TCP listeners, including PID/process details from `lsof`, a `netstat` fallback, and stable JSON output. It does not change port assignments.
 - **Concurrent-safe local state.** Mutating commands serialize `.grove/state.json` transactions through an advisory `.grove/state.lock`, reread the latest state before changing it, and preserve unrelated updates from parallel Grove processes.
+- **`grove doctor --fix`.** Explicit, non-interactive repair mode removes revalidated stale state entries, repairs broken configured symlinks when the canonical target exists, and adopts only orphans with a valid, available, unique default alias. It never deletes worktrees and reruns diagnostics afterward.
 
 ## Later
 
-- **`grove doctor --fix`.** Auto-repair common issues: adopt orphans, prune stale state entries, fix broken symlinks. The underlying actions (`adopt`, `clean`, state mutation) already ship, but auto-repair mutates the user's state and worktrees — it needs careful design around what gets fixed silently vs. confirmed first, which makes this more than wiring a flag.
 - **Per-worktree notes.** Let users attach short notes to tracked worktrees and show them in status/list output, e.g. why a long-lived worktree still exists.
 - **`grove why <alias>`.** Explain how Grove derived a worktree's path, port, symlinks, hooks, and state entry so setup issues are debuggable without reading config internals.
 - **Branch freshness hints.** Report branches that are behind the base branch, have no unique commits, lost their upstream, or were deleted remotely.

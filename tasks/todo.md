@@ -12,6 +12,6 @@
   - Acceptance: unique valid defaults are adopted; collisions remain unresolved.
   - Verify: `go test ./cmd -run 'TestDoctorFix.*Orphan'`.
   - Files: `cmd/adopt.go`, `cmd/doctor.go`, their tests.
-- [ ] Document, review, and verify.
+- [x] Document, review, and verify.
   - Acceptance: README/roadmap/changelog/skill and local architecture match behavior.
   - Verify: full CI command sequence from `AGENTS.md`.

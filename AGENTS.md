@@ -27,6 +27,7 @@
 - State writes are atomic, and mutating commands reread state while holding the inter-process lock. Do not reintroduce production `state.Load` → mutate → `state.Save` sequences; they lose unrelated concurrent updates.
 - `grove rename` preserves the assigned port and all state metadata. It moves only worktrees still at the standard path for the old alias; adopted/custom paths stay in place, and a failed state save rolls a directory move back.
 - `grove ps` is read-only: it scans TCP listeners once with `lsof`, falls back to `netstat`, and never changes ports or state. `netstat` results may lack PID/process details.
+- `grove doctor` and `grove doctor --json` are read-only. `grove doctor --fix` may remove revalidated stale state entries, repair an existing broken configured symlink only when its main-worktree target exists, and adopt only orphans whose branch-derived alias is valid, available, and unique. It must never remove worktrees, overwrite real destinations, modify config, run hooks, or repair port assignments; diagnostics run again after repairs.
 
 ## Orphans And PRs
 - An orphan is a git worktree not tracked in Grove state. `grove list` shows it as `?`; `grove adopt`, `grove clean`, `grove doctor`, and `grove remove` all have orphan-specific behavior in `cmd/helpers.go`.

@@ -467,7 +467,7 @@ Template names: letters, digits, dash, underscore.
 
 ### `grove doctor`
 
-Diagnose grove configuration and worktree health. Reports problems as `✓`, `⚠`, or `✗` and exits non-zero if any errors are found.
+Diagnose grove configuration and worktree health. Reports problems as `✓`, `⚠`, or `✗` and exits non-zero if any errors are found. `grove doctor` and `grove doctor --json` are read-only.
 
 Checks:
 - `.groverc.json` is valid and `portRange` is sane
@@ -485,7 +485,17 @@ grove doctor
 
 # Machine-readable diagnostics
 grove doctor --json
+
+# Repair only safe, unambiguous local issues, then diagnose again
+grove doctor --fix
+
+# Machine-readable diagnostics plus a fixes[] audit trail
+grove doctor --fix --json
 ```
+
+`--fix` runs without prompts. It removes stale state entries after rechecking them under the state lock, repairs an existing broken configured symlink only when its canonical target exists in the main worktree, and adopts an orphan only when its branch-derived alias is valid, available, and unique among current orphans. Ambiguous or changed cases are skipped and remain visible in the final diagnostics.
+
+Repair mode never removes a worktree, overwrites a real destination, changes `.groverc.json`, runs lifecycle hooks, or rewrites port assignments. It reruns diagnostics after all attempted repairs, so the exit code reflects the final state; a failed repair is also reported as an error.
 
 ```
   ✓ project root: /home/dev/myapp
