@@ -10,6 +10,10 @@
 - `grove rename <name-or-number> <new-alias>` to rename managed worktrees while preserving their branch, port, protection, creation time, and config hash; standard Grove paths move with rollback on state-save failure, while custom paths stay in place
 - `grove ps` for a read-only live view of TCP listeners on managed worktree ports, with PID/process details from `lsof`, a portable `netstat` fallback, and stable `--json` output
 
+### Changed
+
+- Mutating commands now coordinate `.grove/state.json` updates with an inter-process lock and fresh read-modify-write transactions, preventing parallel Grove processes from silently overwriting one another's state changes
+
 ## [0.8.0] — 2026-07-09
 
 ### Added

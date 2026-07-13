@@ -11,7 +11,7 @@
 - Entry point is `main.go`, which sets `cmd.Version` from ldflags or Go build info, then calls `cmd.Execute()`.
 - Commands live in `cmd/`; each subcommand registers itself on `rootCmd` in `init()`. Shared command resolution is in `cmd/helpers.go`.
 - Config is committed `.groverc.json`, loaded by `internal/config`. Commands find the project root by walking to `.groverc.json`, with a git-common-dir fallback for sibling worktrees.
-- Local machine state is `.grove/state.json`, managed by `internal/state`; missing state means no worktrees and is not an error. `.grove/` must stay uncommitted.
+- Local machine state is `.grove/state.json`, managed by `internal/state`; missing state means no worktrees and is not an error. Production mutations must use `state.Update` (usually through `updateManagedState`) so the `.grove/state.lock` covers a fresh read-modify-write transaction. `.grove/` must stay uncommitted.
 - Git operations should go through `internal/git`, not direct `exec.Command("git", ...)`, unless the command is intentionally outside that wrapper's scope.
 
 ## Grove Behavior To Preserve
@@ -24,6 +24,7 @@
 - The detector is conservative: Docker Compose only pulls images; Vite/Remix/SvelteKit get an `npm install` fallback only when no package-manager signal exists; Makefile suggestions require an explicit `setup:` target.
 - `.env*` copying is recursive but intentionally skips `node_modules`, `.git`, `dist`, `.next`, and `build`.
 - Ports are deterministic from alias within the configured range, collision-resolved against existing state, and persisted in `.grove/state.json`.
+- State writes are atomic, and mutating commands reread state while holding the inter-process lock. Do not reintroduce production `state.Load` → mutate → `state.Save` sequences; they lose unrelated concurrent updates.
 - `grove rename` preserves the assigned port and all state metadata. It moves only worktrees still at the standard path for the old alias; adopted/custom paths stay in place, and a failed state save rolls a directory move back.
 - `grove ps` is read-only: it scans TCP listeners once with `lsof`, falls back to `netstat`, and never changes ports or state. `netstat` results may lack PID/process details.
 

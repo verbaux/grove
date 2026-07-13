@@ -29,7 +29,7 @@ Config fields:
 | `afterRemove` | Hook run after managed worktree removal and state update |
 | `portRange` | `{min, max}` for per-worktree port assignment (default 3001–3999) |
 
-Worktree path: `<worktreeDir>/<prefix>-<alias>/`. State in `.grove/state.json` (gitignored).
+Worktree path: `<worktreeDir>/<prefix>-<alias>/`. State in `.grove/state.json` (gitignored); mutating Grove commands coordinate concurrent updates through `.grove/state.lock`.
 
 ## Commands
 

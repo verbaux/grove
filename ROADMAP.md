@@ -25,6 +25,7 @@ Latest published tag: `v0.8.0`. The `CHANGELOG` `[Unreleased]` section includes 
 - **`grove sync`.** Updates an existing managed worktree for the current `.groverc.json` setup: missing env files, symlinks, new `copyDirs`, optional `afterCreate` hooks, and refreshed config hash.
 - **`grove rename`.** Renames a tracked worktree alias while preserving its port and metadata. Standard Grove paths move with rollback on state-save failure; adopted/custom paths stay in place.
 - **`grove ps`.** Shows which assigned worktree ports have live TCP listeners, including PID/process details from `lsof`, a `netstat` fallback, and stable JSON output. It does not change port assignments.
+- **Concurrent-safe local state.** Mutating commands serialize `.grove/state.json` transactions through an advisory `.grove/state.lock`, reread the latest state before changing it, and preserve unrelated updates from parallel Grove processes.
 
 ## Later
 

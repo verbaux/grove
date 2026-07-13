@@ -659,6 +659,8 @@ Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`
 
 Local state that maps aliases to paths, ports, protection flags, and the `.groverc.json` setup hash used when each worktree was created. Add `.grove/` to your `.gitignore`.
 
+Grove writes this file atomically. Mutating commands also coordinate through `.grove/state.lock`, wait up to 10 seconds for another Grove process, and reread the latest state before applying a change. The lock file may remain on disk; the operating system releases the actual lock when the process exits.
+
 ```
 echo '.grove/' >> .gitignore
 ```
