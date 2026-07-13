@@ -1,15 +1,19 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/ports"
 	"github.com/verbaux/grove/internal/state"
 )
+
+var errAdoptTargetChanged = errors.New("worktree is no longer present in git worktree list")
 
 func init() {
 	rootCmd.AddCommand(adoptCmd)
@@ -130,6 +134,13 @@ func adoptWorktree(root string, cfg config.Config, target orphanWorktree, alias 
 				return fmt.Errorf("worktree path %s is already managed as %q", target.Path, existingAlias)
 			}
 		}
+		worktrees, err := git.ListWorktrees()
+		if err != nil {
+			return err
+		}
+		if !containsOrphanWorktree(worktrees, target) {
+			return errAdoptTargetChanged
+		}
 
 		portMin, portMax := cfg.ResolvedPortRange()
 		used := make(map[int]bool)
@@ -148,4 +159,13 @@ func adoptWorktree(root string, cfg config.Config, target orphanWorktree, alias 
 		return 0, err
 	}
 	return port, nil
+}
+
+func containsOrphanWorktree(worktrees []git.Worktree, target orphanWorktree) bool {
+	for _, worktree := range worktrees {
+		if !worktree.IsMain && worktree.Path == target.Path && worktree.Branch == target.Branch {
+			return true
+		}
+	}
+	return false
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -83,7 +84,7 @@ func fixOrphanWorktrees(root string, cfg config.Config, snapshot state.State, wo
 			diags = append(diags, diagnostic{levelError, fmt.Sprintf("adopt orphan %s: %v", candidate.target.Path, err)})
 			continue
 		}
-		if !containsWorktree(currentWorktrees, candidate.target) {
+		if !containsOrphanWorktree(currentWorktrees, candidate.target) {
 			fix.Status = "skipped"
 			fix.Message = "worktree is no longer present in git worktree list"
 			fixes = append(fixes, fix)
@@ -92,6 +93,12 @@ func fixOrphanWorktrees(root string, cfg config.Config, snapshot state.State, wo
 
 		port, err := adoptWorktree(root, cfg, candidate.target, candidate.alias)
 		if err != nil {
+			if errors.Is(err, errAdoptTargetChanged) {
+				fix.Status = "skipped"
+				fix.Message = err.Error()
+				fixes = append(fixes, fix)
+				continue
+			}
 			if current, loadErr := state.Load(root); loadErr == nil {
 				if owner, ok := managedAliasForPath(current, candidate.target.Path); ok {
 					fix.Status = "skipped"
@@ -127,13 +134,4 @@ func managedAliasForPath(s state.State, path string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func containsWorktree(worktrees []git.Worktree, target orphanWorktree) bool {
-	for _, worktree := range worktrees {
-		if !worktree.IsMain && worktree.Path == target.Path && worktree.Branch == target.Branch {
-			return true
-		}
-	}
-	return false
 }

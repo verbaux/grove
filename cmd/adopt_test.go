@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,7 +16,11 @@ func TestAdoptWorktreeRegistersPathAndAllocatesPort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := t.TempDir() + "/adopted"
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(parent, "adopted")
 	if err := git.AddWorktree(path, "feature/adopted", ""); err != nil {
 		t.Fatal(err)
 	}
@@ -41,5 +46,26 @@ func TestAdoptWorktreeRegistersPathAndAllocatesPort(t *testing.T) {
 	_, err = adoptWorktree(root, cfg, target, "duplicate")
 	if err == nil || !strings.Contains(err.Error(), "already managed") {
 		t.Fatalf("duplicate path error = %v", err)
+	}
+}
+
+func TestAdoptWorktreeRejectsTargetMissingFromGit(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	cfg, err := config.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := orphanWorktree{Path: filepath.Join(t.TempDir(), "vanished"), Branch: "feature/vanished"}
+
+	_, err = adoptWorktree(root, cfg, target, "vanished")
+	if err == nil || !strings.Contains(err.Error(), "no longer present") {
+		t.Fatalf("adoptWorktree error = %v, want missing git worktree error", err)
+	}
+	loaded, loadErr := state.Load(root)
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	if len(loaded.Worktrees) != 0 {
+		t.Fatalf("missing worktree was registered: %+v", loaded.Worktrees)
 	}
 }

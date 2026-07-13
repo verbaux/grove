@@ -13,6 +13,10 @@ import (
 // and is not a symlink.
 var ErrSymlinkDestinationConflict = errors.New("symlink destination already exists and is not a symlink")
 
+// ErrUnsafeSymlinkPath indicates that a configured symlink path escapes the
+// source or destination root.
+var ErrUnsafeSymlinkPath = errors.New("symlink path escapes its configured root")
+
 // SymlinkConflictError adds path context to ErrSymlinkDestinationConflict.
 type SymlinkConflictError struct {
 	Name string
@@ -150,8 +154,14 @@ func Symlink(srcDir, dstDir, name string) (bool, error) {
 // A real destination is never overwritten, and a missing canonical source
 // leaves the broken link unchanged.
 func RepairBrokenSymlink(srcDir, dstDir, name string) (bool, error) {
-	src := filepath.Join(srcDir, name)
-	dst := filepath.Join(dstDir, name)
+	src, err := joinWithinRoot(srcDir, name)
+	if err != nil {
+		return false, err
+	}
+	dst, err := joinWithinRoot(dstDir, name)
+	if err != nil {
+		return false, err
+	}
 
 	info, err := os.Lstat(dst)
 	if os.IsNotExist(err) {
@@ -162,6 +172,9 @@ func RepairBrokenSymlink(srcDir, dstDir, name string) (bool, error) {
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
 		return false, SymlinkConflictError{Name: name}
+	}
+	if err := ensureParentWithinRoot(dstDir, dst); err != nil {
+		return false, err
 	}
 
 	originalTarget, err := os.Readlink(dst)
@@ -219,6 +232,44 @@ func RepairBrokenSymlink(srcDir, dstDir, name string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func joinWithinRoot(root, name string) (string, error) {
+	if name == "" || filepath.IsAbs(name) {
+		return "", fmt.Errorf("%w: %q", ErrUnsafeSymlinkPath, name)
+	}
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(root, name)
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return "", err
+	}
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("%w: %q", ErrUnsafeSymlinkPath, name)
+	}
+	return path, nil
+}
+
+func ensureParentWithinRoot(root, path string) error {
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
+	resolvedParent, err := filepath.EvalSymlinks(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(resolvedRoot, resolvedParent)
+	if err != nil {
+		return err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("%w: %q", ErrUnsafeSymlinkPath, path)
+	}
+	return nil
 }
 
 // CopyDir recursively copies a directory from src to dst.

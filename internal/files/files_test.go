@@ -266,6 +266,75 @@ func TestRepairBrokenSymlinkRefusesRealDestination(t *testing.T) {
 	}
 }
 
+func TestRepairBrokenSymlinkRejectsPathOutsideWorktree(t *testing.T) {
+	base := t.TempDir()
+	src := filepath.Join(base, "main")
+	dst := filepath.Join(base, "worktrees", "feature")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		t.Fatal(err)
+	}
+	canonical := filepath.Join(base, "shared")
+	if err := os.Mkdir(canonical, 0755); err != nil {
+		t.Fatal(err)
+	}
+	escapedLink := filepath.Join(base, "worktrees", "shared")
+	originalTarget := filepath.Join(base, "missing")
+	if err := os.Symlink(originalTarget, escapedLink); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := RepairBrokenSymlink(src, dst, "../shared")
+	if !errors.Is(err, ErrUnsafeSymlinkPath) {
+		t.Fatalf("RepairBrokenSymlink error = %v, want ErrUnsafeSymlinkPath", err)
+	}
+	target, readErr := os.Readlink(escapedLink)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if target != originalTarget {
+		t.Fatalf("outside symlink changed to %q", target)
+	}
+}
+
+func TestRepairBrokenSymlinkRejectsSymlinkedParentOutsideWorktree(t *testing.T) {
+	base := t.TempDir()
+	src := filepath.Join(base, "main")
+	dst := filepath.Join(base, "worktree")
+	outside := filepath.Join(base, "outside")
+	if err := os.MkdirAll(filepath.Join(src, "nested", "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outside, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dst, "nested")); err != nil {
+		t.Fatal(err)
+	}
+	escapedLink := filepath.Join(outside, "node_modules")
+	originalTarget := filepath.Join(base, "missing")
+	if err := os.Symlink(originalTarget, escapedLink); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := RepairBrokenSymlink(src, dst, filepath.Join("nested", "node_modules"))
+	if !errors.Is(err, ErrUnsafeSymlinkPath) {
+		t.Fatalf("RepairBrokenSymlink error = %v, want ErrUnsafeSymlinkPath", err)
+	}
+	target, readErr := os.Readlink(escapedLink)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if target != originalTarget {
+		t.Fatalf("outside symlink changed to %q", target)
+	}
+}
+
 func TestCopyDir(t *testing.T) {
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "copied")

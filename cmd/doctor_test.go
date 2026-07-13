@@ -44,6 +44,13 @@ func TestDoctorJSON(t *testing.T) {
 	if result.Diagnostics[0].Level == "" || result.Diagnostics[0].Message == "" {
 		t.Fatalf("expected level and message in first diagnostic, got %+v", result.Diagnostics[0])
 	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := raw["fixes"]; ok {
+		t.Fatalf("read-only doctor JSON unexpectedly contains fixes: %s", out)
+	}
 }
 
 func TestDoctorFixRemovesStaleStateAndReportsJSON(t *testing.T) {
