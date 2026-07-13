@@ -277,7 +277,7 @@ func printStatus(result statusJSONResult) {
 	if result.Summary.Total == 0 {
 		fmt.Println("No managed worktrees.")
 		if result.Summary.Orphans > 0 {
-			fmt.Printf("%d orphan worktree(s) found — run 'grove adopt' or 'grove doctor'.\n", result.Summary.Orphans)
+			fmt.Printf("%d orphan worktree(s) found — run 'grove adopt' or 'grove doctor --fix'.\n", result.Summary.Orphans)
 		}
 		return
 	}

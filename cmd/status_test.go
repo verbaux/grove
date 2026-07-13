@@ -104,6 +104,19 @@ func TestStatusHumanNoManagedWorktrees(t *testing.T) {
 	}
 }
 
+func TestStatusHumanNoManagedWorktreesSuggestsDoctorFixForOrphans(t *testing.T) {
+	out, err := captureStdout(t, func() error {
+		printStatus(statusJSONResult{Summary: statusSummary{Orphans: 1}})
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "run 'grove adopt' or 'grove doctor --fix'") {
+		t.Fatalf("expected actionable orphan repair hint, got %q", out)
+	}
+}
+
 func TestStatusHelpersReportSymlinkAndPortIssues(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Symlink("/definitely/missing/target", filepath.Join(dir, "node_modules")); err != nil {

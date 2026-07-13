@@ -1,6 +1,6 @@
 # Tasks: Per-worktree notes and v0.9.0
 
-- [ ] Correct the empty-status orphan repair hint.
+- [x] Correct the empty-status orphan repair hint.
   - Acceptance: human output names `grove doctor --fix`.
   - Verify: focused status test.
   - Files: `cmd/status.go`, `cmd/status_test.go`.
