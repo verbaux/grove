@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.1] — 2026-08-09
+
 ### Fixed
 
 - Worktree removal now explains when initialized Git submodules require an explicit `--force`, instead of returning Git's raw submodule error

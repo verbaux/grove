@@ -4,10 +4,11 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.9.0`. This release includes config drift detection, `grove status`, `grove sync`, `grove rename`, `grove note`, `grove ps`, concurrent-safe state updates, and `grove doctor --fix`.
+Latest published tag: `v0.9.1`. This patch release makes worktree removal safer for repositories with initialized or retained Git submodules.
 
 ## Recently shipped
 
+- **Safe submodule removal.** `remove`, `clean`, and `prune` require explicit `--force` before discarding initialized or retained submodule data, and confirmation for one dirty worktree no longer forces clean neighbors.
 - **`grove remove` by index.** `grove remove 2` now matches `grove cd` and `grove open`; removing the main worktree index is explicitly refused.
 - **Safer `grove prune`.** Prune no longer treats unstarted or behind branches as merged. It still detects merge commits plus squash/rebase merges by content.
 - **`grove prune`.** Removes managed worktrees whose branch is already merged into the local base branch. Flags: `--base`, `--yes`, and `--force`.
