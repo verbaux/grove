@@ -321,18 +321,19 @@ Notes are stored only in `.grove/state.json`, are limited to one line and 200 Un
 
 ---
 
-### `grove remove <name>`
+### `grove remove <name|index>`
 
-Removes a worktree by alias. Checks for uncommitted changes first and asks for confirmation. Supports tab completion for aliases.
+Removes a worktree by alias, list index, branch, or path. Checks for uncommitted changes first and asks for confirmation. Supports tab completion for aliases.
 
 For managed worktrees, `beforeRemove` runs before deletion and can stop it; `afterRemove` runs after successful deletion and state update.
 
 Protected worktrees are refused unless you pass `--include-protected`.
+Worktrees containing initialized Git submodules require an explicit `--force` because removal may discard local-only submodule commits.
 
 ```sh
 grove remove auth
 
-# Skip the check
+# Allow discarding uncommitted changes or local-only submodule commits
 grove remove auth --force
 
 # Remove even if protected
@@ -357,11 +358,12 @@ The name can be an alias, list index, branch, or path.
 ### `grove clean`
 
 Removes all grove-managed worktrees, keeping the main working tree intact.
+Worktrees with initialized or retained submodule data require an explicit `--force` and are not forced by confirming changes in another worktree.
 
 ```sh
 grove clean
 
-# Skip uncommitted changes check
+# Allow discarding uncommitted changes or local-only submodule commits
 grove clean --force
 
 # Include protected worktrees too
@@ -373,6 +375,7 @@ grove clean --include-protected
 ### `grove prune`
 
 Removes grove-managed worktrees whose branch has already been merged into the base branch. Detects both regular and squash merges (the GitHub PR default). Merges are checked against the **local** base branch, so pull it first to catch PRs merged on the remote.
+Worktrees with initialized or retained submodule data require an explicit `--force`.
 
 ```sh
 grove prune
@@ -383,7 +386,7 @@ grove prune --base develop
 # Non-interactive — skip the confirmation prompt
 grove prune --yes
 
-# Also remove merged worktrees with uncommitted changes
+# Also allow discarding uncommitted changes or local-only submodule commits
 grove prune --force
 
 # Preview removals as JSON without deleting anything
@@ -401,7 +404,7 @@ The base branch is auto-detected from the remote's default (`origin/HEAD`), fall
 | ---------------- | ---------------------------------------------------------- |
 | `--base <branch>`| Branch to check merges against (default: auto-detected)    |
 | `--yes`, `-y`    | Skip the confirmation prompt                               |
-| `--force`        | Remove even if worktrees have uncommitted changes          |
+| `--force`        | Remove despite changes or initialized submodule data        |
 | `--dry-run`      | Show what would be removed without removing worktrees      |
 | `--json`         | Print dry-run result as JSON (requires `--dry-run`)        |
 | `--include-protected` | Include protected worktrees in prune candidates       |

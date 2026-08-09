@@ -1,9 +1,11 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -102,6 +104,159 @@ func TestAddAndRemoveWorktree(t *testing.T) {
 	}
 }
 
+func TestRemoveWorktreeWithInitializedSubmodule(t *testing.T) {
+	repo := setupTestRepo(t)
+	submodule := setupTestRepo(t)
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+
+	gitIn(t, repo, "-c", "protocol.file.allow=always", "submodule", "add", submodule, "vendor/example")
+	gitIn(t, repo, "commit", "-am", "add submodule")
+
+	wtPath := filepath.Join(t.TempDir(), "submodule-worktree")
+	if err := AddWorktree(wtPath, "submodule-branch", ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = RemoveWorktree(wtPath, true) })
+	gitIn(t, wtPath, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--recursive")
+	if _, err := os.Stat(filepath.Join(wtPath, ".gitmodules")); err != nil {
+		t.Fatalf("test worktree has no submodule configuration: %v", err)
+	}
+	hasSubmodules, err := HasSubmodulesBlockingRemoval(wtPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasSubmodules {
+		t.Fatal("initialized submodule was not detected")
+	}
+
+	submodulePath := filepath.Join(wtPath, "vendor/example")
+	if err := os.WriteFile(filepath.Join(submodulePath, "local.txt"), []byte("local commit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, submodulePath, "add", "local.txt")
+	gitIn(t, submodulePath, "commit", "-m", "local submodule commit")
+	localCommit := gitOutput(t, submodulePath, "rev-parse", "HEAD")
+	submoduleGitDir := gitOutput(t, submodulePath, "rev-parse", "--absolute-git-dir")
+	gitIn(t, wtPath, "add", "vendor/example")
+	gitIn(t, wtPath, "commit", "-m", "record local submodule commit")
+	gitIn(t, wtPath, "submodule", "deinit", "-f", "vendor/example")
+
+	hasSubmodules, err = HasSubmodulesBlockingRemoval(wtPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasSubmodules {
+		t.Fatal("retained submodule repository was not detected after deinit")
+	}
+	if err := MoveWorktree(wtPath, wtPath+"-moved"); !errors.Is(err, ErrSubmoduleMoveUnsupported) || !strings.Contains(err.Error(), "git worktree move") {
+		t.Fatalf("MoveWorktree error = %v, want sentinel and original Git error", err)
+	}
+
+	err = RemoveWorktree(wtPath, false)
+	if !errors.Is(err, ErrSubmoduleForceRequired) {
+		t.Fatalf("RemoveWorktree error = %v, want force guidance", err)
+	}
+	catFile := exec.Command("git", "--git-dir", submoduleGitDir, "cat-file", "-t", localCommit)
+	catFile.Dir = wtPath
+	out, catErr := catFile.CombinedOutput()
+	if catErr != nil || strings.TrimSpace(string(out)) != "commit" {
+		t.Fatalf("local submodule commit was lost after refused removal: %v: %s", catErr, out)
+	}
+
+	if err := RemoveWorktree(wtPath, true); err != nil {
+		t.Fatalf("forced RemoveWorktree failed: %v", err)
+	}
+	if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+		t.Fatalf("worktree path still exists: %v", err)
+	}
+	worktrees, err := ListWorktrees()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(worktrees) != 1 {
+		t.Fatalf("expected only main worktree, got %+v", worktrees)
+	}
+}
+
+func TestStatusRespectsIgnoredDirtySubmodule(t *testing.T) {
+	repo := setupTestRepo(t)
+	submodule := setupTestRepo(t)
+	if err := os.WriteFile(filepath.Join(submodule, "tracked.txt"), []byte("original\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, submodule, "add", "tracked.txt")
+	gitIn(t, submodule, "commit", "-m", "add tracked file")
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+
+	gitIn(t, repo, "-c", "protocol.file.allow=always", "submodule", "add", submodule, "vendor/example")
+	gitIn(t, repo, "config", "-f", ".gitmodules", "submodule.vendor/example.ignore", "all")
+	gitIn(t, repo, "add", ".gitmodules")
+	gitIn(t, repo, "commit", "-m", "add ignored submodule")
+
+	wtPath := filepath.Join(t.TempDir(), "ignored-submodule-worktree")
+	if err := AddWorktree(wtPath, "ignored-submodule-branch", ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = RemoveWorktree(wtPath, true) })
+	gitIn(t, wtPath, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--recursive")
+	if err := os.WriteFile(filepath.Join(wtPath, "vendor/example/tracked.txt"), []byte("changed\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(wtPath, "vendor/example/untracked.txt"), []byte("new\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := Status(wtPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != "clean" {
+		t.Fatalf("Status = %q, want clean because submodule ignore=all", status)
+	}
+	if err := RemoveWorktree(wtPath, false); !errors.Is(err, ErrSubmoduleForceRequired) {
+		t.Fatalf("RemoveWorktree error = %v, want force guidance", err)
+	}
+	if _, err := os.Stat(filepath.Join(wtPath, "vendor/example/tracked.txt")); err != nil {
+		t.Fatalf("dirty submodule content was removed: %v", err)
+	}
+}
+
+func TestRecognizesSubmoduleWorktreeRemoveError(t *testing.T) {
+	err := errors.New("fatal: working trees containing submodules cannot be moved or removed")
+	if !isSubmoduleWorktreeOperationError(err) {
+		t.Fatal("expected submodule worktree error to be recognized")
+	}
+	if isSubmoduleWorktreeOperationError(errors.New("fatal: permission denied")) {
+		t.Fatal("unrelated error must not enable destructive fallback")
+	}
+}
+
+func TestHasSubmodulesBlockingRemovalReportsUnknownWithGitlinkMissingMapping(t *testing.T) {
+	repo := setupTestRepo(t)
+	nested := filepath.Join(repo, "nested")
+	if err := os.Mkdir(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, nested, "init")
+	gitIn(t, nested, "config", "user.email", "test@test.com")
+	gitIn(t, nested, "config", "user.name", "Test")
+	gitIn(t, nested, "commit", "--allow-empty", "-m", "nested")
+	gitIn(t, repo, "add", "nested")
+	gitIn(t, repo, "commit", "-m", "add gitlink without mapping")
+
+	blocking, err := HasSubmodulesBlockingRemoval(repo)
+	if !errors.Is(err, ErrSubmoduleSafetyUnknown) {
+		t.Fatalf("error = %v, want ErrSubmoduleSafetyUnknown", err)
+	}
+	if blocking {
+		t.Fatal("inconclusive scan must not report a definite submodule result")
+	}
+}
+
 func TestMoveWorktree(t *testing.T) {
 	setupTestRepo(t)
 
@@ -188,6 +343,17 @@ func gitIn(t *testing.T, dir string, args ...string) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %s", args, out)
 	}
+}
+
+func gitOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %s", args, out)
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func TestStatusModified(t *testing.T) {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -12,6 +13,36 @@ import (
 	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
+
+func forceForRemoval(path, status string, explicitForce, dirtyConfirmed bool) (bool, error) {
+	if explicitForce {
+		return true, nil
+	}
+	if status == "clean" || !dirtyConfirmed {
+		return false, nil
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false, nil
+	}
+	if err := ensureNoBlockingSubmodules(path); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func ensureNoBlockingSubmodules(path string) error {
+	hasSubmodules, err := git.HasSubmodulesBlockingRemoval(path)
+	if err != nil {
+		if errors.Is(err, git.ErrSubmoduleSafetyUnknown) {
+			return err
+		}
+		return fmt.Errorf("check submodule removal safety: %w", err)
+	}
+	if hasSubmodules {
+		return git.ErrSubmoduleForceRequired
+	}
+	return nil
+}
 
 // isNumericAlias returns true if the alias is purely numeric (e.g. "3", "42").
 // Numeric-only aliases are reserved for index-based access in `grove cd`.

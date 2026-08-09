@@ -23,7 +23,7 @@ var (
 
 func init() {
 	rootCmd.AddCommand(pruneCmd)
-	pruneCmd.Flags().BoolVar(&pruneForce, "force", false, "remove even if worktrees have uncommitted changes")
+	pruneCmd.Flags().BoolVar(&pruneForce, "force", false, "remove despite uncommitted changes or initialized submodules")
 	pruneCmd.Flags().StringVar(&pruneBase, "base", "", "branch to check merges against (default: auto-detected default branch)")
 	pruneCmd.Flags().BoolVarP(&pruneYes, "yes", "y", false, "skip the confirmation prompt")
 	pruneCmd.Flags().BoolVar(&pruneDryRun, "dry-run", false, "show what would be removed without removing worktrees")
@@ -203,6 +203,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
+	dirtyConfirmed := false
 	if !pruneYes {
 		var answer string
 		if len(dirty) > 0 && !pruneForce {
@@ -214,17 +215,20 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			fmt.Println("Aborted.")
 			return nil
 		}
-	}
-
-	// User confirmed removal of dirty worktrees interactively — pass force to git.
-	force := pruneForce
-	if !pruneYes && len(dirty) > 0 {
-		force = true
+		dirtyConfirmed = len(dirty) > 0 && !pruneForce
 	}
 
 	var removed int
 	var removeErr error
 	for _, wt := range merged {
+		force, err := forceForRemoval(wt.Path, wt.Status, pruneForce, dirtyConfirmed)
+		if err != nil {
+			fmt.Printf("  failed to remove %q: %v\n", wt.Alias, err)
+			if removeErr == nil {
+				removeErr = err
+			}
+			continue
+		}
 		ok, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
 			Alias:            wt.Alias,
 			Branch:           wt.Branch,

@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"bufio"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,6 +20,159 @@ func baseConfig() config.Config {
 		WorktreeDir: "../",
 		Prefix:      "testproject",
 		Symlink:     []string{},
+	}
+}
+
+func TestForceForRemovalDoesNotForceCleanTargetAfterDirtyConfirmation(t *testing.T) {
+	force, err := forceForRemoval("/unused", "clean", false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if force {
+		t.Fatal("clean target inherited force from another dirty worktree")
+	}
+}
+
+func TestForceForRemovalAllowsExplicitForce(t *testing.T) {
+	force, err := forceForRemoval("/unused", "clean", true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !force {
+		t.Fatal("explicit force was not preserved")
+	}
+}
+
+func TestEnsureNoBlockingSubmodulesDoesNotDuplicateUnknownSafetyMessage(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	nested := filepath.Join(root, "nested")
+	if err := os.Mkdir(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+	gitInRepo(t, nested, "init")
+	gitInRepo(t, nested, "config", "user.email", "test@test.com")
+	gitInRepo(t, nested, "config", "user.name", "Test")
+	gitInRepo(t, nested, "commit", "--allow-empty", "-m", "nested")
+	gitInRepo(t, root, "add", "nested")
+	gitInRepo(t, root, "commit", "-m", "add gitlink without mapping")
+
+	err := ensureNoBlockingSubmodules(root)
+	if !errors.Is(err, git.ErrSubmoduleSafetyUnknown) {
+		t.Fatalf("error = %v, want ErrSubmoduleSafetyUnknown", err)
+	}
+	if err.Error() != git.ErrSubmoduleSafetyUnknown.Error() {
+		t.Fatalf("error was redundantly wrapped: %q", err)
+	}
+}
+
+func TestForceForRemovalRequiresExplicitForceForInitializedSubmodule(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	submodule := t.TempDir()
+	wtPath := filepath.Join(t.TempDir(), "linked-worktree")
+	commands := []struct {
+		dir  string
+		args []string
+	}{
+		{submodule, []string{"init"}},
+		{submodule, []string{"config", "user.email", "test@test.com"}},
+		{submodule, []string{"config", "user.name", "Test"}},
+		{submodule, []string{"commit", "--allow-empty", "-m", "initial"}},
+		{root, []string{"-c", "protocol.file.allow=always", "submodule", "add", submodule, "vendor/example"}},
+		{root, []string{"commit", "-am", "add submodule"}},
+		{root, []string{"worktree", "add", "-b", "feature/submodule-policy", wtPath}},
+		{wtPath, []string{"-c", "protocol.file.allow=always", "submodule", "update", "--init"}},
+		{wtPath, []string{"submodule", "deinit", "-f", "vendor/example"}},
+	}
+	for _, command := range commands {
+		cmd := exec.Command("git", command.args...)
+		cmd.Dir = command.dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %s", command.args, out)
+		}
+	}
+	t.Cleanup(func() {
+		cmd := exec.Command("git", "worktree", "remove", "--force", wtPath)
+		cmd.Dir = root
+		_ = cmd.Run()
+	})
+
+	force, err := forceForRemoval(wtPath, "1 modified", false, true)
+	if err == nil || !strings.Contains(err.Error(), "rerun with --force") {
+		t.Fatalf("error = %v, want explicit force guidance", err)
+	}
+	if force {
+		t.Fatal("dirty confirmation implicitly forced initialized submodule removal")
+	}
+}
+
+func TestBatchRemovalDoesNotApplyDirtyConfirmationToCleanSubmoduleWorktree(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		run  func() error
+	}{
+		{"clean", func() error { return runClean(cleanCmd, nil) }},
+		{"prune", func() error { return runPrune(pruneCmd, nil) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := setupIntegrationRepo(t, baseConfig())
+			submodule := t.TempDir()
+			gitInRepo(t, submodule, "init")
+			gitInRepo(t, submodule, "config", "user.email", "test@test.com")
+			gitInRepo(t, submodule, "config", "user.name", "Test")
+			gitInRepo(t, submodule, "commit", "--allow-empty", "-m", "initial")
+			gitInRepo(t, root, "-c", "protocol.file.allow=always", "submodule", "add", submodule, "vendor/example")
+			gitInRepo(t, root, "commit", "-am", "add submodule")
+
+			worktreeRoot := t.TempDir()
+			dirtyPath := filepath.Join(worktreeRoot, "dirty")
+			submodulePath := filepath.Join(worktreeRoot, "submodule")
+			gitInRepo(t, root, "worktree", "add", "-b", "dirty-branch", dirtyPath)
+			gitInRepo(t, root, "worktree", "add", "-b", "submodule-branch", submodulePath)
+			if tc.name == "prune" {
+				for _, item := range []struct{ path, file string }{{dirtyPath, "dirty-branch.txt"}, {submodulePath, "submodule-branch.txt"}} {
+					if err := os.WriteFile(filepath.Join(item.path, item.file), []byte("merged\n"), 0644); err != nil {
+						t.Fatal(err)
+					}
+					gitInRepo(t, item.path, "add", item.file)
+					gitInRepo(t, item.path, "commit", "-m", "add "+item.file)
+					gitInRepo(t, root, "merge", "--no-ff", filepath.Base(strings.TrimSuffix(item.file, ".txt")), "-m", "merge "+item.file)
+				}
+			}
+			gitInRepo(t, submodulePath, "-c", "protocol.file.allow=always", "submodule", "update", "--init")
+			if err := os.WriteFile(filepath.Join(dirtyPath, "dirty.txt"), []byte("dirty\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			s, err := state.Load(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Add("dirty", "dirty-branch", dirtyPath, 0); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Add("submodule", "submodule-branch", submodulePath, 0); err != nil {
+				t.Fatal(err)
+			}
+			if err := state.Save(root, s); err != nil {
+				t.Fatal(err)
+			}
+
+			reader = bufio.NewReader(strings.NewReader("y\n"))
+			cleanForce, cleanIncludeProtected = false, false
+			pruneForce, pruneBase, pruneYes, pruneDryRun, pruneJSON, pruneIncludeProtected = false, "", false, false, false, false
+			t.Cleanup(func() { reader = nil })
+
+			err = tc.run()
+			if !errors.Is(err, git.ErrSubmoduleForceRequired) {
+				t.Fatalf("error = %v, want clean submodule worktree refusal", err)
+			}
+			if _, err := os.Stat(dirtyPath); !os.IsNotExist(err) {
+				t.Fatalf("confirmed dirty worktree was not removed: %v", err)
+			}
+			if _, err := os.Stat(submodulePath); err != nil {
+				t.Fatalf("clean submodule worktree inherited force and was removed: %v", err)
+			}
+		})
 	}
 }
 
@@ -116,6 +272,71 @@ func TestBeforeRemoveFailureBlocksRemoval(t *testing.T) {
 		t.Fatal(err)
 	}
 	cleanupWorktree(t, dir, path)
+}
+
+func TestSubmodulePreflightBlocksBeforeRemoveHook(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		BeforeRemove: config.HookCommands{
+			`touch "$(dirname "$GROVE_PATH")/before-submodule-marker"`,
+		},
+	})
+	submodule := t.TempDir()
+	commands := []struct {
+		dir  string
+		args []string
+	}{
+		{submodule, []string{"init"}},
+		{submodule, []string{"config", "user.email", "test@test.com"}},
+		{submodule, []string{"config", "user.name", "Test"}},
+		{submodule, []string{"commit", "--allow-empty", "-m", "initial"}},
+		{dir, []string{"-c", "protocol.file.allow=always", "submodule", "add", submodule, "vendor/example"}},
+		{dir, []string{"commit", "-am", "add submodule"}},
+	}
+	for _, command := range commands {
+		cmd := exec.Command("git", command.args...)
+		cmd.Dir = command.dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %s", command.args, out)
+		}
+	}
+
+	createName, createFrom, createDetach = "submodule-hook", "", false
+	if err := runCreate(createCmd, []string{"feature/submodule-hook"}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { createName = "" })
+	resolved, err := resolveWorktree(dir, "submodule-hook")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(resolved.Path, true) })
+	cmd := exec.Command("git", "-c", "protocol.file.allow=always", "submodule", "update", "--init")
+	cmd.Dir = resolved.Path
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("initialize worktree submodule: %s", out)
+	}
+
+	removeForce = false
+	err = runRemove(removeCmd, []string{"submodule-hook"})
+	if !errors.Is(err, git.ErrSubmoduleForceRequired) {
+		t.Fatalf("remove error = %v, want submodule force requirement", err)
+	}
+	marker := filepath.Join(filepath.Dir(resolved.Path), "before-submodule-marker")
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("beforeRemove hook ran before submodule refusal: %v", err)
+	}
+	if _, err := os.Stat(resolved.Path); err != nil {
+		t.Fatalf("worktree was removed after preflight refusal: %v", err)
+	}
+	loaded, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := loaded.Get("submodule-hook"); !ok {
+		t.Fatal("state entry was removed after preflight refusal")
+	}
 }
 
 func TestResolveWorktreeByIndexMatchesAlias(t *testing.T) {

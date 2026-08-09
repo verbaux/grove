@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Worktree removal now explains when initialized Git submodules require an explicit `--force`, instead of returning Git's raw submodule error
+- `grove clean` and `grove prune` now apply confirmation-derived force per worktree, so one dirty worktree cannot force removal of clean neighbors
+
 ### Changed
 
 - Release automation now invokes the reusable site deploy after GoReleaser succeeds and passes the tag used for the HTML fallback and CSS cache-buster

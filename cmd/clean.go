@@ -19,7 +19,7 @@ var (
 
 func init() {
 	rootCmd.AddCommand(cleanCmd)
-	cleanCmd.Flags().BoolVar(&cleanForce, "force", false, "remove even if worktrees have uncommitted changes")
+	cleanCmd.Flags().BoolVar(&cleanForce, "force", false, "remove despite uncommitted changes or initialized submodules")
 	cleanCmd.Flags().BoolVar(&cleanIncludeProtected, "include-protected", false, "include protected worktrees")
 }
 
@@ -29,7 +29,7 @@ var cleanCmd = &cobra.Command{
 	Long: `Remove all grove-managed worktrees, keeping the main working tree intact.
 
 Shows a list of what will be removed and asks for confirmation.
-Use --force to remove even if worktrees have uncommitted changes.`,
+Use --force to remove despite uncommitted changes or initialized submodules.`,
 	RunE: runClean,
 }
 
@@ -117,12 +117,14 @@ func runClean(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println()
 
+	dirtyConfirmed := false
 	if len(dirty) > 0 && !cleanForce {
 		answer := prompt("Some worktrees have changes. Remove all anyway? [y/N]", "n")
 		if answer != "y" && answer != "Y" {
 			fmt.Println("Aborted.")
 			return nil
 		}
+		dirtyConfirmed = true
 	} else {
 		answer := prompt(fmt.Sprintf("Remove %d worktree(s)? [y/N]", len(toRemove)), "n")
 		if answer != "y" && answer != "Y" {
@@ -131,16 +133,18 @@ func runClean(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// User confirmed removal of dirty worktrees — pass force to git.
-	force := cleanForce
-	if len(dirty) > 0 && !cleanForce {
-		force = true
-	}
-
 	// If one removal fails, keep going — state stays consistent with what was actually removed.
 	var removed int
 	var removeErr error
 	for _, wt := range toRemove {
+		force, err := forceForRemoval(wt.path, wt.status, cleanForce, dirtyConfirmed)
+		if err != nil {
+			fmt.Printf("  failed to remove %q: %v\n", wt.alias, err)
+			if removeErr == nil {
+				removeErr = err
+			}
+			continue
+		}
 		ok, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
 			Alias:            wt.alias,
 			Branch:           wt.branch,
@@ -189,11 +193,13 @@ func cleanOrphans(s state.State, force bool) (int, error) {
 	fmt.Printf("\nFound %d orphan worktree(s) not managed by grove:\n", len(orphans))
 
 	var dirty []string
+	statuses := make(map[string]string, len(orphans))
 	for _, o := range orphans {
 		status, err := git.Status(o.Path)
 		if err != nil {
 			status = "unknown"
 		}
+		statuses[o.Path] = status
 		marker := ""
 		if status != "clean" {
 			marker = " (" + status + ")"
@@ -203,13 +209,14 @@ func cleanOrphans(s state.State, force bool) (int, error) {
 	}
 	fmt.Println()
 
+	dirtyConfirmed := false
 	if len(dirty) > 0 && !force {
 		answer := prompt("Some orphan worktrees have changes. Remove all anyway? [y/N]", "n")
 		if answer != "y" && answer != "Y" {
 			fmt.Println("Skipped orphan cleanup.")
 			return 0, nil
 		}
-		force = true
+		dirtyConfirmed = true
 	} else {
 		answer := prompt(fmt.Sprintf("Remove %d orphan worktree(s)? [y/N]", len(orphans)), "n")
 		if answer != "y" && answer != "Y" {
@@ -220,7 +227,12 @@ func cleanOrphans(s state.State, force bool) (int, error) {
 
 	var removed int
 	for _, o := range orphans {
-		if err := git.RemoveWorktree(o.Path, force); err != nil {
+		orphanForce, err := forceForRemoval(o.Path, statuses[o.Path], force, dirtyConfirmed)
+		if err != nil {
+			fmt.Printf("  failed to remove orphan %q: %v\n", o.Branch, err)
+			continue
+		}
+		if err := git.RemoveWorktree(o.Path, orphanForce); err != nil {
 			fmt.Printf("  failed to remove orphan %q: %v\n", o.Branch, err)
 			continue
 		}

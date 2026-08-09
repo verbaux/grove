@@ -17,7 +17,7 @@ var (
 
 func init() {
 	rootCmd.AddCommand(removeCmd)
-	removeCmd.Flags().BoolVar(&removeForce, "force", false, "remove even if there are uncommitted changes")
+	removeCmd.Flags().BoolVar(&removeForce, "force", false, "remove despite uncommitted changes or initialized submodules")
 	removeCmd.Flags().BoolVar(&removeIncludeProtected, "include-protected", false, "allow removing protected worktrees")
 }
 
@@ -27,7 +27,7 @@ var removeCmd = &cobra.Command{
 	Long: `Remove a worktree by alias or by its index number from 'grove list'.
 
 Checks for uncommitted changes and asks for confirmation before removing.
-Use --force to skip the check.`,
+Use --force to remove despite uncommitted changes or initialized submodule data.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeAliases,
 	RunE:              runRemove,
@@ -99,6 +99,9 @@ func runRemove(cmd *cobra.Command, args []string) error {
 
 		force := removeForce
 		if status != "clean" && !removeForce {
+			if err := ensureNoBlockingSubmodules(resolved.Path); err != nil {
+				return err
+			}
 			fmt.Printf("Worktree %q has %s.\n", label, status)
 			answer := prompt("Remove anyway? [y/N]", "n")
 			if answer != "y" && answer != "Y" {
@@ -133,6 +136,12 @@ type managedRemoveTarget struct {
 func removeManagedWorktree(root string, cfg config.Config, s *state.State, wt managedRemoveTarget, force bool) (bool, error) {
 	_, statErr := os.Stat(wt.Path)
 	pathMissing := os.IsNotExist(statErr)
+
+	if !pathMissing && !force {
+		if err := ensureNoBlockingSubmodules(wt.Path); err != nil {
+			return false, err
+		}
+	}
 
 	env := groveHookEnv(wt)
 	if !pathMissing {

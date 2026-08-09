@@ -1,17 +1,24 @@
 package git
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
+var ErrSubmoduleForceRequired = errors.New("worktree contains initialized or retained submodule data — rerun with --force to confirm removal of local-only submodule commits")
+var ErrSubmoduleSafetyUnknown = errors.New("could not verify submodule removal safety — rerun with --force only if discarding possible local-only submodule data is acceptable")
+var ErrSubmoduleMoveUnsupported = errors.New("cannot move worktree with initialized or retained submodule data; deinitialize its submodules before moving it")
+
 // run executes a git command and returns its stdout.
 // All git operations go through this — one place to debug if something breaks.
 func run(args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), strings.TrimSpace(string(out)))
@@ -49,16 +56,70 @@ func AddWorktree(path, branch, from string) error {
 // Pass force=true to remove even if there are uncommitted changes.
 func RemoveWorktree(path string, force bool) error {
 	if force {
-		_, err := run("worktree", "remove", "--force", path)
+		return runRemoveWorktree(path, true)
+	}
+
+	err := runRemoveWorktree(path, false)
+	if err == nil || !isSubmoduleWorktreeOperationError(err) {
 		return err
 	}
-	_, err := run("worktree", "remove", path)
+	return ErrSubmoduleForceRequired
+}
+
+func runRemoveWorktree(path string, force bool) error {
+	args := []string{"worktree", "remove"}
+	if force {
+		args = append(args, "--force")
+	}
+	_, err := run(append(args, path)...)
 	return err
+}
+
+func isSubmoduleWorktreeOperationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "containing submodules") &&
+		strings.Contains(message, "cannot be moved or removed")
+}
+
+// HasSubmodulesBlockingRemoval reports whether Git retains submodule data that
+// requires an explicit forced worktree removal. Callers must check the error
+// before the boolean because ErrSubmoduleSafetyUnknown returns false.
+func HasSubmodulesBlockingRemoval(path string) (bool, error) {
+	gitDir, err := run("-C", path, "rev-parse", "--absolute-git-dir")
+	if err != nil {
+		return false, err
+	}
+	if info, statErr := os.Stat(filepath.Join(gitDir, "modules")); statErr == nil {
+		if info.IsDir() {
+			return true, nil
+		}
+	} else if !os.IsNotExist(statErr) {
+		return false, statErr
+	}
+
+	out, err := run("-C", path, "submodule", "status", "--recursive")
+	if err != nil {
+		return false, ErrSubmoduleSafetyUnknown
+	}
+	// run applies TrimSpace to the complete output, removing the leading space
+	// from its first status line. Only the '-' prefix is significant here.
+	for _, line := range strings.Split(out, "\n") {
+		if line != "" && line[0] != '-' {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // MoveWorktree relocates a linked worktree and updates git's worktree metadata.
 func MoveWorktree(oldPath, newPath string) error {
 	_, err := run("worktree", "move", oldPath, newPath)
+	if isSubmoduleWorktreeOperationError(err) {
+		return fmt.Errorf("%w: %w", ErrSubmoduleMoveUnsupported, err)
+	}
 	return err
 }
 
@@ -135,6 +196,7 @@ func ListWorktrees() ([]Worktree, error) {
 // Returns "clean" or a breakdown like "2 staged, 1 modified, 3 untracked".
 func Status(worktreePath string) (string, error) {
 	cmd := exec.Command("git", "-C", worktreePath, "status", "--porcelain")
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("git status in %s: %w", worktreePath, err)

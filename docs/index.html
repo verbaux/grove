@@ -376,9 +376,9 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
         <div><h4>Maintenance</h4><p>When things get messy.</p></div>
       </div>
       <ul class="ref-list">
-        <li><code>grove remove &lt;name|index&gt;</code><span>Remove a worktree (dirty-state check); <code>--force</code> to skip</span></li>
-        <li><code>grove clean</code><span>Remove all managed worktrees + orphan cleanup; <code>--force</code> to skip</span></li>
-        <li><code>grove prune</code><span>Remove managed worktrees whose branch is merged; <code>--base</code>, <code>--yes</code>, <code>--force</code></span></li>
+        <li><code>grove remove &lt;name|index&gt;</code><span>Remove a worktree safely; initialized submodule data requires explicit <code>--force</code></span></li>
+        <li><code>grove clean</code><span>Remove managed worktrees + orphans without forcing submodule neighbors; <code>--force</code> is explicit</span></li>
+        <li><code>grove prune</code><span>Remove merged worktrees safely; <code>--base</code>, <code>--yes</code>, explicit <code>--force</code></span></li>
         <li><code>grove adopt</code><span>Register an orphan worktree</span></li>
         <li><code>grove detach</code><span>Remove symlinks; <code>--copy</code> preserves contents first</span></li>
         <li><code>grove doctor</code><span>Diagnose config, state, symlinks, ports, deps; <code>--fix</code> safely repairs unambiguous local issues</span></li>

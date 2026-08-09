@@ -25,3 +25,12 @@
 - [x] Review, verify, publish v0.9.0.
   - Acceptance: strict CI green, branch/main and tag pushed, release/deploy green.
   - Verify: GitHub Actions and release inspection.
+
+## Removal follow-ups
+
+- [ ] Add the documented dirty-worktree confirmation to managed `grove remove`.
+  - Acceptance: managed and orphan removal use consistent confirmation behavior
+    without bypassing submodule, protection, hook, or state safety checks.
+- [ ] Stop batch removal errors from being printed twice.
+  - Acceptance: `grove clean` and `grove prune` report each failed target once
+    while still returning a non-zero exit status when any removal fails.
