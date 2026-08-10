@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -55,10 +56,8 @@ func runClean(cmd *cobra.Command, args []string) error {
 
 	if len(s.Worktrees) == 0 {
 		fmt.Println("No managed worktrees to clean.")
-		if orphanRemoved, err := cleanOrphans(s, cleanForce); err != nil {
+		if _, err := cleanOrphans(s, cleanForce); err != nil {
 			return err
-		} else if orphanRemoved > 0 {
-			fmt.Printf("Removed %d orphan worktree(s).\n", orphanRemoved)
 		}
 		return nil
 	}
@@ -97,10 +96,8 @@ func runClean(cmd *cobra.Command, args []string) error {
 	}
 	if len(toRemove) == 0 {
 		fmt.Println("No removable managed worktrees.")
-		if orphanRemoved, err := cleanOrphans(s, cleanForce); err != nil {
+		if _, err := cleanOrphans(s, cleanForce); err != nil {
 			return err
-		} else if orphanRemoved > 0 {
-			fmt.Printf("Removed %d orphan worktree(s).\n", orphanRemoved)
 		}
 		return nil
 	}
@@ -135,14 +132,12 @@ func runClean(cmd *cobra.Command, args []string) error {
 
 	// If one removal fails, keep going — state stays consistent with what was actually removed.
 	var removed int
-	var removeErr error
+	var removalFailures []error
 	for _, wt := range toRemove {
 		force, err := forceForRemoval(wt.path, wt.status, cleanForce, dirtyConfirmed)
 		if err != nil {
-			fmt.Printf("  failed to remove %q: %v\n", wt.alias, err)
-			if removeErr == nil {
-				removeErr = err
-			}
+			fmt.Fprintf(os.Stderr, "  failed to remove %q: %v\n", wt.alias, err)
+			removalFailures = append(removalFailures, err)
 			continue
 		}
 		ok, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
@@ -153,10 +148,8 @@ func runClean(cmd *cobra.Command, args []string) error {
 			IncludeProtected: cleanIncludeProtected,
 		}, force)
 		if err != nil {
-			fmt.Printf("  failed to remove %q: %v\n", wt.alias, err)
-			if removeErr == nil {
-				removeErr = err
-			}
+			fmt.Fprintf(os.Stderr, "  failed to remove %q: %v\n", wt.alias, err)
+			removalFailures = append(removalFailures, err)
 			continue
 		}
 		if ok {
@@ -171,13 +164,15 @@ func runClean(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\nRemoved %d of %d worktree(s).\n", removed, len(toRemove))
 
 	// Phase 2: orphan worktrees (git knows, grove doesn't)
-	if orphanRemoved, err := cleanOrphans(s, cleanForce); err != nil {
-		return err
-	} else if orphanRemoved > 0 {
-		fmt.Printf("Removed %d orphan worktree(s).\n", orphanRemoved)
+	if _, err := cleanOrphans(s, cleanForce); err != nil {
+		var batchErr *batchRemovalError
+		if !errors.As(err, &batchErr) {
+			return err
+		}
+		removalFailures = append(removalFailures, batchErr.failures...)
 	}
 
-	return removeErr
+	return newBatchRemovalError(removalFailures)
 }
 
 func cleanOrphans(s state.State, force bool) (int, error) {
@@ -226,19 +221,25 @@ func cleanOrphans(s state.State, force bool) (int, error) {
 	}
 
 	var removed int
+	var removalFailures []error
 	for _, o := range orphans {
 		orphanForce, err := forceForRemoval(o.Path, statuses[o.Path], force, dirtyConfirmed)
 		if err != nil {
-			fmt.Printf("  failed to remove orphan %q: %v\n", o.Branch, err)
+			fmt.Fprintf(os.Stderr, "  failed to remove orphan %q: %v\n", o.Branch, err)
+			removalFailures = append(removalFailures, err)
 			continue
 		}
 		if err := git.RemoveWorktree(o.Path, orphanForce); err != nil {
-			fmt.Printf("  failed to remove orphan %q: %v\n", o.Branch, err)
+			fmt.Fprintf(os.Stderr, "  failed to remove orphan %q: %v\n", o.Branch, err)
+			removalFailures = append(removalFailures, err)
 			continue
 		}
 		removed++
 		fmt.Printf("  ✓ removed orphan %s\n", o.Branch)
 	}
 
-	return removed, nil
+	if removed > 0 {
+		fmt.Printf("Removed %d orphan worktree(s).\n", removed)
+	}
+	return removed, newBatchRemovalError(removalFailures)
 }

@@ -14,6 +14,36 @@ import (
 	"github.com/verbaux/grove/internal/state"
 )
 
+type batchRemovalError struct {
+	failures []error
+}
+
+func (e *batchRemovalError) Error() string {
+	if len(e.failures) == 1 {
+		return "1 worktree removal failed"
+	}
+	return fmt.Sprintf("%d worktree removals failed", len(e.failures))
+}
+
+func (e *batchRemovalError) Unwrap() []error {
+	return e.failures
+}
+
+func newBatchRemovalError(failures []error) error {
+	var flattened []error
+	for _, failure := range failures {
+		if nested, ok := failure.(*batchRemovalError); ok {
+			flattened = append(flattened, nested.failures...)
+			continue
+		}
+		flattened = append(flattened, failure)
+	}
+	if len(flattened) == 0 {
+		return nil
+	}
+	return &batchRemovalError{failures: flattened}
+}
+
 func forceForRemoval(path, status string, explicitForce, dirtyConfirmed bool) (bool, error) {
 	if explicitForce {
 		return true, nil

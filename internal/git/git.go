@@ -102,7 +102,7 @@ func HasSubmodulesBlockingRemoval(path string) (bool, error) {
 
 	out, err := run("-C", path, "submodule", "status", "--recursive")
 	if err != nil {
-		return false, ErrSubmoduleSafetyUnknown
+		return false, fmt.Errorf("%w: %w", ErrSubmoduleSafetyUnknown, err)
 	}
 	// run applies TrimSpace to the complete output, removing the leading space
 	// from its first status line. Only the '-' prefix is significant here.

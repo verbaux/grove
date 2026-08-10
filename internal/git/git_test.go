@@ -255,6 +255,12 @@ func TestHasSubmodulesBlockingRemovalReportsUnknownWithGitlinkMissingMapping(t *
 	if blocking {
 		t.Fatal("inconclusive scan must not report a definite submodule result")
 	}
+	if !strings.Contains(err.Error(), "submodule status --recursive") {
+		t.Fatalf("error does not retain the failing Git command: %v", err)
+	}
+	if err.Error() == ErrSubmoduleSafetyUnknown.Error() {
+		t.Fatalf("error discarded the underlying Git failure: %v", err)
+	}
 }
 
 func TestMoveWorktree(t *testing.T) {

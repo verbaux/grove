@@ -15,5 +15,8 @@ CLAUDE.md
 # Claude Code local overrides (machine-specific)
 .claude/settings.local.json
 
+# Codex local hooks and settings (machine-specific)
+/.codex/
+
 # macOS
 .DS_Store

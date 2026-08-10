@@ -34,95 +34,144 @@ Use --force to remove despite uncommitted changes or initialized submodule data.
 }
 
 func runRemove(cmd *cobra.Command, args []string) error {
-	query := args[0]
-
-	cwd, err := os.Getwd()
+	ctx, err := resolveRemoveContext(args[0])
 	if err != nil {
 		return err
 	}
-
-	root, err := config.FindRoot(cwd)
-	if err != nil {
+	removed, err := removeResolvedWorktree(&ctx)
+	if err != nil || !removed {
 		return err
-	}
-
-	s, err := state.Load(root)
-	if err != nil {
-		return err
-	}
-	cfg, err := config.Load(root)
-	if err != nil {
-		return err
-	}
-
-	resolved, err := resolveWorktree(root, query)
-	if err != nil {
-		return err
-	}
-	if resolved == nil {
-		return fmt.Errorf("no worktree matching %q — run 'grove list' to see available worktrees", query)
-	}
-	if resolved.IsMain {
-		return fmt.Errorf("refusing to remove the main worktree")
-	}
-
-	label := resolved.Alias
-	if label == "" {
-		label = resolved.Branch
-	}
-
-	if resolved.InState {
-		if resolved.Protected && !removeIncludeProtected {
-			return fmt.Errorf("worktree %q is protected — pass --include-protected to remove it", resolved.Alias)
-		}
-		entry, ok := s.Get(resolved.Alias)
-		if !ok {
-			return fmt.Errorf("state entry %q disappeared", resolved.Alias)
-		}
-		_, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
-			Alias:            resolved.Alias,
-			Branch:           entry.Branch,
-			Path:             entry.Path,
-			Port:             entry.Port,
-			IncludeProtected: removeIncludeProtected,
-		}, removeForce)
-		if err != nil {
-			return err
-		}
-	} else if _, err := os.Stat(resolved.Path); os.IsNotExist(err) {
-		fmt.Printf("Worktree path %s no longer exists.\n", resolved.Path)
-	} else {
-		status, err := git.Status(resolved.Path)
-		if err != nil {
-			return err
-		}
-
-		force := removeForce
-		if status != "clean" && !removeForce {
-			if err := ensureNoBlockingSubmodules(resolved.Path); err != nil {
-				return err
-			}
-			fmt.Printf("Worktree %q has %s.\n", label, status)
-			answer := prompt("Remove anyway? [y/N]", "n")
-			if answer != "y" && answer != "Y" {
-				fmt.Println("Aborted.")
-				return nil
-			}
-			force = true
-		}
-
-		if err := git.RemoveWorktree(resolved.Path, force); err != nil {
-			return err
-		}
-		fmt.Printf("  ✓ removed worktree at %s\n", resolved.Path)
 	}
 
 	if err := git.PruneWorktrees(); err != nil {
 		fmt.Fprintf(os.Stderr, "  warning: git worktree prune failed: %v\n", err)
 	}
-
-	fmt.Printf("Worktree %q removed.\n", label)
+	fmt.Printf("Worktree %q removed.\n", ctx.label)
 	return nil
+}
+
+type removeContext struct {
+	root   string
+	config config.Config
+	state  state.State
+	target *resolvedWorktree
+	label  string
+}
+
+func resolveRemoveContext(query string) (removeContext, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return removeContext{}, err
+	}
+	root, err := config.FindRoot(cwd)
+	if err != nil {
+		return removeContext{}, err
+	}
+	s, err := state.Load(root)
+	if err != nil {
+		return removeContext{}, err
+	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		return removeContext{}, err
+	}
+	target, err := resolveWorktree(root, query)
+	if err != nil {
+		return removeContext{}, err
+	}
+	if target == nil {
+		return removeContext{}, fmt.Errorf("no worktree matching %q — run 'grove list' to see available worktrees", query)
+	}
+	if target.IsMain {
+		return removeContext{}, fmt.Errorf("refusing to remove the main worktree")
+	}
+	label := target.Alias
+	if label == "" {
+		label = target.Branch
+	}
+	return removeContext{root: root, config: cfg, state: s, target: target, label: label}, nil
+}
+
+func removeResolvedWorktree(ctx *removeContext) (bool, error) {
+	if ctx.target.InState {
+		return removeManagedTarget(ctx)
+	}
+	return removeOrphanTarget(ctx.target, ctx.label)
+}
+
+func removeManagedTarget(ctx *removeContext) (bool, error) {
+	if ctx.target.Protected && !removeIncludeProtected {
+		return false, fmt.Errorf("worktree %q is protected — pass --include-protected to remove it", ctx.target.Alias)
+	}
+	entry, ok := ctx.state.Get(ctx.target.Alias)
+	if !ok {
+		return false, fmt.Errorf("state entry %q disappeared", ctx.target.Alias)
+	}
+	force := removeForce
+	if _, statErr := os.Stat(entry.Path); statErr == nil {
+		status, err := git.Status(entry.Path)
+		if err != nil {
+			return false, err
+		}
+		var proceed bool
+		force, proceed, err = confirmDirtyRemoval(ctx.label, entry.Path, status, removeForce)
+		if err != nil || !proceed {
+			return false, err
+		}
+	} else if !os.IsNotExist(statErr) {
+		return false, statErr
+	}
+	return removeManagedWorktree(ctx.root, ctx.config, &ctx.state, managedRemoveTarget{
+		Alias:            ctx.target.Alias,
+		Branch:           entry.Branch,
+		Path:             entry.Path,
+		Port:             entry.Port,
+		IncludeProtected: removeIncludeProtected,
+	}, force)
+}
+
+func removeOrphanTarget(target *resolvedWorktree, label string) (bool, error) {
+	if _, statErr := os.Stat(target.Path); os.IsNotExist(statErr) {
+		fmt.Printf("Worktree path %s no longer exists.\n", target.Path)
+		return true, nil
+	} else if statErr != nil {
+		return false, statErr
+	}
+	status, err := git.Status(target.Path)
+	if err != nil {
+		return false, err
+	}
+	force, proceed, err := confirmDirtyRemoval(label, target.Path, status, removeForce)
+	if err != nil || !proceed {
+		return false, err
+	}
+	if err := git.RemoveWorktree(target.Path, force); err != nil {
+		return false, err
+	}
+	fmt.Printf("  ✓ removed worktree at %s\n", target.Path)
+	return true, nil
+}
+
+func confirmDirtyRemoval(label, path, status string, explicitForce bool) (force, proceed bool, err error) {
+	if explicitForce {
+		return true, true, nil
+	}
+	if status == "clean" {
+		return false, true, nil
+	}
+	if err := ensureNoBlockingSubmodules(path); err != nil {
+		return false, false, err
+	}
+	fmt.Printf("Worktree %q has %s.\n", label, status)
+	answer, err := promptWithError("Remove anyway? [y/N]", "n")
+	if err != nil {
+		return false, false, fmt.Errorf("removal confirmation unavailable: %w — rerun with --force to remove non-interactively", err)
+	}
+	if answer != "y" && answer != "Y" {
+		fmt.Println("Aborted.")
+		return false, false, nil
+	}
+	return true, true, nil
 }
 
 type managedRemoveTarget struct {

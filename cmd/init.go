@@ -226,19 +226,24 @@ func configCoversSuggestion(cfg config.Config, s detect.Suggestion) bool {
 var reader *bufio.Reader
 
 func prompt(question, defaultVal string) string {
+	answer, _ := promptWithError(question, defaultVal)
+	return answer
+}
+
+func promptWithError(question, defaultVal string) (string, error) {
 	if reader == nil {
 		reader = bufio.NewReader(os.Stdin)
 	}
 
 	fmt.Print(question + ": ")
 
-	line, _ := reader.ReadString('\n')
+	line, err := reader.ReadString('\n')
 	line = strings.TrimSpace(line)
 
 	if line == "" {
-		return defaultVal
+		return defaultVal, err
 	}
-	return line
+	return line, nil
 }
 
 // parsePortRange parses "min-max" into a PortRange.

@@ -43,7 +43,7 @@ func TestForceForRemovalAllowsExplicitForce(t *testing.T) {
 	}
 }
 
-func TestEnsureNoBlockingSubmodulesDoesNotDuplicateUnknownSafetyMessage(t *testing.T) {
+func TestEnsureNoBlockingSubmodulesRetainsUnderlyingGitFailure(t *testing.T) {
 	root := setupIntegrationRepo(t, baseConfig())
 	nested := filepath.Join(root, "nested")
 	if err := os.Mkdir(nested, 0755); err != nil {
@@ -60,8 +60,8 @@ func TestEnsureNoBlockingSubmodulesDoesNotDuplicateUnknownSafetyMessage(t *testi
 	if !errors.Is(err, git.ErrSubmoduleSafetyUnknown) {
 		t.Fatalf("error = %v, want ErrSubmoduleSafetyUnknown", err)
 	}
-	if err.Error() != git.ErrSubmoduleSafetyUnknown.Error() {
-		t.Fatalf("error was redundantly wrapped: %q", err)
+	if !strings.Contains(err.Error(), "submodule status --recursive") {
+		t.Fatalf("error does not retain the failing Git command: %v", err)
 	}
 }
 
@@ -162,9 +162,21 @@ func TestBatchRemovalDoesNotApplyDirtyConfirmationToCleanSubmoduleWorktree(t *te
 			pruneForce, pruneBase, pruneYes, pruneDryRun, pruneJSON, pruneIncludeProtected = false, "", false, false, false, false
 			t.Cleanup(func() { reader = nil })
 
-			err = tc.run()
+			var out string
+			stderr, err := captureStderr(t, func() error {
+				var runErr error
+				out, runErr = captureStdout(t, tc.run)
+				return runErr
+			})
 			if !errors.Is(err, git.ErrSubmoduleForceRequired) {
 				t.Fatalf("error = %v, want clean submodule worktree refusal", err)
+			}
+			if strings.Contains(out, git.ErrSubmoduleForceRequired.Error()) {
+				t.Fatalf("failure diagnostic was written to stdout:\n%s", out)
+			}
+			combined := stderr + "\n" + err.Error()
+			if count := strings.Count(combined, git.ErrSubmoduleForceRequired.Error()); count != 1 {
+				t.Fatalf("submodule failure reported %d times, want once:\n%s", count, combined)
 			}
 			if _, err := os.Stat(dirtyPath); !os.IsNotExist(err) {
 				t.Fatalf("confirmed dirty worktree was not removed: %v", err)
@@ -173,6 +185,107 @@ func TestBatchRemovalDoesNotApplyDirtyConfirmationToCleanSubmoduleWorktree(t *te
 				t.Fatalf("clean submodule worktree inherited force and was removed: %v", err)
 			}
 		})
+	}
+}
+
+func TestCleanReportsPartialOrphanRemoval(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	submodule := t.TempDir()
+	gitInRepo(t, submodule, "init")
+	gitInRepo(t, submodule, "config", "user.email", "test@test.com")
+	gitInRepo(t, submodule, "config", "user.name", "Test")
+	gitInRepo(t, submodule, "commit", "--allow-empty", "-m", "initial")
+	gitInRepo(t, root, "-c", "protocol.file.allow=always", "submodule", "add", submodule, "vendor/example")
+	gitInRepo(t, root, "commit", "-am", "add submodule")
+
+	worktreeRoot := t.TempDir()
+	cleanPath := filepath.Join(worktreeRoot, "clean")
+	blockedPath := filepath.Join(worktreeRoot, "blocked")
+	gitInRepo(t, root, "worktree", "add", "-b", "clean-orphan", cleanPath)
+	gitInRepo(t, root, "worktree", "add", "-b", "blocked-orphan", blockedPath)
+	t.Cleanup(func() {
+		_ = git.RemoveWorktree(cleanPath, true)
+		_ = git.RemoveWorktree(blockedPath, true)
+	})
+	gitInRepo(t, blockedPath, "-c", "protocol.file.allow=always", "submodule", "update", "--init")
+	if err := os.WriteFile(filepath.Join(blockedPath, "dirty.txt"), []byte("dirty\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	reader = bufio.NewReader(strings.NewReader("y\n"))
+	cleanForce, cleanIncludeProtected = false, false
+	t.Cleanup(func() { reader = nil })
+
+	var stdout string
+	stderr, err := captureStderr(t, func() error {
+		var runErr error
+		stdout, runErr = captureStdout(t, func() error { return runClean(cleanCmd, nil) })
+		return runErr
+	})
+	if !errors.Is(err, git.ErrSubmoduleForceRequired) {
+		t.Fatalf("error = %v, want partial orphan removal failure", err)
+	}
+	if !strings.Contains(stdout, "Removed 1 orphan worktree(s).") {
+		t.Fatalf("partial orphan removal summary missing:\n%s", stdout)
+	}
+	if !strings.Contains(stderr, `failed to remove orphan "blocked-orphan"`) {
+		t.Fatalf("blocked orphan diagnostic missing:\n%s", stderr)
+	}
+	if _, err := os.Stat(cleanPath); !os.IsNotExist(err) {
+		t.Fatalf("clean orphan was not removed: %v", err)
+	}
+	if _, err := os.Stat(blockedPath); err != nil {
+		t.Fatalf("blocked orphan should remain: %v", err)
+	}
+}
+
+func TestBatchRemovalErrorFlattensNestedFailures(t *testing.T) {
+	one := errors.New("one")
+	two := errors.New("two")
+	three := errors.New("three")
+	nested := newBatchRemovalError([]error{two, three})
+
+	err := newBatchRemovalError([]error{one, nested})
+	if err == nil || err.Error() != "3 worktree removals failed" {
+		t.Fatalf("error = %v, want flattened count of three", err)
+	}
+	for _, want := range []error{one, two, three} {
+		if !errors.Is(err, want) {
+			t.Fatalf("error %v does not unwrap %v", err, want)
+		}
+	}
+}
+
+func TestCleanReturnsOrphanDiscoveryErrorWithoutHidingDiagnostic(t *testing.T) {
+	setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		AfterRemove: config.HookCommands{"mv .git .git-hidden"},
+	})
+	createName, createFrom, createDetach = "break-git", "", false
+	if err := runCreate(createCmd, []string{"feature/break-git"}); err != nil {
+		t.Fatal(err)
+	}
+
+	reader = bufio.NewReader(strings.NewReader("y\n"))
+	cleanForce, cleanIncludeProtected = false, false
+	t.Cleanup(func() {
+		reader = nil
+		createName = ""
+	})
+
+	_, err := captureStderr(t, func() error {
+		_, runErr := captureStdout(t, func() error { return runClean(cleanCmd, nil) })
+		return runErr
+	})
+	if err == nil {
+		t.Fatal("expected orphan discovery to fail after the repository metadata moved")
+	}
+	if !strings.Contains(err.Error(), "git worktree list") {
+		t.Fatalf("error lost orphan discovery diagnostic: %v", err)
+	}
+	if strings.Contains(err.Error(), "worktree removal failed") {
+		t.Fatalf("non-removal error was mislabeled as a batch removal: %v", err)
 	}
 }
 
@@ -233,6 +346,225 @@ func TestRemoveRunsLifecycleHooks(t *testing.T) {
 	}
 	if got := string(after); !strings.HasPrefix(got, "after:"+alias+":feature/hooked-remove:") || !strings.HasSuffix(got, ":"+dir) {
 		t.Fatalf("unexpected afterRemove output: %q", got)
+	}
+}
+
+func TestRemoveManagedDirtyWorktreeRequiresConfirmation(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		answer      string
+		wantRemoved bool
+	}{
+		{name: "declined", answer: "n\n", wantRemoved: false},
+		{name: "accepted", answer: "y\n", wantRemoved: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := setupIntegrationRepo(t, config.Config{
+				WorktreeDir: "../",
+				Prefix:      "testproject",
+				BeforeRemove: config.HookCommands{
+					`touch "$(dirname "$GROVE_PATH")/before-dirty-remove-marker"`,
+				},
+			})
+			createName, createFrom, createDetach = "dirty-remove", "", false
+			if err := runCreate(createCmd, []string{"feature/dirty-remove"}); err != nil {
+				t.Fatal(err)
+			}
+			resolved, err := resolveWorktree(root, "dirty-remove")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = git.RemoveWorktree(resolved.Path, true) })
+
+			if err := os.WriteFile(filepath.Join(resolved.Path, "dirty.txt"), []byte("dirty\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			reader = bufio.NewReader(strings.NewReader(tc.answer))
+			removeForce, removeIncludeProtected = false, false
+			t.Cleanup(func() {
+				reader = nil
+				createName = ""
+			})
+
+			out, err := captureStdout(t, func() error {
+				return runRemove(removeCmd, []string{"dirty-remove"})
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, `Worktree "dirty-remove" has`) || !strings.Contains(out, "Remove anyway?") {
+				t.Fatalf("dirty managed removal did not ask for confirmation:\n%s", out)
+			}
+
+			_, statErr := os.Stat(resolved.Path)
+			removed := os.IsNotExist(statErr)
+			if removed != tc.wantRemoved {
+				t.Fatalf("removed = %v, want %v (stat error: %v)", removed, tc.wantRemoved, statErr)
+			}
+			marker := filepath.Join(filepath.Dir(resolved.Path), "before-dirty-remove-marker")
+			_, markerErr := os.Stat(marker)
+			if tc.wantRemoved && markerErr != nil {
+				t.Fatalf("beforeRemove hook did not run after confirmation: %v", markerErr)
+			}
+			if !tc.wantRemoved && !os.IsNotExist(markerErr) {
+				t.Fatalf("beforeRemove hook ran after declined confirmation: %v", markerErr)
+			}
+
+			loaded, err := state.Load(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, inState := loaded.Get("dirty-remove")
+			if inState == tc.wantRemoved {
+				t.Fatalf("state membership = %v after removed = %v", inState, tc.wantRemoved)
+			}
+		})
+	}
+}
+
+func TestRemoveDirtyWorktreeChecksSubmodulesBeforePrompt(t *testing.T) {
+	for _, managed := range []bool{false, true} {
+		name := "orphan"
+		if managed {
+			name = "managed"
+		}
+		t.Run(name, func(t *testing.T) {
+			root := setupIntegrationRepo(t, baseConfig())
+			submodule := t.TempDir()
+			gitInRepo(t, submodule, "init")
+			gitInRepo(t, submodule, "config", "user.email", "test@test.com")
+			gitInRepo(t, submodule, "config", "user.name", "Test")
+			gitInRepo(t, submodule, "commit", "--allow-empty", "-m", "initial")
+			gitInRepo(t, root, "-c", "protocol.file.allow=always", "submodule", "add", submodule, "vendor/example")
+			gitInRepo(t, root, "commit", "-am", "add submodule")
+
+			branch := "submodule-" + name
+			path := filepath.Join(t.TempDir(), name)
+			gitInRepo(t, root, "worktree", "add", "-b", branch, path)
+			t.Cleanup(func() { _ = git.RemoveWorktree(path, true) })
+			gitInRepo(t, path, "-c", "protocol.file.allow=always", "submodule", "update", "--init")
+			if err := os.WriteFile(filepath.Join(path, "dirty.txt"), []byte("dirty\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			query := branch
+			if managed {
+				s, err := state.Load(root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := s.Add(name, branch, path, 0); err != nil {
+					t.Fatal(err)
+				}
+				if err := state.Save(root, s); err != nil {
+					t.Fatal(err)
+				}
+				query = name
+			}
+
+			reader = bufio.NewReader(strings.NewReader("y\n"))
+			removeForce, removeIncludeProtected = false, false
+			t.Cleanup(func() { reader = nil })
+			out, err := captureStdout(t, func() error { return runRemove(removeCmd, []string{query}) })
+			if !errors.Is(err, git.ErrSubmoduleForceRequired) {
+				t.Fatalf("error = %v, want submodule force requirement", err)
+			}
+			if strings.Contains(out, "Remove anyway?") {
+				t.Fatalf("prompt appeared before submodule refusal:\n%s", out)
+			}
+		})
+	}
+}
+
+func TestRemoveDirtyWorktreeReturnsErrorOnConfirmationEOF(t *testing.T) {
+	for _, managed := range []bool{false, true} {
+		name := "orphan"
+		if managed {
+			name = "managed"
+		}
+		t.Run(name, func(t *testing.T) {
+			root := setupIntegrationRepo(t, baseConfig())
+			branch := "eof-" + name
+			path := filepath.Join(t.TempDir(), name)
+			gitInRepo(t, root, "worktree", "add", "-b", branch, path)
+			t.Cleanup(func() { _ = git.RemoveWorktree(path, true) })
+			if err := os.WriteFile(filepath.Join(path, "dirty.txt"), []byte("dirty\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			query := branch
+			if managed {
+				s, err := state.Load(root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := s.Add(name, branch, path, 0); err != nil {
+					t.Fatal(err)
+				}
+				if err := state.Save(root, s); err != nil {
+					t.Fatal(err)
+				}
+				query = name
+			}
+
+			reader = bufio.NewReader(strings.NewReader(""))
+			removeForce, removeIncludeProtected = false, false
+			t.Cleanup(func() { reader = nil })
+			_, err := captureStdout(t, func() error { return runRemove(removeCmd, []string{query}) })
+			if err == nil || !strings.Contains(err.Error(), "confirmation") || !strings.Contains(err.Error(), "--force") {
+				t.Fatalf("error = %v, want non-interactive confirmation guidance", err)
+			}
+			if _, statErr := os.Stat(path); statErr != nil {
+				t.Fatalf("worktree changed after confirmation EOF: %v", statErr)
+			}
+		})
+	}
+}
+
+func TestRemoveManagedStaleEntry(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	missing := filepath.Join(t.TempDir(), "missing")
+	s, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add("stale-remove", "feature/stale-remove", missing, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(root, s); err != nil {
+		t.Fatal(err)
+	}
+
+	removeForce, removeIncludeProtected = false, false
+	if err := runRemove(removeCmd, []string{"stale-remove"}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := loaded.Get("stale-remove"); ok {
+		t.Fatal("stale state entry was not removed")
+	}
+}
+
+func TestRemoveManagedReturnsStatError(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	tooLong := filepath.Join(t.TempDir(), strings.Repeat("x", 5000))
+	s, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add("stat-error", "feature/stat-error", tooLong, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(root, s); err != nil {
+		t.Fatal(err)
+	}
+
+	removeForce, removeIncludeProtected = false, false
+	if err := runRemove(removeCmd, []string{"stat-error"}); err == nil {
+		t.Fatal("expected os.Stat failure for overlong path")
 	}
 }
 

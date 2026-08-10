@@ -219,14 +219,12 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	var removed int
-	var removeErr error
+	var removalFailures []error
 	for _, wt := range merged {
 		force, err := forceForRemoval(wt.Path, wt.Status, pruneForce, dirtyConfirmed)
 		if err != nil {
-			fmt.Printf("  failed to remove %q: %v\n", wt.Alias, err)
-			if removeErr == nil {
-				removeErr = err
-			}
+			fmt.Fprintf(os.Stderr, "  failed to remove %q: %v\n", wt.Alias, err)
+			removalFailures = append(removalFailures, err)
 			continue
 		}
 		ok, err := removeManagedWorktree(root, cfg, &s, managedRemoveTarget{
@@ -237,10 +235,8 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			IncludeProtected: pruneIncludeProtected,
 		}, force)
 		if err != nil {
-			fmt.Printf("  failed to remove %q: %v\n", wt.Alias, err)
-			if removeErr == nil {
-				removeErr = err
-			}
+			fmt.Fprintf(os.Stderr, "  failed to remove %q: %v\n", wt.Alias, err)
+			removalFailures = append(removalFailures, err)
 			continue
 		}
 		if ok {
@@ -253,5 +249,5 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("\nRemoved %d of %d merged worktree(s).\n", removed, len(merged))
-	return removeErr
+	return newBatchRemovalError(removalFailures)
 }

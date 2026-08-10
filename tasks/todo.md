@@ -28,9 +28,27 @@
 
 ## Removal follow-ups
 
-- [ ] Add the documented dirty-worktree confirmation to managed `grove remove`.
+- [x] Add the documented dirty-worktree confirmation to managed `grove remove`.
   - Acceptance: managed and orphan removal use consistent confirmation behavior
     without bypassing submodule, protection, hook, or state safety checks.
-- [ ] Stop batch removal errors from being printed twice.
+- [x] Stop batch removal errors from being printed twice.
   - Acceptance: `grove clean` and `grove prune` report each failed target once
     while still returning a non-zero exit status when any removal fails.
+- [x] Preserve the underlying Git error when submodule safety cannot be verified.
+  - Acceptance: callers can match `ErrSubmoduleSafetyUnknown` while diagnostics
+    retain the original `git submodule status --recursive` failure via wrapping.
+
+## Future removal follow-ups
+
+- [ ] Make confirmation EOF behavior consistent across `remove`, `clean`, and
+  `prune`.
+  - Current state: `remove` returns a non-zero error with `--force` guidance,
+    while `clean` and interactive `prune` treat EOF as the default `n` response
+    and exit successfully without removing anything.
+- [ ] Consolidate single-target and batch force-decision policy.
+  - Current state: `confirmDirtyRemoval` and `forceForRemoval` contain
+    overlapping logic, so policy changes must be kept in sync manually.
+- [ ] Simplify nested batch-error collection in `runClean`.
+  - Current state: append the returned `cleanOrphans` error directly and rely on
+    `newBatchRemovalError` to flatten it instead of spreading
+    `batchErr.failures` at the call site.
