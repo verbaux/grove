@@ -5,6 +5,7 @@
 ### Added
 
 - `symlink` and `copyDirs` now accept root-relative Go glob patterns, with deterministic deduplication, warnings for unusable matches, and unchanged support for literal file and directory entries
+- `copyDirsOnDetach` can disable build-artifact copying for detached worktrees while preserving the existing copy-by-default behavior; detached mode is visible in list/status/sync output, preserved by sync, and reversibly cleared by `grove sync --reattach` only after symlink conflicts are resolved
 
 ## [0.9.1] — 2026-08-09
 

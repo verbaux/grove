@@ -112,6 +112,29 @@ func TestSetProtectedPersists(t *testing.T) {
 	}
 }
 
+func TestSetDetachedPersists(t *testing.T) {
+	dir := t.TempDir()
+	s := State{Worktrees: map[string]WorktreeEntry{}}
+	if err := s.Add("auth", "feature/auth", "/tmp/project-auth", 3001); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetDetached("auth", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(dir, s); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := loaded.Get("auth")
+	if !ok || !entry.Detached {
+		t.Fatalf("loaded detached entry = %+v", entry)
+	}
+}
+
 func TestSetNotePersistsAndClears(t *testing.T) {
 	dir := t.TempDir()
 	s := State{Worktrees: map[string]WorktreeEntry{}}
@@ -151,7 +174,7 @@ func TestSetNotePersistsAndClears(t *testing.T) {
 func TestAddWithConfigHashPersists(t *testing.T) {
 	dir := t.TempDir()
 	s := State{Worktrees: map[string]WorktreeEntry{}}
-	if err := s.AddWithConfigHash("auth", "feature/auth", "/tmp/project-auth", 3001, "sha256:abc123"); err != nil {
+	if err := s.AddWithConfigHash("auth", "feature/auth", "/tmp/project-auth", 3001, "sha256:abc123", true); err != nil {
 		t.Fatal(err)
 	}
 	if err := Save(dir, s); err != nil {
@@ -169,6 +192,9 @@ func TestAddWithConfigHashPersists(t *testing.T) {
 	if entry.ConfigHash != "sha256:abc123" {
 		t.Fatalf("ConfigHash = %q, want sha256:abc123", entry.ConfigHash)
 	}
+	if !entry.Detached {
+		t.Fatal("detached setup mode was not persisted")
+	}
 }
 
 func TestRenamePreservesEntryMetadata(t *testing.T) {
@@ -178,6 +204,7 @@ func TestRenamePreservesEntryMetadata(t *testing.T) {
 		Path:       "/tmp/project-auth",
 		Port:       3487,
 		Protected:  true,
+		Detached:   true,
 		Note:       "keep until launch",
 		ConfigHash: "sha256:abc123",
 		Created:    created,

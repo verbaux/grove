@@ -23,6 +23,7 @@ Config fields:
 | `prefix` | Prefix for worktree directory names |
 | `symlink` | Root-relative file/dir paths or Go glob patterns to symlink from main (e.g. `node_modules`, `apps/*/node_modules`) |
 | `copyDirs` | Root-relative file/dir paths or Go glob patterns to copy as build cache (e.g. `.next`, `packages/*/dist`) |
+| `copyDirsOnDetach` | Whether detached creates copy `copyDirs` (default `true`; set `false` when cached artifacts may be incompatible) |
 | `afterCreate` | Hook command — string OR array (fail-fast sequential) |
 | `afterDetachedCreate` | Hook run before `afterCreate` when `--detach` is passed (string OR array) |
 | `beforeRemove` | Hook run before managed worktree removal; failure stops removal |
@@ -43,7 +44,7 @@ grove create feature/my-branch --detach     # skip symlinks; runs afterDetachedC
 grove create feature/my-branch --json       # machine-readable result
 ```
 
-Creates worktree, copies `.env*`, sets up symlinks, copies `copyDirs`, runs `afterCreate`. Rolls back `git worktree add` on setup failure.
+Creates worktree, copies `.env*`, sets up symlinks, copies `copyDirs`, runs `afterCreate`. Detached creates skip `copyDirs` when `copyDirsOnDetach` is `false`. Rolls back `git worktree add` on setup failure.
 
 Use `--detach` when branch has different dependencies than main (e.g. major `package.json` bump) — produces a standalone worktree that won't share `node_modules` with main.
 
@@ -106,10 +107,11 @@ grove ps --json   # machine-readable source + worktree rows + listeners
 grove sync my-branch          # apply current config setup to an existing managed worktree
 grove sync 2                  # by list index
 grove sync my-branch --hooks  # also run afterCreate hooks
+grove sync my-branch --reattach # restore configured symlinks and attached behavior
 grove sync my-branch --json   # machine-readable result
 ```
 
-Sync is conservative: it copies only missing `.env*` files, creates missing configured symlinks, copies `copyDirs` only when the destination is absent, and updates the stored config hash. It refuses unmanaged/orphan worktrees; run `grove adopt` first.
+Sync is conservative: it copies only missing `.env*` files, creates missing configured symlinks, copies `copyDirs` only when the destination is absent, and updates the stored config hash. For detached worktrees it keeps symlinks disabled and honors `copyDirsOnDetach`; pass `--reattach` to restore attached behavior. Real destination conflicts are preserved, and keep the worktree detached until resolved. It refuses unmanaged/orphan worktrees; run `grove adopt` first.
 
 ### Rename
 

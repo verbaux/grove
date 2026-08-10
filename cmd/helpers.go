@@ -132,6 +132,7 @@ type worktreeRow struct {
 	Path      string
 	Port      int
 	Protected bool
+	Detached  bool
 	Note      string
 	Status    string
 	IsMain    bool
@@ -154,11 +155,13 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 	pathToAlias := make(map[string]string)
 	pathToPort := make(map[string]int)
 	pathToProtected := make(map[string]bool)
+	pathToDetached := make(map[string]bool)
 	pathToNote := make(map[string]string)
 	for alias, entry := range s.Worktrees {
 		pathToAlias[entry.Path] = alias
 		pathToPort[entry.Path] = entry.Port
 		pathToProtected[entry.Path] = entry.Protected
+		pathToDetached[entry.Path] = entry.Detached
 		pathToNote[entry.Path] = entry.Note
 	}
 
@@ -185,6 +188,7 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 			Path:      wt.Path,
 			Port:      pathToPort[wt.Path],
 			Protected: pathToProtected[wt.Path],
+			Detached:  pathToDetached[wt.Path],
 			Note:      pathToNote[wt.Path],
 			Status:    status,
 			IsMain:    wt.IsMain,

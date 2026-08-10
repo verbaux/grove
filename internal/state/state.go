@@ -19,6 +19,7 @@ type WorktreeEntry struct {
 	Path       string    `json:"path"`
 	Port       int       `json:"port,omitempty"`
 	Protected  bool      `json:"protected,omitempty"`
+	Detached   bool      `json:"detached,omitempty"`
 	Note       string    `json:"note,omitempty"`
 	ConfigHash string    `json:"configHash,omitempty"`
 	Created    time.Time `json:"created"`
@@ -132,12 +133,12 @@ func updateWithTimeout(dir string, timeout time.Duration, mutate func(*State) er
 
 // Add registers a new worktree alias. Returns an error if the alias is taken.
 func (s *State) Add(alias, branch, path string, port int) error {
-	return s.AddWithConfigHash(alias, branch, path, port, "")
+	return s.AddWithConfigHash(alias, branch, path, port, "", false)
 }
 
-// AddWithConfigHash registers a new worktree alias with the config hash used
-// during setup. Returns an error if the alias is taken.
-func (s *State) AddWithConfigHash(alias, branch, path string, port int, configHash string) error {
+// AddWithConfigHash registers a new worktree alias with the config hash and
+// detached mode used during setup. Returns an error if the alias is taken.
+func (s *State) AddWithConfigHash(alias, branch, path string, port int, configHash string, detached bool) error {
 	if _, exists := s.Worktrees[alias]; exists {
 		return errors.New("alias \"" + alias + "\" already exists")
 	}
@@ -146,6 +147,7 @@ func (s *State) AddWithConfigHash(alias, branch, path string, port int, configHa
 		Branch:     branch,
 		Path:       path,
 		Port:       port,
+		Detached:   detached,
 		ConfigHash: configHash,
 		Created:    time.Now(),
 	}
@@ -187,6 +189,18 @@ func (s *State) SetProtected(alias string, protected bool) error {
 		return errors.New("alias \"" + alias + "\" not found")
 	}
 	entry.Protected = protected
+	s.Worktrees[alias] = entry
+	return nil
+}
+
+// SetDetached records whether setup that shares files with the main worktree
+// should remain disabled for this worktree.
+func (s *State) SetDetached(alias string, detached bool) error {
+	entry, exists := s.Worktrees[alias]
+	if !exists {
+		return errors.New("alias \"" + alias + "\" not found")
+	}
+	entry.Detached = detached
 	s.Worktrees[alias] = entry
 	return nil
 }

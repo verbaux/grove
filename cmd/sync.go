@@ -15,14 +15,16 @@ import (
 )
 
 var (
-	syncHooks bool
-	syncJSON  bool
+	syncHooks    bool
+	syncJSON     bool
+	syncReattach bool
 )
 
 func init() {
 	rootCmd.AddCommand(syncCmd)
 	syncCmd.Flags().BoolVar(&syncHooks, "hooks", false, "run afterCreate hooks after syncing files")
 	syncCmd.Flags().BoolVar(&syncJSON, "json", false, "print sync result as JSON")
+	syncCmd.Flags().BoolVar(&syncReattach, "reattach", false, "restore configured symlinks and attached sync behavior")
 }
 
 var syncCmd = &cobra.Command{
@@ -32,7 +34,10 @@ var syncCmd = &cobra.Command{
 
 Sync creates missing configured symlinks, copies missing .env* files, copies
 new copyDirs that are absent in the worktree, and updates the stored config
-hash. Hooks are skipped by default; pass --hooks to run afterCreate commands.`,
+hash. Detached worktrees continue to skip symlinks and honor
+copyDirsOnDetach. Pass --reattach to restore configured symlinks and normal
+copy-dir behavior; real destination conflicts keep the worktree detached.
+Hooks are skipped by default; pass --hooks to run afterCreate commands.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeAliases,
 	RunE:              runSync,
@@ -42,6 +47,7 @@ type syncResult struct {
 	Alias             string   `json:"alias"`
 	Branch            string   `json:"branch"`
 	Path              string   `json:"path"`
+	Detached          bool     `json:"detached"`
 	CopiedEnv         []string `json:"copiedEnv"`
 	Symlinked         []string `json:"symlinked"`
 	SkippedSymlinks   []string `json:"skippedSymlinks"`
@@ -86,7 +92,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	if !ok {
 		return fmt.Errorf("state entry %q disappeared", resolved.Alias)
 	}
-	result, err := syncManagedWorktree(root, cfg, &s, resolved.Alias, entry, syncJSON)
+	result, err := syncManagedWorktree(root, cfg, &s, resolved.Alias, entry, syncJSON, syncReattach)
 	if err != nil {
 		return err
 	}
@@ -97,11 +103,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias string, entry state.WorktreeEntry, quiet bool) (syncResult, error) {
+func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias string, entry state.WorktreeEntry, quiet, reattach bool) (syncResult, error) {
+	setupDetached := entry.Detached && !reattach
 	result := syncResult{
 		Alias:           alias,
 		Branch:          entry.Branch,
 		Path:            entry.Path,
+		Detached:        setupDetached,
 		CopiedEnv:       []string{},
 		Symlinked:       []string{},
 		SkippedSymlinks: []string{},
@@ -115,13 +123,21 @@ func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias s
 	} else if err != nil {
 		return result, err
 	}
-	symlinks, err := config.ExpandSymlink(root, cfg)
-	if err != nil {
-		return result, err
+	symlinks := config.PathExpansion{}
+	if !setupDetached {
+		var err error
+		symlinks, err = config.ExpandSymlink(root, cfg)
+		if err != nil {
+			return result, err
+		}
 	}
-	copyDirs, err := config.ExpandCopyDirs(root, cfg)
-	if err != nil {
-		return result, err
+	copyDirs := config.PathExpansion{}
+	if cfg.ShouldCopyDirs(setupDetached) {
+		var err error
+		copyDirs, err = config.ExpandCopyDirs(root, cfg)
+		if err != nil {
+			return result, err
+		}
 	}
 	symlinkWarnings := actionableExpansionWarnings(symlinks.Warnings)
 	copyDirWarnings := actionableExpansionWarnings(copyDirs.Warnings)
@@ -138,11 +154,15 @@ func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias s
 	}
 	result.CopiedEnv = copiedEnv
 
+	reattachBlocked := false
 	for _, name := range symlinks.Paths {
 		created, err := files.Symlink(root, entry.Path, name)
 		if err != nil {
 			if errors.Is(err, files.ErrSymlinkDestinationConflict) {
 				result.SkippedSymlinks = append(result.SkippedSymlinks, name)
+				if reattach && entry.Detached {
+					reattachBlocked = true
+				}
 				continue
 			}
 			return result, fmt.Errorf("symlink %s: %w", name, err)
@@ -193,7 +213,9 @@ func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias s
 	if err != nil {
 		return result, err
 	}
-	if entry.ConfigHash != configHash {
+	finalDetached := setupDetached || reattachBlocked
+	result.Detached = finalDetached
+	if entry.ConfigHash != configHash || entry.Detached != finalDetached {
 		if err := updateManagedState(root, s, func(latest *state.State) error {
 			current, ok := latest.Get(alias)
 			if !ok {
@@ -203,19 +225,26 @@ func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias s
 				return fmt.Errorf("state entry %q changed while syncing — retry", alias)
 			}
 			current.ConfigHash = configHash
+			if reattach {
+				current.Detached = finalDetached
+			}
 			latest.Worktrees[alias] = current
 			return nil
 		}); err != nil {
 			return result, err
 		}
-		result.UpdatedConfigHash = true
+		result.UpdatedConfigHash = entry.ConfigHash != configHash
 	}
 
 	return result, nil
 }
 
 func printSyncResult(result syncResult) {
-	fmt.Printf("Synced %q.\n", result.Alias)
+	mode := ""
+	if result.Detached {
+		mode = " (detached)"
+	}
+	fmt.Printf("Synced %q%s.\n", result.Alias, mode)
 	printSyncList("copied env", result.CopiedEnv)
 	printSyncList("symlinked", result.Symlinked)
 	printSyncList("copied dirs", result.CopiedDirs)

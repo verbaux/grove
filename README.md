@@ -142,14 +142,14 @@ Shows all active worktrees with their status.
 NAME       BRANCH              PATH                          PORT   NOTE                     STATUS
 main       main                /home/dev/myapp               -      -                        ✓ clean
 auth       feature/auth        /home/dev/myapp-auth          3487   waiting for API review   3 modified
-payments   feature/payments    /home/dev/myapp-payments      3214   keep through launch      protected, ✓ clean
+payments   feature/payments    /home/dev/myapp-payments      3214   keep through launch      detached, protected, ✓ clean
 ```
 
 **Flags:**
 
 | Flag      | Description                                  |
 | --------- | -------------------------------------------- |
-| `--json`  | Output as JSON array, including optional `note` fields |
+| `--json`  | Output as JSON array, including optional `note` and `detached` fields |
 | `--plain` | Print only worktree aliases, one per line    |
 
 ---
@@ -166,6 +166,7 @@ Checks:
 - port assignment collisions
 - orphan worktree count
 - branch freshness against the local default branch
+- detached mode
 
 ```sh
 grove status
@@ -219,12 +220,17 @@ By default, sync is conservative:
 - updates the worktree's stored config hash
 - skips hooks unless explicitly requested
 
+For detached worktrees, sync continues to skip symlinks and honors `copyDirsOnDetach`. Missing `.env*` files and the config hash are still synchronized.
+
 ```sh
 grove sync auth
 grove sync 2
 
 # Run afterCreate hooks after syncing files
 grove sync auth --hooks
+
+# Restore configured symlinks and normal copyDirs behavior
+grove sync auth --reattach
 
 # Machine-readable result
 grove sync auth --json
@@ -653,6 +659,7 @@ Project config, lives in the repo root.
   "prefix": "myapp",
   "symlink": ["node_modules", "apps/*/node_modules"],
   "copyDirs": [".next", "packages/*/dist"],
+  "copyDirsOnDetach": false,
   "afterCreate": "npm install",
   "afterDetachedCreate": "npm ci",
   "beforeRemove": "docker compose -p myapp-$GROVE_ALIAS down",
@@ -670,6 +677,7 @@ Project config, lives in the repo root.
 | `prefix`              | folder name        | Prefix for worktree directory names                   |
 | `symlink`             | `["node_modules"]` | File/directory paths or glob patterns to symlink from the main worktree |
 | `copyDirs`            | `[]`               | File/directory paths or glob patterns to copy for a warm start |
+| `copyDirsOnDetach`    | `true`             | Copy `copyDirs` during `grove create --detach`; set `false` for a clean dependency boundary |
 | `afterCreate`         | `""`               | Shell command(s) to run after setup — string or array (see below) |
 | `afterDetachedCreate` | `""`               | Shell command(s) to run before `afterCreate` when `--detach` is passed (string or array) |
 | `beforeRemove`        | `""`               | Shell command(s) to run before removing a managed worktree (string or array) |
@@ -767,11 +775,15 @@ By default, `grove create` symlinks `node_modules` (and any other configured `sy
 `grove create <branch> --detach` creates a fully independent worktree:
 - All entries in `symlink` are skipped.
 - If `afterDetachedCreate` is configured, its commands run **before** `afterCreate` so you can install dependencies locally.
-- `copyDirs`, `.env*` copying, and `afterCreate` behave exactly as in normal mode.
+- `.env*` copying and `afterCreate` behave exactly as in normal mode.
+- `copyDirs` are copied by default; set `copyDirsOnDetach` to `false` to avoid reusing build artifacts when dependencies diverge.
+- Later `grove sync` runs preserve detached setup: symlinks stay skipped, and `copyDirsOnDetach` still applies.
 
 ```json
 {
   "symlink": ["node_modules"],
+  "copyDirs": ["packages/*/dist"],
+  "copyDirsOnDetach": false,
   "afterCreate": "npm run build",
   "afterDetachedCreate": "npm ci"
 }
@@ -784,7 +796,9 @@ grove create feature/big-bump --detach
 # → npm run build  (afterCreate)
 ```
 
-If you have an existing worktree with symlinks and want to make it standalone, use `grove detach` instead.
+If you have an existing worktree with symlinks and want to make it standalone, use `grove detach` instead. Grove records that mode so later syncs do not recreate the symlinks. Use `grove sync <name> --reattach` to reverse it safely. Existing real destinations are preserved and reported as skipped conflicts; the worktree remains detached until those conflicts are moved or removed and `--reattach` succeeds.
+
+Detached worktrees created by an older Grove version have no stored mode. Run `grove detach` once from each of them before syncing; the command records detached mode even when no symlinks remain.
 
 ## Per-worktree ports
 

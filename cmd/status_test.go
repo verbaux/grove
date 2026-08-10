@@ -124,7 +124,10 @@ func TestStatusOutputsWorktreeNote(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := state.Update(root, func(latest *state.State) error {
-		return latest.SetNote("noted-status", "blocked by upstream")
+		if err := latest.SetNote("noted-status", "blocked by upstream"); err != nil {
+			return err
+		}
+		return latest.SetDetached("noted-status", true)
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -145,8 +148,11 @@ func TestStatusOutputsWorktreeNote(t *testing.T) {
 	if err := json.Unmarshal([]byte(jsonOut), &result); err != nil {
 		t.Fatalf("status JSON invalid: %v\n%s", err, jsonOut)
 	}
-	if len(result.Worktrees) != 1 || result.Worktrees[0].Note != "blocked by upstream" {
+	if len(result.Worktrees) != 1 || result.Worktrees[0].Note != "blocked by upstream" || !result.Worktrees[0].Detached {
 		t.Fatalf("status JSON omitted note: %+v", result.Worktrees)
+	}
+	if result.Worktrees[0].SymlinkStatus != "detached" || result.Summary.SymlinkIssues != 0 {
+		t.Fatalf("detached worktree reported symlink issues: %+v", result)
 	}
 
 	statusJSON = false
@@ -154,7 +160,7 @@ func TestStatusOutputsWorktreeNote(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(humanOut, "NOTE") || !strings.Contains(humanOut, "blocked by upstream") {
+	if !strings.Contains(humanOut, "NOTE") || !strings.Contains(humanOut, "blocked by upstream") || !strings.Contains(humanOut, "detached") {
 		t.Fatalf("human status omitted note column: %q", humanOut)
 	}
 }

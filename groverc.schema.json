@@ -39,6 +39,11 @@
       "items": { "type": "string" },
       "description": "File/directory paths or Go glob patterns, relative to the project root, to copy for a warm start (e.g. .next, packages/*/dist, target). Escape glob metacharacters in literal names."
     },
+    "copyDirsOnDetach": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether detached worktrees copy configured copyDirs during create and sync. Set false to avoid reusing build artifacts from the main worktree when dependencies diverge."
+    },
     "afterCreate": {
       "$ref": "#/definitions/command",
       "description": "Shell command(s) to run after worktree setup. $GROVE_PORT, $GROVE_ALIAS, $GROVE_BRANCH, $GROVE_PATH are available."

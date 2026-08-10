@@ -238,7 +238,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
       </article>
       <article class="fcard">
         <h3>Build cache (<code>copyDirs</code>)</h3>
-        <p>Copy <code>.next</code>, <code>dist</code>, or patterns such as <code>packages/*/dist</code> into new worktrees for a warm start instead of a cold rebuild.</p>
+        <p>Copy <code>.next</code>, <code>dist</code>, or patterns such as <code>packages/*/dist</code> into new worktrees for a warm start. Set <code>copyDirsOnDetach</code> to <code>false</code> when detached branches need clean build artifacts.</p>
       </article>
       <article class="fcard">
         <h3>PR review</h3>
@@ -274,7 +274,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
       </article>
       <article class="fcard">
         <h3>Detached worktrees</h3>
-        <p><code>grove create --detach</code> skips symlinks for branches that bump dependencies. Pairs with <code>afterDetachedCreate</code>, which runs before <code>afterCreate</code> so installs land locally instead of mutating the main tree.</p>
+        <p><code>grove create --detach</code> skips symlinks, can skip incompatible build artifacts with <code>copyDirsOnDetach</code>, and runs <code>afterDetachedCreate</code> for local setup. Later syncs preserve the visible mode; <code>sync --reattach</code> reverses it after local conflicts are resolved.</p>
       </article>
       <article class="fcard">
         <h3>Agent skill</h3>
@@ -362,7 +362,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
         <li><code>grove create &lt;branch&gt;</code><span>Create worktree + setup; <code>--name</code>, <code>--from</code>, <code>--detach</code></span></li>
         <li><code>grove cd [name|index]</code><span>Print path to cd into; fuzzy picker without args</span></li>
         <li><code>grove open [name|index]</code><span>Open a worktree in your editor; <code>editor</code> config / <code>$EDITOR</code> / <code>--editor</code></span></li>
-        <li><code>grove list</code><span>Table of worktrees with status, port, note, and index; <code>--json</code>, <code>--plain</code></span></li>
+        <li><code>grove list</code><span>Table of worktrees with status, detached mode, port, note, and index; <code>--json</code>, <code>--plain</code></span></li>
         <li><code>grove ps</code><span>Live running/stopped status for assigned worktree ports; <code>--json</code></span></li>
         <li><code>grove review [pr]</code><span>List open PRs or check one out; <code>--name</code> sets the alias</span></li>
         <li><code>grove rename &lt;name|index&gt; &lt;new-alias&gt;</code><span>Rename a managed worktree; moves standard paths and preserves the assigned port</span></li>

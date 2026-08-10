@@ -78,6 +78,7 @@ type Config struct {
 	Prefix              string       `json:"prefix"`
 	Symlink             []string     `json:"symlink"`
 	CopyDirs            []string     `json:"copyDirs,omitempty"`
+	CopyDirsOnDetach    *bool        `json:"copyDirsOnDetach,omitempty"`
 	AfterCreate         HookCommands `json:"afterCreate"`
 	AfterDetachedCreate HookCommands `json:"afterDetachedCreate,omitempty"`
 	BeforeRemove        HookCommands `json:"beforeRemove,omitempty"`
@@ -200,16 +201,17 @@ func expandPaths(root string, patterns []string) (PathExpansion, error) {
 }
 
 type setupFingerprint struct {
-	WorktreeDir         string   `json:"worktreeDir"`
-	Prefix              string   `json:"prefix"`
-	Symlink             []string `json:"symlink"`
-	CopyDirs            []string `json:"copyDirs"`
-	AfterCreate         []string `json:"afterCreate"`
-	AfterDetachedCreate []string `json:"afterDetachedCreate"`
-	BeforeRemove        []string `json:"beforeRemove"`
-	AfterRemove         []string `json:"afterRemove"`
-	PortMin             int      `json:"portMin"`
-	PortMax             int      `json:"portMax"`
+	WorktreeDir          string   `json:"worktreeDir"`
+	Prefix               string   `json:"prefix"`
+	Symlink              []string `json:"symlink"`
+	CopyDirs             []string `json:"copyDirs"`
+	SkipCopyDirsOnDetach bool     `json:"skipCopyDirsOnDetach,omitempty"`
+	AfterCreate          []string `json:"afterCreate"`
+	AfterDetachedCreate  []string `json:"afterDetachedCreate"`
+	BeforeRemove         []string `json:"beforeRemove"`
+	AfterRemove          []string `json:"afterRemove"`
+	PortMin              int      `json:"portMin"`
+	PortMax              int      `json:"portMax"`
 }
 
 // DefaultPortMin, DefaultPortMax — fallback range when cfg.PortRange is nil.
@@ -226,21 +228,27 @@ func (c Config) ResolvedPortRange() (int, int) {
 	return DefaultPortMin, DefaultPortMax
 }
 
+// ShouldCopyDirs reports whether copyDirs apply to the requested setup mode.
+func (c Config) ShouldCopyDirs(detach bool) bool {
+	return !detach || c.CopyDirsOnDetach == nil || *c.CopyDirsOnDetach
+}
+
 // SetupHash returns a stable hash of the config fields that affect worktree
 // setup. Non-setup metadata like $schema and editor is intentionally ignored.
 func SetupHash(c Config) (string, error) {
 	minPort, maxPort := c.ResolvedPortRange()
 	fp := setupFingerprint{
-		WorktreeDir:         c.WorktreeDir,
-		Prefix:              c.Prefix,
-		Symlink:             copyStringSlice(c.Symlink),
-		CopyDirs:            copyStringSlice(c.CopyDirs),
-		AfterCreate:         copyStringSlice([]string(c.AfterCreate)),
-		AfterDetachedCreate: copyStringSlice([]string(c.AfterDetachedCreate)),
-		BeforeRemove:        copyStringSlice([]string(c.BeforeRemove)),
-		AfterRemove:         copyStringSlice([]string(c.AfterRemove)),
-		PortMin:             minPort,
-		PortMax:             maxPort,
+		WorktreeDir:          c.WorktreeDir,
+		Prefix:               c.Prefix,
+		Symlink:              copyStringSlice(c.Symlink),
+		CopyDirs:             copyStringSlice(c.CopyDirs),
+		SkipCopyDirsOnDetach: !c.ShouldCopyDirs(true),
+		AfterCreate:          copyStringSlice([]string(c.AfterCreate)),
+		AfterDetachedCreate:  copyStringSlice([]string(c.AfterDetachedCreate)),
+		BeforeRemove:         copyStringSlice([]string(c.BeforeRemove)),
+		AfterRemove:          copyStringSlice([]string(c.AfterRemove)),
+		PortMin:              minPort,
+		PortMax:              maxPort,
 	}
 	data, err := json.Marshal(fp)
 	if err != nil {

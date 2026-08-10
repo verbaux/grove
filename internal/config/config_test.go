@@ -413,6 +413,67 @@ func TestSetupHashStableAcrossNonSetupFields(t *testing.T) {
 	}
 }
 
+func TestCopyDirsOnDetachDefaultsToEnabled(t *testing.T) {
+	cfg := Config{}
+	if !cfg.ShouldCopyDirs(true) {
+		t.Fatal("missing copyDirsOnDetach should preserve detached copies")
+	}
+
+	disabled := false
+	cfg.CopyDirsOnDetach = &disabled
+	if cfg.ShouldCopyDirs(true) {
+		t.Fatal("copyDirsOnDetach=false should skip detached copies")
+	}
+	if !cfg.ShouldCopyDirs(false) {
+		t.Fatal("copyDirsOnDetach must not affect normal creates")
+	}
+}
+
+func TestCopyDirsOnDetachFalseRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	disabled := false
+	want := Config{WorktreeDir: "../", Prefix: "project", CopyDirsOnDetach: &disabled}
+	if err := Save(dir, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CopyDirsOnDetach == nil || *got.CopyDirsOnDetach {
+		t.Fatalf("CopyDirsOnDetach = %v, want explicit false", got.CopyDirsOnDetach)
+	}
+}
+
+func TestCopyDirsOnDetachSetupHashUsesEffectiveValue(t *testing.T) {
+	base := Config{WorktreeDir: "../", Prefix: "project", CopyDirs: []string{"dist"}}
+	explicitEnabled := true
+	enabled := base
+	enabled.CopyDirsOnDetach = &explicitEnabled
+	disabledValue := false
+	disabled := base
+	disabled.CopyDirsOnDetach = &disabledValue
+
+	baseHash, err := SetupHash(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	enabledHash, err := SetupHash(enabled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabledHash, err := SetupHash(disabled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enabledHash != baseHash {
+		t.Fatal("explicit default changed setup hash")
+	}
+	if disabledHash == baseHash {
+		t.Fatal("copyDirsOnDetach=false did not change setup hash")
+	}
+}
+
 func TestConfigBackwardCompatString(t *testing.T) {
 	dir := t.TempDir()
 	raw := `{"worktreeDir":"../","prefix":"x","symlink":["node_modules"],"afterCreate":"npm install"}`

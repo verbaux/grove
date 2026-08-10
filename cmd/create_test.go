@@ -331,6 +331,62 @@ func TestCreateCopiesBuildCache(t *testing.T) {
 	}
 }
 
+func TestCreateDetachHonorsCopyDirsOnDetach(t *testing.T) {
+	disabled := false
+	for _, tc := range []struct {
+		name             string
+		copyDirsOnDetach *bool
+		wantCopied       bool
+	}{
+		{name: "default", wantCopied: true},
+		{name: "disabled", copyDirsOnDetach: &disabled, wantCopied: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := setupIntegrationRepo(t, config.Config{
+				WorktreeDir:      "../",
+				Prefix:           "testproject",
+				Symlink:          []string{},
+				CopyDirs:         []string{"dist"},
+				CopyDirsOnDetach: tc.copyDirsOnDetach,
+			})
+			if err := os.MkdirAll(filepath.Join(dir, "dist"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "dist", "bundle.js"), []byte("built"), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			createName, createFrom, createDetach = "detach-copy-"+tc.name, "", true
+			t.Cleanup(func() { createName, createDetach = "", false })
+			if err := runCreate(createCmd, []string{"feature/detach-copy-" + tc.name}); err != nil {
+				t.Fatal(err)
+			}
+
+			wtPath := filepath.Join(filepath.Dir(dir), "testproject-detach-copy-"+tc.name)
+			t.Cleanup(func() {
+				remove := exec.Command("git", "worktree", "remove", "--force", wtPath)
+				remove.Dir = dir
+				_ = remove.Run()
+			})
+			_, err := os.Stat(filepath.Join(wtPath, "dist", "bundle.js"))
+			if tc.wantCopied && err != nil {
+				t.Fatalf("detached copy missing: %v", err)
+			}
+			if !tc.wantCopied && !os.IsNotExist(err) {
+				t.Fatalf("copyDirs copied into detached worktree: %v", err)
+			}
+			s, err := state.Load(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			entry, ok := s.Get("detach-copy-" + tc.name)
+			if !ok || !entry.Detached {
+				t.Fatalf("detached create state entry = %+v", entry)
+			}
+		})
+	}
+}
+
 func TestCreateSkipsMissingCopyDirs(t *testing.T) {
 	dir := setupIntegrationRepo(t, config.Config{
 		WorktreeDir: "../",

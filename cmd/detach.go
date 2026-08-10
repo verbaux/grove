@@ -58,13 +58,14 @@ func runDetach(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var worktreePath string
-	for _, entry := range s.Worktrees {
+	var worktreeAlias, worktreePath string
+	for alias, entry := range s.Worktrees {
 		resolved, err := filepath.EvalSymlinks(entry.Path)
 		if err != nil {
 			continue
 		}
 		if cwd == resolved || isSubdir(cwd, resolved) {
+			worktreeAlias = alias
 			worktreePath = resolved
 			break
 		}
@@ -84,16 +85,16 @@ func runDetach(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	printExpansionWarnings("symlink", actionableExpansionWarnings(symlinks.Warnings))
-	if len(symlinks.Paths) == 0 {
-		fmt.Println("No symlinks found to remove.")
-		return nil
-	}
-
 	removed := 0
+	removalFailures := 0
 	for _, name := range symlinks.Paths {
 		link := filepath.Join(worktreePath, name)
 		fi, err := os.Lstat(link)
 		if err != nil {
+			if !os.IsNotExist(err) {
+				fmt.Printf("  ✗ could not inspect %s: %v\n", name, err)
+				removalFailures++
+			}
 			continue
 		}
 		if fi.Mode()&os.ModeSymlink == 0 {
@@ -103,6 +104,7 @@ func runDetach(cmd *cobra.Command, args []string) error {
 		target, err := os.Readlink(link)
 		if err != nil {
 			fmt.Printf("  ✗ could not read symlink %s: %v\n", name, err)
+			removalFailures++
 			continue
 		}
 		if !filepath.IsAbs(target) {
@@ -120,6 +122,7 @@ func runDetach(cmd *cobra.Command, args []string) error {
 
 		if err := os.Remove(link); err != nil {
 			fmt.Printf("  ✗ could not remove %s: %v\n", name, err)
+			removalFailures++
 			continue
 		}
 
@@ -137,6 +140,17 @@ func runDetach(cmd *cobra.Command, args []string) error {
 
 		fmt.Printf("  ✓ removed symlink %s\n", name)
 		removed++
+	}
+	if removalFailures > 0 {
+		if removed > 0 {
+			return fmt.Errorf("%d symlink removal(s) failed after %d succeeded; detached mode was not recorded, so 'grove sync %s' will restore removed symlinks", removalFailures, removed, worktreeAlias)
+		}
+		return fmt.Errorf("%d symlink removal(s) failed; detached mode was not recorded", removalFailures)
+	}
+	if err := updateManagedState(root, &s, func(latest *state.State) error {
+		return latest.SetDetached(worktreeAlias, true)
+	}); err != nil {
+		return err
 	}
 
 	if removed == 0 {

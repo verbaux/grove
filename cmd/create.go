@@ -147,9 +147,13 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	if err != nil {
 		return result, err
 	}
-	copyDirs, err := config.ExpandCopyDirs(root, cfg)
-	if err != nil {
-		return result, err
+	copyDirs := config.PathExpansion{}
+	copyDirsEnabled := cfg.ShouldCopyDirs(detach)
+	if copyDirsEnabled {
+		copyDirs, err = config.ExpandCopyDirs(root, cfg)
+		if err != nil {
+			return result, err
+		}
 	}
 	symlinkWarnings := actionableExpansionWarnings(symlinks.Warnings)
 	copyDirWarnings := actionableExpansionWarnings(copyDirs.Warnings)
@@ -196,6 +200,9 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	if detach {
 		if len(symlinks.Paths) > 0 && !quiet {
 			fmt.Printf("  ⚠ skipping %d symlink(s) (--detach)\n", len(symlinks.Paths))
+		}
+		if !copyDirsEnabled && len(cfg.CopyDirs) > 0 && !quiet {
+			fmt.Println("  ⚠ skipping configured copyDirs (--detach, copyDirsOnDetach=false)")
 		}
 	} else {
 		var symlinked []string
@@ -296,7 +303,7 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 				return fmt.Errorf("port %d was assigned to worktree %q by another Grove process — retry create", port, otherAlias)
 			}
 		}
-		return latest.AddWithConfigHash(alias, branch, worktreePath, port, configHash)
+		return latest.AddWithConfigHash(alias, branch, worktreePath, port, configHash, detach)
 	}); err != nil {
 		setupErr = err
 		return result, setupErr

@@ -29,7 +29,7 @@ var statusCmd = &cobra.Command{
 
 Includes dirty state, stale state paths, config drift, symlink health,
 port assignment issues, orphan count, branch freshness against the local
-default branch, and local worktree notes.`,
+default branch, detached mode, and local worktree notes.`,
 	RunE: runStatus,
 }
 
@@ -49,6 +49,7 @@ type statusRow struct {
 	Path           string `json:"path"`
 	Port           int    `json:"port,omitempty"`
 	Protected      bool   `json:"protected,omitempty"`
+	Detached       bool   `json:"detached,omitempty"`
 	Note           string `json:"note,omitempty"`
 	WorktreeStatus string `json:"worktreeStatus"`
 	ConfigStatus   string `json:"configStatus"`
@@ -132,16 +133,21 @@ func buildStatus(root string, cfg config.Config, s state.State) (statusJSONResul
 
 	for _, alias := range aliases {
 		entry := s.Worktrees[alias]
+		symlinkState := "detached"
+		if !entry.Detached {
+			symlinkState = symlinkStatus(entry.Path, symlinkPaths)
+		}
 		row := statusRow{
 			Alias:          alias,
 			Branch:         entry.Branch,
 			Path:           entry.Path,
 			Port:           entry.Port,
 			Protected:      entry.Protected,
+			Detached:       entry.Detached,
 			Note:           entry.Note,
 			WorktreeStatus: worktreeStatus(entry.Path),
 			ConfigStatus:   configStatus(entry.ConfigHash, currentHash),
-			SymlinkStatus:  symlinkStatus(entry.Path, symlinkPaths),
+			SymlinkStatus:  symlinkState,
 			PortStatus:     portStatus(entry.Port, portCounts),
 			Freshness:      freshnessStatus(entry.Branch, base),
 		}
@@ -154,7 +160,7 @@ func buildStatus(root string, cfg config.Config, s state.State) (statusJSONResul
 		if row.ConfigStatus == "drift" || row.ConfigStatus == "unknown" {
 			result.Summary.ConfigDrift++
 		}
-		if row.SymlinkStatus != "ok" && row.SymlinkStatus != "none" && row.SymlinkStatus != "unknown" {
+		if row.SymlinkStatus != "ok" && row.SymlinkStatus != "none" && row.SymlinkStatus != "unknown" && row.SymlinkStatus != "detached" {
 			result.Summary.SymlinkIssues++
 		}
 		if strings.HasPrefix(row.PortStatus, "collision") {
@@ -352,6 +358,9 @@ func statusValues(r statusRow) []string {
 	alias := r.Alias
 	if r.Protected {
 		alias += " (protected)"
+	}
+	if r.Detached {
+		alias += " (detached)"
 	}
 	return []string{
 		alias,

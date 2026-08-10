@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
@@ -239,7 +240,7 @@ func TestSyncExpandsGlobPatterns(t *testing.T) {
 		CopyDirs:    []string{"packages/*/dist"},
 	}
 
-	result, err := syncManagedWorktree(dir, cfg, &s, "sync-globs", entry, true)
+	result, err := syncManagedWorktree(dir, cfg, &s, "sync-globs", entry, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,6 +255,148 @@ func TestSyncExpandsGlobPatterns(t *testing.T) {
 	remove.Dir = dir
 	if out, err := remove.CombinedOutput(); err != nil {
 		t.Fatalf("cleanup failed: %s", out)
+	}
+}
+
+func TestSyncPreservesDetachedSetup(t *testing.T) {
+	disabled := false
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir:      "../",
+		Prefix:           "testproject",
+		Symlink:          []string{"node_modules"},
+		CopyDirs:         []string{"dist"},
+		CopyDirsOnDetach: &disabled,
+	})
+	for _, name := range []string{"node_modules", "dist"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "dist", "bundle.js"), []byte("built"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	createName, createFrom, createDetach, createJSON = "sync-detached", "", true, false
+	t.Cleanup(func() { createName, createDetach = "", false })
+	if err := runCreate(createCmd, []string{"feature/sync-detached"}); err != nil {
+		t.Fatal(err)
+	}
+	s, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := s.Get("sync-detached")
+	if !ok || !entry.Detached {
+		t.Fatalf("detached state entry = %+v", entry)
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(entry.Path, true) })
+	if err := os.WriteFile(filepath.Join(dir, ".env.detached"), []byte("copied=1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	syncHooks, syncJSON, syncReattach = false, true, false
+	t.Cleanup(func() { syncJSON, syncReattach = false, false })
+	out, err := captureStdout(t, func() error {
+		return runSync(syncCmd, []string{"sync-detached"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result syncResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("sync JSON invalid: %v\n%s", err, out)
+	}
+	if !result.Detached {
+		t.Fatalf("sync JSON omitted detached mode: %+v", result)
+	}
+	for _, name := range []string{"node_modules", "dist"} {
+		if _, err := os.Lstat(filepath.Join(entry.Path, name)); !os.IsNotExist(err) {
+			t.Fatalf("sync recreated %s in detached worktree: %v", name, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(entry.Path, ".env.detached")); err != nil {
+		t.Fatalf("sync did not copy missing env file: %v", err)
+	}
+
+	syncReattach = true
+	out, err = captureStdout(t, func() error {
+		return runSync(syncCmd, []string{"sync-detached"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("reattach JSON invalid: %v\n%s", err, out)
+	}
+	if result.Detached {
+		t.Fatalf("reattach result remained detached: %+v", result)
+	}
+	info, err := os.Lstat(filepath.Join(entry.Path, "node_modules"))
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("reattach did not restore node_modules symlink: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(entry.Path, "dist", "bundle.js")); err != nil {
+		t.Fatalf("reattach did not restore copyDirs: %v", err)
+	}
+	s, err = state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok = s.Get("sync-detached")
+	if !ok || entry.Detached {
+		t.Fatalf("reattach did not update state: %+v", entry)
+	}
+}
+
+func TestSyncReattachKeepsDetachedModeOnSymlinkConflict(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{"node_modules"},
+	})
+	if err := os.Mkdir(filepath.Join(dir, "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	createName, createFrom, createDetach, createJSON = "reattach-conflict", "", true, false
+	t.Cleanup(func() { createName, createDetach = "", false })
+	if err := runCreate(createCmd, []string{"feature/reattach-conflict"}); err != nil {
+		t.Fatal(err)
+	}
+	s, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := s.Get("reattach-conflict")
+	if !ok || !entry.Detached {
+		t.Fatalf("detached state entry = %+v", entry)
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(entry.Path, true) })
+	if err := os.Mkdir(filepath.Join(entry.Path, "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	syncHooks, syncJSON, syncReattach = false, true, true
+	t.Cleanup(func() { syncJSON, syncReattach = false, false })
+	out, err := captureStdout(t, func() error {
+		return runSync(syncCmd, []string{"reattach-conflict"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result syncResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("reattach JSON invalid: %v\n%s", err, out)
+	}
+	if !result.Detached || !reflect.DeepEqual(result.SkippedSymlinks, []string{"node_modules"}) {
+		t.Fatalf("conflicted reattach result = %+v", result)
+	}
+	s, err = state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok = s.Get("reattach-conflict")
+	if !ok || !entry.Detached {
+		t.Fatalf("conflicted reattach changed detached mode: %+v", entry)
 	}
 }
 
@@ -286,7 +429,7 @@ func TestSyncPreservesConcurrentProtectionChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.AfterCreate = config.HookCommands{"true"}
-	if _, err := syncManagedWorktree(dir, cfg, &stale, "sync-lock", entry, true); err != nil {
+	if _, err := syncManagedWorktree(dir, cfg, &stale, "sync-lock", entry, true, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -300,5 +443,18 @@ func TestSyncPreservesConcurrentProtectionChange(t *testing.T) {
 	}
 	if !updated.Protected {
 		t.Fatal("concurrent protection change was lost")
+	}
+}
+
+func TestPrintSyncResultShowsDetachedMode(t *testing.T) {
+	out, err := captureStdout(t, func() error {
+		printSyncResult(syncResult{Alias: "auth", Detached: true})
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `Synced "auth" (detached).`) {
+		t.Fatalf("sync output omitted detached mode: %q", out)
 	}
 }

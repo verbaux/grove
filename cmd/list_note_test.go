@@ -15,7 +15,10 @@ func TestListOutputsWorktreeNoteWithoutChangingPlainMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := state.Update(root, func(latest *state.State) error {
-		return latest.SetNote("noted-list", "keep through launch")
+		if err := latest.SetNote("noted-list", "keep through launch"); err != nil {
+			return err
+		}
+		return latest.SetDetached("noted-list", true)
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -38,8 +41,9 @@ func TestListOutputsWorktreeNoteWithoutChangingPlainMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	var rows []struct {
-		Name string `json:"name"`
-		Note string `json:"note"`
+		Name     string `json:"name"`
+		Note     string `json:"note"`
+		Detached bool   `json:"detached"`
 	}
 	if err := json.Unmarshal([]byte(jsonOut), &rows); err != nil {
 		t.Fatalf("list JSON invalid: %v\n%s", err, jsonOut)
@@ -50,6 +54,9 @@ func TestListOutputsWorktreeNoteWithoutChangingPlainMode(t *testing.T) {
 			found = true
 			if row.Note != "keep through launch" {
 				t.Fatalf("list JSON note = %q", row.Note)
+			}
+			if !row.Detached {
+				t.Fatal("list JSON omitted detached mode")
 			}
 		}
 	}
@@ -64,7 +71,7 @@ func TestListOutputsWorktreeNoteWithoutChangingPlainMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(humanOut, "NOTE") || !strings.Contains(humanOut, "keep through launch") {
+	if !strings.Contains(humanOut, "NOTE") || !strings.Contains(humanOut, "keep through launch") || !strings.Contains(humanOut, "detached") {
 		t.Fatalf("human list omitted note column: %q", humanOut)
 	}
 

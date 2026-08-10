@@ -20,7 +20,7 @@ func init() {
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all worktrees",
-	Long:  "Show a table of all active worktrees with their branch, path, port, note, and git status.",
+	Long:  "Show a table of all active worktrees with their branch, path, port, note, detached mode, and git status.",
 	RunE:  runList,
 }
 
@@ -54,12 +54,13 @@ func runList(cmd *cobra.Command, args []string) error {
 			Path      string `json:"path"`
 			Port      int    `json:"port,omitempty"`
 			Protected bool   `json:"protected,omitempty"`
+			Detached  bool   `json:"detached,omitempty"`
 			Note      string `json:"note,omitempty"`
 			Status    string `json:"status"`
 		}
 		out := make([]jsonRow, len(rows))
 		for i, r := range rows {
-			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Port: r.Port, Protected: r.Protected, Note: r.Note, Status: r.Status}
+			out[i] = jsonRow{Index: r.Index, Name: r.Name, Branch: r.Branch, Path: r.Path, Port: r.Port, Protected: r.Protected, Detached: r.Detached, Note: r.Note, Status: r.Status}
 		}
 		data, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
@@ -146,6 +147,9 @@ func renderTable(rows []worktreeRow) string {
 		}
 		if r.Protected {
 			statusRendered = "protected, " + statusRendered
+		}
+		if r.Detached {
+			statusRendered = "detached, " + statusRendered
 		}
 
 		name := nameStyle.Render(pad(r.Name, nameW))
