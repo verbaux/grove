@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
@@ -34,14 +35,16 @@ func TestCreateJSON(t *testing.T) {
 	}
 
 	var result struct {
-		Alias      string   `json:"alias"`
-		Branch     string   `json:"branch"`
-		Path       string   `json:"path"`
-		Port       int      `json:"port"`
-		Detached   bool     `json:"detached"`
-		CopiedEnv  []string `json:"copiedEnv"`
-		Symlinked  []string `json:"symlinked"`
-		CopiedDirs []string `json:"copiedDirs"`
+		Alias           string   `json:"alias"`
+		Branch          string   `json:"branch"`
+		Path            string   `json:"path"`
+		Port            int      `json:"port"`
+		Detached        bool     `json:"detached"`
+		CopiedEnv       []string `json:"copiedEnv"`
+		Symlinked       []string `json:"symlinked"`
+		SkippedSymlinks []string `json:"skippedSymlinks"`
+		CopiedDirs      []string `json:"copiedDirs"`
+		SkippedCopyDirs []string `json:"skippedCopyDirs"`
 	}
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
 		t.Fatalf("create --json output is not valid JSON: %v\n%s", err, out)
@@ -52,7 +55,7 @@ func TestCreateJSON(t *testing.T) {
 	if result.Path == "" || result.Port == 0 || result.Detached {
 		t.Fatalf("expected path, port, and detached=false, got %+v", result)
 	}
-	if result.CopiedEnv == nil || result.Symlinked == nil || result.CopiedDirs == nil {
+	if result.CopiedEnv == nil || result.Symlinked == nil || result.SkippedSymlinks == nil || result.CopiedDirs == nil || result.SkippedCopyDirs == nil {
 		t.Fatalf("expected JSON arrays instead of null slices, got %+v", result)
 	}
 
@@ -356,6 +359,89 @@ func TestCreateSkipsMissingCopyDirs(t *testing.T) {
 	}
 
 	remove := exec.Command("git", "worktree", "remove", "--force", wtPath)
+	remove.Dir = dir
+	if out, err := remove.CombinedOutput(); err != nil {
+		t.Fatalf("cleanup failed: %s", out)
+	}
+}
+
+func TestCreateExpandsGlobPatternsAndReportsSkippedMatches(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{"apps/*/node_modules", ".tool-versions"},
+		CopyDirs:    []string{"packages/*/dist", "missing/*/dist", "pnpm-lock.yaml"},
+	})
+	for _, name := range []string{"apps/web/node_modules", "apps/api/node_modules", "packages/good/dist"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "packages", "good", "dist", "bundle.js"), []byte("built"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "packages", "bad"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "packages", "bad", "dist"), []byte("file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".tool-versions"), []byte("nodejs 24"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte("lockfile"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	createName, createFrom, createDetach, createJSON = "glob-create", "", false, true
+	t.Cleanup(func() { createName, createJSON = "", false })
+	var out string
+	stderr, err := captureStderr(t, func() error {
+		var runErr error
+		out, runErr = captureStdout(t, func() error {
+			return runCreate(createCmd, []string{"feature/glob-create"})
+		})
+		return runErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stderr != "" {
+		t.Fatalf("quiet create wrote warnings to stderr: %q", stderr)
+	}
+	var result createResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("create --json output is not valid JSON: %v\n%s", err, out)
+	}
+	wantLinks := []string{".tool-versions", filepath.Join("apps", "api", "node_modules"), filepath.Join("apps", "web", "node_modules")}
+	if !reflect.DeepEqual(result.Symlinked, wantLinks) {
+		t.Fatalf("Symlinked = %v, want %v", result.Symlinked, wantLinks)
+	}
+	wantCopies := []string{filepath.Join("packages", "good", "dist"), "pnpm-lock.yaml"}
+	if !reflect.DeepEqual(result.CopiedDirs, wantCopies) {
+		t.Fatalf("CopiedDirs = %v", result.CopiedDirs)
+	}
+	wantSkipped := []string{filepath.Join("packages", "bad", "dist"), "missing/*/dist"}
+	if !reflect.DeepEqual(result.SkippedCopyDirs, wantSkipped) {
+		t.Fatalf("SkippedCopyDirs = %v, want %v", result.SkippedCopyDirs, wantSkipped)
+	}
+
+	for _, name := range wantLinks {
+		info, err := os.Lstat(filepath.Join(result.Path, name))
+		if err != nil || info.Mode()&os.ModeSymlink == 0 {
+			t.Fatalf("expected %s to be a symlink: info=%v err=%v", name, info, err)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(result.Path, "packages", "good", "dist", "bundle.js"))
+	if err != nil || string(data) != "built" {
+		t.Fatalf("copied bundle = %q, err=%v", data, err)
+	}
+	data, err = os.ReadFile(filepath.Join(result.Path, "pnpm-lock.yaml"))
+	if err != nil || string(data) != "lockfile" {
+		t.Fatalf("copied literal file = %q, err=%v", data, err)
+	}
+
+	remove := exec.Command("git", "worktree", "remove", "--force", result.Path)
 	remove.Dir = dir
 	if out, err := remove.CombinedOutput(); err != nil {
 		t.Fatalf("cleanup failed: %s", out)

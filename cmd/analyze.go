@@ -69,7 +69,10 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	pending := pendingSuggestions(cfg, all)
 	var stale []StalePath
 	if analyzeClean {
-		stale = findStalePaths(root, cfg)
+		stale, err = findStalePaths(root, cfg)
+		if err != nil {
+			return err
+		}
 	}
 
 	if analyzeApply {
@@ -138,23 +141,26 @@ func applyChanges(root string, cfg config.Config, pending []detect.Suggestion, s
 	return nil
 }
 
-func findStalePaths(root string, cfg config.Config) []StalePath {
+func findStalePaths(root string, cfg config.Config) ([]StalePath, error) {
 	var out []StalePath
-	check := func(kind, name string) {
-		if name == "" {
-			return
+	check := func(kind string, expansion config.PathExpansion) {
+		for _, warning := range expansion.Warnings {
+			if warning.Reason == config.PathPatternUnmatched && warning.Pattern != "" {
+				out = append(out, StalePath{Kind: kind, Value: warning.Pattern})
+			}
 		}
-		if _, err := os.Stat(filepath.Join(root, name)); os.IsNotExist(err) {
-			out = append(out, StalePath{Kind: kind, Value: name})
-		}
 	}
-	for _, name := range cfg.Symlink {
-		check("symlink", name)
+	symlinks, err := config.ExpandSymlink(root, cfg)
+	if err != nil {
+		return nil, err
 	}
-	for _, name := range cfg.CopyDirs {
-		check("copyDir", name)
+	copyDirs, err := config.ExpandCopyDirs(root, cfg)
+	if err != nil {
+		return nil, err
 	}
-	return out
+	check("symlink", symlinks)
+	check("copyDir", copyDirs)
+	return out, nil
 }
 
 func removeStalePaths(cfg config.Config, stale []StalePath) config.Config {

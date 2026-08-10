@@ -33,14 +33,16 @@ func init() {
 }
 
 type createResult struct {
-	Alias      string   `json:"alias"`
-	Branch     string   `json:"branch"`
-	Path       string   `json:"path"`
-	Port       int      `json:"port"`
-	Detached   bool     `json:"detached"`
-	CopiedEnv  []string `json:"copiedEnv"`
-	Symlinked  []string `json:"symlinked"`
-	CopiedDirs []string `json:"copiedDirs"`
+	Alias           string   `json:"alias"`
+	Branch          string   `json:"branch"`
+	Path            string   `json:"path"`
+	Port            int      `json:"port"`
+	Detached        bool     `json:"detached"`
+	CopiedEnv       []string `json:"copiedEnv"`
+	Symlinked       []string `json:"symlinked"`
+	SkippedSymlinks []string `json:"skippedSymlinks"`
+	CopiedDirs      []string `json:"copiedDirs"`
+	SkippedCopyDirs []string `json:"skippedCopyDirs"`
 }
 
 var createCmd = &cobra.Command{
@@ -105,12 +107,14 @@ func runCreate(cmd *cobra.Command, args []string) error {
 // When detach is true, symlinks are skipped and afterDetachedCreate runs before afterCreate.
 func doCreate(root string, cfg config.Config, s *state.State, branch, alias, from string, detach bool, quiet bool) (createResult, error) {
 	result := createResult{
-		Alias:      alias,
-		Branch:     branch,
-		Detached:   detach,
-		CopiedEnv:  []string{},
-		Symlinked:  []string{},
-		CopiedDirs: []string{},
+		Alias:           alias,
+		Branch:          branch,
+		Detached:        detach,
+		CopiedEnv:       []string{},
+		Symlinked:       []string{},
+		SkippedSymlinks: []string{},
+		CopiedDirs:      []string{},
+		SkippedCopyDirs: []string{},
 	}
 	if err := validateAlias(alias); err != nil {
 		return result, err
@@ -139,8 +143,23 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	}
 	result.Port = port
 
+	symlinks, err := config.ExpandSymlink(root, cfg)
+	if err != nil {
+		return result, err
+	}
+	copyDirs, err := config.ExpandCopyDirs(root, cfg)
+	if err != nil {
+		return result, err
+	}
+	symlinkWarnings := actionableExpansionWarnings(symlinks.Warnings)
+	copyDirWarnings := actionableExpansionWarnings(copyDirs.Warnings)
+	result.SkippedSymlinks = expansionWarningValues(symlinkWarnings)
+	result.SkippedCopyDirs = expansionWarningValues(copyDirWarnings)
+
 	if !quiet {
 		fmt.Printf("Creating worktree for branch %q at %s\n", branch, worktreePath)
+		printExpansionWarnings("symlink", symlinkWarnings)
+		printExpansionWarnings("copyDir", copyDirWarnings)
 	}
 
 	if err := git.AddWorktree(worktreePath, branch, from); err != nil {
@@ -175,15 +194,16 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	}
 
 	if detach {
-		if len(cfg.Symlink) > 0 && !quiet {
-			fmt.Printf("  ⚠ skipping %d symlink(s) (--detach)\n", len(cfg.Symlink))
+		if len(symlinks.Paths) > 0 && !quiet {
+			fmt.Printf("  ⚠ skipping %d symlink(s) (--detach)\n", len(symlinks.Paths))
 		}
 	} else {
 		var symlinked []string
-		for _, name := range cfg.Symlink {
+		for _, name := range symlinks.Paths {
 			created, err := files.Symlink(root, worktreePath, name)
 			if err != nil {
 				if errors.Is(err, files.ErrSymlinkDestinationConflict) {
+					result.SkippedSymlinks = append(result.SkippedSymlinks, name)
 					fmt.Fprintf(os.Stderr, "  warning: skipping symlink %s: %v\n", name, err)
 					continue
 				}
@@ -203,7 +223,7 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 	}
 
 	var copiedDirs []string
-	for _, name := range cfg.CopyDirs {
+	for _, name := range copyDirs.Paths {
 		src := filepath.Join(root, name)
 		dst := filepath.Join(worktreePath, name)
 		copied, err := files.CopyDir(src, dst)

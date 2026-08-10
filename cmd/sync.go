@@ -115,6 +115,22 @@ func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias s
 	} else if err != nil {
 		return result, err
 	}
+	symlinks, err := config.ExpandSymlink(root, cfg)
+	if err != nil {
+		return result, err
+	}
+	copyDirs, err := config.ExpandCopyDirs(root, cfg)
+	if err != nil {
+		return result, err
+	}
+	symlinkWarnings := actionableExpansionWarnings(symlinks.Warnings)
+	copyDirWarnings := actionableExpansionWarnings(copyDirs.Warnings)
+	result.SkippedSymlinks = append(result.SkippedSymlinks, expansionWarningValues(symlinkWarnings)...)
+	result.SkippedCopyDirs = append(result.SkippedCopyDirs, expansionWarningValues(copyDirWarnings)...)
+	if !quiet {
+		printExpansionWarnings("symlink", symlinkWarnings)
+		printExpansionWarnings("copyDir", copyDirWarnings)
+	}
 
 	copiedEnv, err := files.CopyMissingEnvFiles(root, entry.Path)
 	if err != nil {
@@ -122,7 +138,7 @@ func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias s
 	}
 	result.CopiedEnv = copiedEnv
 
-	for _, name := range cfg.Symlink {
+	for _, name := range symlinks.Paths {
 		created, err := files.Symlink(root, entry.Path, name)
 		if err != nil {
 			if errors.Is(err, files.ErrSymlinkDestinationConflict) {
@@ -136,7 +152,7 @@ func syncManagedWorktree(root string, cfg config.Config, s *state.State, alias s
 		}
 	}
 
-	for _, name := range cfg.CopyDirs {
+	for _, name := range copyDirs.Paths {
 		dst := filepath.Join(entry.Path, name)
 		if _, err := os.Stat(dst); err == nil {
 			result.SkippedCopyDirs = append(result.SkippedCopyDirs, name)

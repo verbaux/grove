@@ -94,7 +94,12 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildStatus(_ string, cfg config.Config, s state.State) (statusJSONResult, error) {
+func buildStatus(root string, cfg config.Config, s state.State) (statusJSONResult, error) {
+	symlinks, err := config.ExpandSymlink(root, cfg)
+	if err != nil {
+		return statusJSONResult{}, err
+	}
+	symlinkPaths := inspectionPaths(symlinks)
 	base := git.DefaultBranch()
 	orphans, err := findOrphans(s)
 	if err != nil {
@@ -136,7 +141,7 @@ func buildStatus(_ string, cfg config.Config, s state.State) (statusJSONResult, 
 			Note:           entry.Note,
 			WorktreeStatus: worktreeStatus(entry.Path),
 			ConfigStatus:   configStatus(entry.ConfigHash, currentHash),
-			SymlinkStatus:  symlinkStatus(entry.Path, cfg),
+			SymlinkStatus:  symlinkStatus(entry.Path, symlinkPaths),
 			PortStatus:     portStatus(entry.Port, portCounts),
 			Freshness:      freshnessStatus(entry.Branch, base),
 		}
@@ -186,8 +191,8 @@ func configStatus(storedHash, currentHash string) string {
 	return "ok"
 }
 
-func symlinkStatus(path string, cfg config.Config) string {
-	if len(cfg.Symlink) == 0 {
+func symlinkStatus(path string, symlinks []string) string {
+	if len(symlinks) == 0 {
 		return "none"
 	}
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
@@ -195,7 +200,7 @@ func symlinkStatus(path string, cfg config.Config) string {
 	}
 
 	var missing, local, broken int
-	for _, name := range cfg.Symlink {
+	for _, name := range symlinks {
 		link := filepath.Join(path, name)
 		info, err := os.Lstat(link)
 		if errors.Is(err, os.ErrNotExist) {

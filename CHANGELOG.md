@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `symlink` and `copyDirs` now accept root-relative Go glob patterns, with deterministic deduplication, warnings for unusable matches, and unchanged support for literal file and directory entries
+
 ## [0.9.1] — 2026-08-09
 
 ### Fixed

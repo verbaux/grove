@@ -651,8 +651,8 @@ Project config, lives in the repo root.
   "$schema": "https://raw.githubusercontent.com/verbaux/grove/v0.9.1/groverc.schema.json",
   "worktreeDir": "../",
   "prefix": "myapp",
-  "symlink": ["node_modules"],
-  "copyDirs": [".next", "dist"],
+  "symlink": ["node_modules", "apps/*/node_modules"],
+  "copyDirs": [".next", "packages/*/dist"],
   "afterCreate": "npm install",
   "afterDetachedCreate": "npm ci",
   "beforeRemove": "docker compose -p myapp-$GROVE_ALIAS down",
@@ -668,8 +668,8 @@ Project config, lives in the repo root.
 | --------------------- | ------------------ | ----------------------------------------------------- |
 | `worktreeDir`         | `../`              | Where to place worktrees relative to the project root |
 | `prefix`              | folder name        | Prefix for worktree directory names                   |
-| `symlink`             | `["node_modules"]` | Directories to symlink from the main worktree         |
-| `copyDirs`            | `[]`               | Directories to copy as build cache (e.g. `.next`, `dist`, `target`) |
+| `symlink`             | `["node_modules"]` | File/directory paths or glob patterns to symlink from the main worktree |
+| `copyDirs`            | `[]`               | File/directory paths or glob patterns to copy for a warm start |
 | `afterCreate`         | `""`               | Shell command(s) to run after setup — string or array (see below) |
 | `afterDetachedCreate` | `""`               | Shell command(s) to run before `afterCreate` when `--detach` is passed (string or array) |
 | `beforeRemove`        | `""`               | Shell command(s) to run before removing a managed worktree (string or array) |
@@ -681,6 +681,8 @@ Worktree path formula: `worktreeDir` + `prefix` + `-` + alias
 Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`
 
 `.env*` files are always found and copied automatically — no config needed.
+
+`symlink` and `copyDirs` entries use Go glob syntax relative to the project root. `*`, `?`, and character classes such as `[ab]` are supported; recursive `**` is not. Absolute patterns and patterns containing `..` do not match. Escape metacharacters to address a literal name that contains them—for example, write `"app\\[dev\\]"` for the directory `app[dev]`. Matches are deduplicated and sorted. Glob patterns that match nothing, and files matched by a glob, are skipped with a warning. Existing literal file entries remain supported. The patterns themselves remain unchanged when Grove saves the config.
 
 ### `.grove/state.json` — don't commit this
 

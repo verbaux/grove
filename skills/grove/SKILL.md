@@ -21,8 +21,8 @@ Config fields:
 |-------|---------|
 | `worktreeDir` | Where to place worktrees (relative to repo root) |
 | `prefix` | Prefix for worktree directory names |
-| `symlink` | Dirs to symlink from main worktree (e.g. `node_modules`) |
-| `copyDirs` | Dirs to copy as build cache (e.g. `.next`, `dist`, `target`) |
+| `symlink` | Root-relative file/dir paths or Go glob patterns to symlink from main (e.g. `node_modules`, `apps/*/node_modules`) |
+| `copyDirs` | Root-relative file/dir paths or Go glob patterns to copy as build cache (e.g. `.next`, `packages/*/dist`) |
 | `afterCreate` | Hook command — string OR array (fail-fast sequential) |
 | `afterDetachedCreate` | Hook run before `afterCreate` when `--detach` is passed (string OR array) |
 | `beforeRemove` | Hook run before managed worktree removal; failure stops removal |

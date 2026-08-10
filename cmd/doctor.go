@@ -101,6 +101,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	diags = append(diags, diagnostic{levelOK, ".groverc.json valid"})
 
 	diags = append(diags, diagConfigRange(cfg)...)
+	symlinkPaths, pathDiags := expandDoctorPaths(root, cfg)
 
 	s, err := state.Load(root)
 	if err != nil {
@@ -150,7 +151,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		symlinkFixes, symlinkDiags := fixBrokenSymlinks(root, cfg, s)
+		symlinkFixes, symlinkDiags := fixBrokenSymlinks(root, symlinkPaths, s)
 		fixes = append(fixes, symlinkFixes...)
 		diags = append(diags, symlinkDiags...)
 	}
@@ -160,9 +161,9 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		diags = append(diags, diagOrphans(s, worktrees)...)
 	}
 	diags = append(diags, diagConfigDrift(cfg, s)...)
-	diags = append(diags, diagSymlinks(root, cfg, s)...)
+	diags = append(diags, diagSymlinks(symlinkPaths, s)...)
 	diags = append(diags, diagPortCollisions(s)...)
-	diags = append(diags, diagConfigPaths(root, cfg)...)
+	diags = append(diags, pathDiags...)
 	diags = append(diags, diagSuggestions(root, cfg)...)
 	diags = append(diags, diagGhCLI())
 
@@ -261,7 +262,7 @@ type brokenSymlinkCandidate struct {
 	link   string
 }
 
-func fixBrokenSymlinks(root string, cfg config.Config, snapshot state.State) ([]doctorFix, []diagnostic) {
+func fixBrokenSymlinks(root string, symlinks []string, snapshot state.State) ([]doctorFix, []diagnostic) {
 	aliases := make([]string, 0, len(snapshot.Worktrees))
 	for alias := range snapshot.Worktrees {
 		aliases = append(aliases, alias)
@@ -272,7 +273,7 @@ func fixBrokenSymlinks(root string, cfg config.Config, snapshot state.State) ([]
 	seen := make(map[string]bool)
 	for _, alias := range aliases {
 		entry := snapshot.Worktrees[alias]
-		for _, name := range cfg.Symlink {
+		for _, name := range symlinks {
 			link := filepath.Join(entry.Path, name)
 			if seen[link] {
 				continue
@@ -450,12 +451,12 @@ func diagOrphans(s state.State, worktrees []git.Worktree) []diagnostic {
 	return out
 }
 
-func diagSymlinks(root string, cfg config.Config, s state.State) []diagnostic {
+func diagSymlinks(symlinks []string, s state.State) []diagnostic {
 	var out []diagnostic
 	checked := 0
 	broken := 0
 	for _, entry := range s.Worktrees {
-		for _, name := range cfg.Symlink {
+		for _, name := range symlinks {
 			link := filepath.Join(entry.Path, name)
 			info, err := os.Lstat(link)
 			if err != nil {
@@ -483,7 +484,6 @@ func diagSymlinks(root string, cfg config.Config, s state.State) []diagnostic {
 	if checked > 0 && broken == 0 {
 		out = append(out, diagnostic{levelOK, fmt.Sprintf("%d symlink(s) checked, all healthy", checked)})
 	}
-	_ = root
 	return out
 }
 
@@ -509,27 +509,48 @@ func diagPortCollisions(s state.State) []diagnostic {
 	return out
 }
 
-func diagConfigPaths(root string, cfg config.Config) []diagnostic {
+func expandDoctorPaths(root string, cfg config.Config) ([]string, []diagnostic) {
+	var symlinkPaths []string
 	var out []diagnostic
-	check := func(field, name string) {
-		if name == "" {
-			return
-		}
-		full := filepath.Join(root, name)
-		if _, err := os.Stat(full); errors.Is(err, os.ErrNotExist) {
+	appendWarnings := func(field string, warnings []config.PathExpansionWarning) {
+		for _, warning := range warnings {
+			if warning.Path == "" {
+				if !config.HasGlobMeta(warning.Pattern) {
+					full := filepath.Join(root, warning.Pattern)
+					message := fmt.Sprintf("%s %q has no source in main repo: %s", field, warning.Pattern, full)
+					if field == "symlink" {
+						message = fmt.Sprintf("symlink %q has no target in main repo: %s — symlinks to it will break", warning.Pattern, full)
+					}
+					out = append(out, diagnostic{Level: levelWarn, Message: message})
+					continue
+				}
+				out = append(out, diagnostic{
+					Level:   levelWarn,
+					Message: fmt.Sprintf("%s pattern %q %s in main repo", field, warning.Pattern, warning.Reason),
+				})
+				continue
+			}
 			out = append(out, diagnostic{
-				Level:   levelWarn,
-				Message: fmt.Sprintf("%s %q has no target in main repo: %s — symlinks to it will break", field, name, full),
+				Level: levelWarn,
+				Message: fmt.Sprintf("%s %q matched by %q: %s", field, warning.Path,
+					warning.Pattern, warning.Reason),
 			})
 		}
 	}
-	for _, name := range cfg.Symlink {
-		check("symlink", name)
+	symlinks, err := config.ExpandSymlink(root, cfg)
+	if err != nil {
+		out = append(out, diagnostic{levelError, fmt.Sprintf("symlink: %v", err)})
+	} else {
+		symlinkPaths = inspectionPaths(symlinks)
+		appendWarnings("symlink", symlinks.Warnings)
 	}
-	for _, name := range cfg.CopyDirs {
-		check("copyDir", name)
+	copyDirs, err := config.ExpandCopyDirs(root, cfg)
+	if err != nil {
+		out = append(out, diagnostic{levelError, fmt.Sprintf("copyDir: %v", err)})
+	} else {
+		appendWarnings("copyDir", copyDirs.Warnings)
 	}
-	return out
+	return symlinkPaths, out
 }
 
 func diagSuggestions(root string, cfg config.Config) []diagnostic {

@@ -79,13 +79,18 @@ func runDetach(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if len(cfg.Symlink) == 0 {
-		fmt.Println("No symlinks configured.")
+	symlinks, err := config.ExpandSymlink(root, cfg)
+	if err != nil {
+		return err
+	}
+	printExpansionWarnings("symlink", actionableExpansionWarnings(symlinks.Warnings))
+	if len(symlinks.Paths) == 0 {
+		fmt.Println("No symlinks found to remove.")
 		return nil
 	}
 
 	removed := 0
-	for _, name := range cfg.Symlink {
+	for _, name := range symlinks.Paths {
 		link := filepath.Join(worktreePath, name)
 		fi, err := os.Lstat(link)
 		if err != nil {

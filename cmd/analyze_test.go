@@ -120,7 +120,10 @@ func TestFindStalePathsDetectsMissingTargets(t *testing.T) {
 		CopyDirs: []string{"missing-cache"},
 	}
 
-	got := findStalePaths(root, cfg)
+	got, err := findStalePaths(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	want := []StalePath{
 		{Kind: "symlink", Value: "missing-link"},
@@ -138,9 +141,32 @@ func TestFindStalePathsEmptyWhenAllExist(t *testing.T) {
 	}
 	cfg := config.Config{Symlink: []string{"node_modules"}}
 
-	got := findStalePaths(root, cfg)
+	got, err := findStalePaths(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 0 {
 		t.Errorf("expected no stale paths, got %+v", got)
+	}
+}
+
+func TestFindStalePathsExpandsGlobsButKeepsRawUnmatchedPattern(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "apps", "web", "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{
+		Symlink:  []string{"apps/*/node_modules"},
+		CopyDirs: []string{"packages/*/dist"},
+	}
+
+	got, err := findStalePaths(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []StalePath{{Kind: "copyDir", Value: "packages/*/dist"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("findStalePaths() = %+v, want %+v", got, want)
 	}
 }
 

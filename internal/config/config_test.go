@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -79,6 +80,152 @@ func TestLoadInvalidJSON(t *testing.T) {
 	_, err := Load(dir)
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestExpandSymlinkGlobsDeduplicatesAndSortsDirectories(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{
+		"node_modules",
+		"apps/web/node_modules",
+		"apps/api/node_modules",
+	} {
+		if err := os.MkdirAll(filepath.Join(root, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := Config{Symlink: []string{
+		"apps/*/node_modules",
+		"node_modules",
+		"apps/web/node_modules",
+	}}
+
+	got, err := ExpandSymlink(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := PathExpansion{Paths: []string{
+		filepath.Join("apps", "api", "node_modules"),
+		filepath.Join("apps", "web", "node_modules"),
+		"node_modules",
+	}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ExpandSymlink() = %#v, want %#v", got, want)
+	}
+	if !reflect.DeepEqual(cfg.Symlink, []string{"apps/*/node_modules", "node_modules", "apps/web/node_modules"}) {
+		t.Fatalf("ExpandSymlink mutated raw config: %v", cfg.Symlink)
+	}
+}
+
+func TestExpandCopyDirsWarnsForUnmatchedPatternsAndFiles(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "packages", "good", "dist"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "packages", "file"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "packages", "file", "dist"), []byte("not a directory"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{CopyDirs: []string{"packages/*/dist", "apps/*/dist"}}
+
+	got, err := ExpandCopyDirs(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := PathExpansion{
+		Paths: []string{filepath.Join("packages", "good", "dist")},
+		Warnings: []PathExpansionWarning{
+			{Pattern: "packages/*/dist", Path: filepath.Join("packages", "file", "dist"), Reason: PathMatchNotDirectory},
+			{Pattern: "apps/*/dist", Reason: PathPatternUnmatched},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ExpandCopyDirs() = %#v, want %#v", got, want)
+	}
+}
+
+func TestExpandSymlinkRejectsInvalidGlob(t *testing.T) {
+	_, err := ExpandSymlink(t.TempDir(), Config{Symlink: []string{"[invalid"}})
+	if err == nil {
+		t.Fatal("expected invalid glob to return an error")
+	}
+}
+
+func TestExpandSymlinkSkipsEmptyEntry(t *testing.T) {
+	got, err := ExpandSymlink(t.TempDir(), Config{Symlink: []string{""}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := PathExpansion{}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ExpandSymlink() = %#v, want %#v", got, want)
+	}
+}
+
+func TestExpandSymlinkHandlesGlobMetacharactersInRoot(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "proj[1]")
+	if err := os.MkdirAll(filepath.Join(root, "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ExpandSymlink(root, Config{Symlink: []string{"node_modules"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := PathExpansion{Paths: []string{"node_modules"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ExpandSymlink() = %#v, want %#v", got, want)
+	}
+}
+
+func TestExpandPathsConfinesGlobsToRootAndSkipsRootItself(t *testing.T) {
+	root := t.TempDir()
+	got, err := ExpandCopyDirs(root, Config{CopyDirs: []string{"../*", "/etc", "."}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Paths) != 0 {
+		t.Fatalf("ExpandCopyDirs escaped or matched root: %v", got.Paths)
+	}
+}
+
+func TestExpandPathsPreservesLiteralFilesButSkipsFilesMatchedByGlob(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pnpm-lock.yaml"), []byte("lock"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ExpandCopyDirs(root, Config{CopyDirs: []string{"pnpm-lock.yaml", "*.yaml"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := PathExpansion{
+		Paths: []string{"pnpm-lock.yaml"},
+		Warnings: []PathExpansionWarning{{
+			Pattern: "*.yaml", Path: "pnpm-lock.yaml", Reason: PathMatchNotDirectory,
+		}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ExpandCopyDirs() = %#v, want %#v", got, want)
+	}
+}
+
+func TestExpandPathsSupportsEscapedGlobMetacharacters(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "app[dev]"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ExpandSymlink(root, Config{Symlink: []string{`app\[dev\]`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := PathExpansion{Paths: []string{"app[dev]"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ExpandSymlink() = %#v, want %#v", got, want)
 	}
 }
 

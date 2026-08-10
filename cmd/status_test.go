@@ -165,7 +165,7 @@ func TestStatusHelpersReportSymlinkAndPortIssues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := symlinkStatus(dir, config.Config{Symlink: []string{"node_modules", ".husky/_"}}); got != "1 broken, 1 missing" {
+	if got := symlinkStatus(dir, []string{"node_modules", ".husky/_"}); got != "1 broken, 1 missing" {
 		t.Fatalf("symlinkStatus = %q, want broken and missing counts", got)
 	}
 	if got := portStatus(3001, map[int]int{3001: 2}); got != "collision on 3001" {

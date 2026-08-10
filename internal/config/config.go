@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -82,6 +84,119 @@ type Config struct {
 	AfterRemove         HookCommands `json:"afterRemove,omitempty"`
 	PortRange           *PortRange   `json:"portRange,omitempty"`
 	Editor              string       `json:"editor,omitempty"`
+}
+
+// PathExpansionWarningReason describes why a configured path was skipped.
+type PathExpansionWarningReason string
+
+const (
+	PathPatternUnmatched  PathExpansionWarningReason = "pattern matched no directories"
+	PathMatchNotDirectory PathExpansionWarningReason = "match is not a directory"
+	PathMatchMissing      PathExpansionWarningReason = "match disappeared during expansion"
+	PathMatchIsRoot       PathExpansionWarningReason = "match resolves to the project root"
+)
+
+// PathExpansionWarning describes a non-fatal path expansion problem.
+type PathExpansionWarning struct {
+	Pattern string
+	Path    string
+	Reason  PathExpansionWarningReason
+}
+
+// PathExpansion contains sorted, deduplicated paths and non-fatal warnings.
+type PathExpansion struct {
+	Paths    []string
+	Warnings []PathExpansionWarning
+}
+
+// ExpandSymlink expands configured symlink patterns relative to root without
+// modifying the raw patterns stored in Config.
+func ExpandSymlink(root string, cfg Config) (PathExpansion, error) {
+	return expandPaths(root, cfg.Symlink)
+}
+
+// ExpandCopyDirs expands configured copyDirs patterns relative to root without
+// modifying the raw patterns stored in Config.
+func ExpandCopyDirs(root string, cfg Config) (PathExpansion, error) {
+	return expandPaths(root, cfg.CopyDirs)
+}
+
+// HasGlobMeta reports whether pattern contains an unescaped glob metacharacter.
+func HasGlobMeta(pattern string) bool {
+	escaped := false
+	for _, r := range pattern {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if r == '\\' {
+			escaped = true
+			continue
+		}
+		if r == '*' || r == '?' || r == '[' {
+			return true
+		}
+	}
+	return false
+}
+
+func expandPaths(root string, patterns []string) (PathExpansion, error) {
+	result := PathExpansion{}
+	seen := make(map[string]bool)
+	for _, pattern := range patterns {
+		if pattern == "" {
+			continue
+		}
+		matches, err := fs.Glob(os.DirFS(root), pattern)
+		if err != nil {
+			return PathExpansion{}, fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
+		}
+		if len(matches) == 0 {
+			result.Warnings = append(result.Warnings, PathExpansionWarning{
+				Pattern: pattern,
+				Reason:  PathPatternUnmatched,
+			})
+			continue
+		}
+		patternHasMeta := HasGlobMeta(pattern)
+		for _, match := range matches {
+			if match == "." {
+				result.Warnings = append(result.Warnings, PathExpansionWarning{
+					Pattern: pattern,
+					Path:    match,
+					Reason:  PathMatchIsRoot,
+				})
+				continue
+			}
+			rel := filepath.FromSlash(match)
+			info, err := os.Stat(filepath.Join(root, rel))
+			if errors.Is(err, os.ErrNotExist) {
+				result.Warnings = append(result.Warnings, PathExpansionWarning{
+					Pattern: pattern,
+					Path:    rel,
+					Reason:  PathMatchMissing,
+				})
+				continue
+			}
+			if err != nil {
+				return PathExpansion{}, err
+			}
+			if !info.IsDir() && patternHasMeta {
+				result.Warnings = append(result.Warnings, PathExpansionWarning{
+					Pattern: pattern,
+					Path:    rel,
+					Reason:  PathMatchNotDirectory,
+				})
+				continue
+			}
+			if !seen[rel] {
+				seen[rel] = true
+				result.Paths = append(result.Paths, rel)
+			}
+		}
+	}
+	sort.Strings(result.Paths)
+	return result, nil
 }
 
 type setupFingerprint struct {

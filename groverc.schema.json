@@ -32,12 +32,12 @@
       "type": "array",
       "items": { "type": "string" },
       "default": ["node_modules"],
-      "description": "Directories to symlink from the main worktree into each new worktree."
+      "description": "File/directory paths or Go glob patterns, relative to the project root, to symlink from the main worktree (e.g. node_modules, apps/*/node_modules). Escape glob metacharacters in literal names."
     },
     "copyDirs": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Directories to copy as build cache for a warm start (e.g. .next, dist, target)."
+      "description": "File/directory paths or Go glob patterns, relative to the project root, to copy for a warm start (e.g. .next, packages/*/dist, target). Escape glob metacharacters in literal names."
     },
     "afterCreate": {
       "$ref": "#/definitions/command",

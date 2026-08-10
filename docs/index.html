@@ -212,7 +212,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
         <div class="fcard-copy">
           <span class="fcard-num">01</span>
           <h3>Symlinked <code>node_modules</code></h3>
-          <p>No reinstall per worktree. Grove symlinks configured directories from the main tree. <code>grove detach</code> breaks the link when branches diverge.</p>
+          <p>No reinstall per worktree. Root-relative glob patterns such as <code>apps/*/node_modules</code> keep every workspace linked automatically. <code>grove detach</code> breaks the links when branches diverge.</p>
         </div>
       </article>
 
@@ -238,7 +238,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
       </article>
       <article class="fcard">
         <h3>Build cache (<code>copyDirs</code>)</h3>
-        <p>Copy <code>.next</code>, <code>dist</code>, <code>target</code> into new worktrees for a warm start instead of a cold rebuild.</p>
+        <p>Copy <code>.next</code>, <code>dist</code>, or patterns such as <code>packages/*/dist</code> into new worktrees for a warm start instead of a cold rebuild.</p>
       </article>
       <article class="fcard">
         <h3>PR review</h3>

@@ -567,7 +567,7 @@ func TestDiagSymlinksBroken(t *testing.T) {
 	s := state.State{Worktrees: map[string]state.WorktreeEntry{
 		"a": {Path: wtDir, Branch: "a"},
 	}}
-	diags := diagSymlinks(wtDir, cfg, s)
+	diags := diagSymlinks(cfg.Symlink, s)
 	hasError := false
 	for _, d := range diags {
 		if d.Level == levelError {
@@ -583,7 +583,7 @@ func TestDiagConfigPathsWarnsOnMissingSymlink(t *testing.T) {
 	root := t.TempDir()
 	cfg := config.Config{Symlink: []string{"node_modules", ".husky/_"}}
 
-	diags := diagConfigPaths(root, cfg)
+	_, diags := expandDoctorPaths(root, cfg)
 	if len(diags) != 2 {
 		t.Errorf("expected 2 warnings for missing targets, got %+v", diags)
 	}
@@ -591,6 +591,9 @@ func TestDiagConfigPathsWarnsOnMissingSymlink(t *testing.T) {
 		if d.Level != levelWarn {
 			t.Errorf("expected warn, got %v", d)
 		}
+	}
+	if !containsAll(diags[0].Message, filepath.Join(root, "node_modules"), "symlinks to it will break") {
+		t.Fatalf("literal symlink warning lost target and consequence: %q", diags[0].Message)
 	}
 }
 
@@ -604,7 +607,7 @@ func TestDiagConfigPathsSilentWhenTargetsExist(t *testing.T) {
 	}
 	cfg := config.Config{Symlink: []string{"node_modules", ".husky/_"}}
 
-	diags := diagConfigPaths(root, cfg)
+	_, diags := expandDoctorPaths(root, cfg)
 	if len(diags) != 0 {
 		t.Errorf("expected no warnings when targets exist, got %+v", diags)
 	}
@@ -614,9 +617,28 @@ func TestDiagConfigPathsWarnsOnMissingCopyDir(t *testing.T) {
 	root := t.TempDir()
 	cfg := config.Config{CopyDirs: []string{".next/cache"}}
 
-	diags := diagConfigPaths(root, cfg)
+	_, diags := expandDoctorPaths(root, cfg)
 	if len(diags) != 1 || diags[0].Level != levelWarn {
 		t.Errorf("expected 1 warn for missing copyDir, got %+v", diags)
+	}
+}
+
+func TestDiagConfigPathsExpandsGlobsAndWarnsForFileMatches(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "packages", "good", "dist"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "packages", "bad"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "packages", "bad", "dist"), []byte("file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{CopyDirs: []string{"packages/*/dist"}}
+
+	_, diags := expandDoctorPaths(root, cfg)
+	if len(diags) != 1 || diags[0].Level != levelWarn || !containsAll(diags[0].Message, "packages/bad/dist", "not a directory") {
+		t.Fatalf("expected file-match warning only, got %+v", diags)
 	}
 }
 
@@ -704,7 +726,7 @@ func TestDiagSymlinksHealthy(t *testing.T) {
 	s := state.State{Worktrees: map[string]state.WorktreeEntry{
 		"a": {Path: wtDir, Branch: "a"},
 	}}
-	diags := diagSymlinks(root, cfg, s)
+	diags := diagSymlinks(cfg.Symlink, s)
 	if len(diags) != 1 || diags[0].Level != levelOK {
 		t.Errorf("expected single ok, got %v", diags)
 	}

@@ -3,7 +3,9 @@ package cmd
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
@@ -200,6 +202,58 @@ func TestSyncRunsHooksOnlyWhenRequested(t *testing.T) {
 	}
 	if string(data) != "hook" {
 		t.Fatalf("hook.txt = %q, want hook", string(data))
+	}
+}
+
+func TestSyncExpandsGlobPatterns(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{},
+	})
+	createName, createFrom, createDetach, createJSON = "sync-globs", "", false, false
+	t.Cleanup(func() { createName = "" })
+	if err := runCreate(createCmd, []string{"feature/sync-globs"}); err != nil {
+		t.Fatal(err)
+	}
+	s, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := s.Get("sync-globs")
+	if !ok {
+		t.Fatal("missing sync-globs state entry")
+	}
+	for _, name := range []string{"apps/web/node_modules", "packages/ui/dist"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "packages", "ui", "dist", "ui.js"), []byte("ui"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{"apps/*/node_modules"},
+		CopyDirs:    []string{"packages/*/dist"},
+	}
+
+	result, err := syncManagedWorktree(dir, cfg, &s, "sync-globs", entry, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(result.Symlinked, []string{filepath.Join("apps", "web", "node_modules")}) {
+		t.Fatalf("Symlinked = %v", result.Symlinked)
+	}
+	if !reflect.DeepEqual(result.CopiedDirs, []string{filepath.Join("packages", "ui", "dist")}) {
+		t.Fatalf("CopiedDirs = %v", result.CopiedDirs)
+	}
+
+	remove := exec.Command("git", "worktree", "remove", "--force", entry.Path)
+	remove.Dir = dir
+	if out, err := remove.CombinedOutput(); err != nil {
+		t.Fatalf("cleanup failed: %s", out)
 	}
 }
 
