@@ -2,10 +2,17 @@
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-08-10
+
 ### Added
 
 - `symlink` and `copyDirs` now accept root-relative Go glob patterns, with deterministic deduplication, warnings for unusable matches, and unchanged support for literal file and directory entries
 - `copyDirsOnDetach` can disable build-artifact copying for detached worktrees while preserving the existing copy-by-default behavior; detached mode is visible in list/status/sync output, preserved by sync, and reversibly cleared by `grove sync --reattach` only after symlink conflicts are resolved
+
+### Fixed
+
+- `grove remove` now confirms dirty managed worktrees consistently, returns a non-zero error with `--force` guidance when confirmation input is unavailable, and preserves underlying submodule-safety diagnostics
+- `grove clean` and `grove prune` now aggregate per-worktree removal failures without duplicate or lost diagnostics, continue safe batch removals after individual failures, and report successful orphan removals during partial failure
 
 ## [0.9.1] — 2026-08-09
 

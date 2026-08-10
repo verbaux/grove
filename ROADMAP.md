@@ -4,10 +4,13 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.9.1`. This patch release makes worktree removal safer for repositories with initialized or retained Git submodules.
+Latest published tag: `v0.10.0`. This release adds glob-based setup paths, persistent detached-worktree policy with safe reattachment, and more reliable removal diagnostics.
 
 ## Recently shipped
 
+- **Glob-based setup paths.** `symlink` and `copyDirs` accept root-relative Go glob patterns with deterministic expansion, deduplication, and actionable warnings.
+- **Persistent detached setup.** `copyDirsOnDetach` controls build-cache reuse, detached mode is visible in list/status/JSON, and `grove sync --reattach` restores sharing only after local destination conflicts are resolved.
+- **Reliable removal batches.** `remove`, `clean`, and `prune` retain per-target diagnostics, aggregate failures without duplicate output, and report partial orphan-cleanup success.
 - **Safe submodule removal.** `remove`, `clean`, and `prune` require explicit `--force` before discarding initialized or retained submodule data, and confirmation for one dirty worktree no longer forces clean neighbors.
 - **`grove remove` by index.** `grove remove 2` now matches `grove cd` and `grove open`; removing the main worktree index is explicitly refused.
 - **Safer `grove prune`.** Prune no longer treats unstarted or behind branches as merged. It still detects merge commits plus squash/rebase merges by content.
