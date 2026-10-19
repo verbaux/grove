@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
@@ -358,8 +359,9 @@ func resolveWorktree(root, query string) (*resolvedWorktree, error) {
 	}
 
 	// 3. Path in state
+	queryPath := normalizeWorktreePath(query)
 	for alias, entry := range s.Worktrees {
-		if entry.Path == query {
+		if normalizeWorktreePath(entry.Path) == queryPath {
 			return &resolvedWorktree{
 				Alias: alias, Path: entry.Path, Branch: entry.Branch, Protected: entry.Protected, InState: true,
 			}, nil
@@ -375,7 +377,7 @@ func resolveWorktree(root, query string) (*resolvedWorktree, error) {
 		if wt.IsMain {
 			continue
 		}
-		if wt.Branch == query || wt.Path == query {
+		if wt.Branch == query || normalizeWorktreePath(wt.Path) == queryPath {
 			return &resolvedWorktree{
 				Path: wt.Path, Branch: wt.Branch, InState: false,
 			}, nil
@@ -383,6 +385,21 @@ func resolveWorktree(root, query string) (*resolvedWorktree, error) {
 	}
 
 	return nil, nil
+}
+
+func normalizeWorktreePath(path string) string {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return filepath.Clean(path)
+	}
+	absPath = filepath.Clean(absPath)
+	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+		return resolved
+	}
+	if resolvedParent, err := filepath.EvalSymlinks(filepath.Dir(absPath)); err == nil {
+		return filepath.Join(resolvedParent, filepath.Base(absPath))
+	}
+	return absPath
 }
 
 // rowToResolved builds a resolvedWorktree from a list row, marking state membership.

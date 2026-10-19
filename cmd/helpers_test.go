@@ -180,3 +180,97 @@ func TestCompleteAliasesNoRoot(t *testing.T) {
 		t.Errorf("expected 0 completions when no grove root, got %v", completions)
 	}
 }
+
+func TestResolveWorktreeManagedPathSpellings(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{WorktreeDir: "../", Prefix: "testproject"})
+	wtPath := filepath.Join(filepath.Dir(root), "testproject-managed-path")
+	addTestWorktree(t, root, wtPath, "feature/managed-path")
+	if err := state.Save(root, state.State{Worktrees: map[string]state.WorktreeEntry{
+		"managed-path": {Branch: "feature/managed-path", Path: wtPath},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, query := range []string{"../testproject-managed-path", wtPath + string(os.PathSeparator)} {
+		resolved, err := resolveWorktree(root, query)
+		if err != nil || resolved == nil || resolved.Alias != "managed-path" {
+			t.Fatalf("resolveWorktree(%q) = %#v, %v; want managed-path", query, resolved, err)
+		}
+	}
+
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(orig); err != nil {
+			t.Errorf("restore cwd: %v", err)
+		}
+	})
+	if err := os.Chdir(wtPath); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := resolveWorktree(root, ".")
+	if err != nil || resolved == nil || resolved.Alias != "managed-path" {
+		t.Fatalf("resolveWorktree(\".\") = %#v, %v; want managed-path", resolved, err)
+	}
+}
+
+func TestResolveWorktreeOrphanRelativePath(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{WorktreeDir: "../", Prefix: "testproject"})
+	wtPath := filepath.Join(filepath.Dir(root), "testproject-orphan-path")
+	addTestWorktree(t, root, wtPath, "feature/orphan-path")
+
+	resolved, err := resolveWorktree(root, "../testproject-orphan-path")
+	if err != nil || resolved == nil || resolved.InState || resolved.Branch != "feature/orphan-path" {
+		t.Fatalf("resolveWorktree(relative orphan path) = %#v, %v", resolved, err)
+	}
+}
+
+func TestResolveWorktreeStaleManagedRelativePath(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{WorktreeDir: "../", Prefix: "testproject"})
+	wtPath := filepath.Join(filepath.Dir(root), "testproject-stale-path")
+	addTestWorktree(t, root, wtPath, "feature/stale-path")
+	if err := state.Save(root, state.State{Worktrees: map[string]state.WorktreeEntry{
+		"stale-path": {Branch: "feature/stale-path", Path: wtPath},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	rm := exec.Command("git", "worktree", "remove", "--force", wtPath)
+	rm.Dir = root
+	if out, err := rm.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree remove: %s", out)
+	}
+
+	resolved, err := resolveWorktree(root, "../testproject-stale-path")
+	if err != nil || resolved == nil || resolved.Alias != "stale-path" {
+		t.Fatalf("resolveWorktree(relative stale path) = %#v, %v; want stale-path", resolved, err)
+	}
+}
+
+func TestResolveWorktreeDoesNotResolveMainByPath(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{WorktreeDir: "../", Prefix: "testproject"})
+	resolved, err := resolveWorktree(root, ".")
+	if err != nil || resolved != nil {
+		t.Fatalf("resolveWorktree(main path) = %#v, %v; want no match", resolved, err)
+	}
+}
+
+func addTestWorktree(t *testing.T, root, path, branch string) {
+	t.Helper()
+	cmd := exec.Command("git", "worktree", "add", "-b", branch, path)
+	cmd.Dir = root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add: %s", out)
+	}
+	t.Cleanup(func() {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return
+		}
+		cmd := exec.Command("git", "worktree", "remove", "--force", path)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Errorf("git worktree remove: %s", out)
+		}
+	})
+}

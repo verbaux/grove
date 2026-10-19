@@ -15,6 +15,7 @@
 - `.env*` copying skips other git worktrees nested under the project, so a `worktreeDir` inside the root no longer copies their env files into new worktrees
 - `grove review` fast-forwards an existing local branch of a same-repo PR to the fetched head instead of checking out a stale copy; diverged branches are kept with a warning
 - `grove review` PR list now measures and truncates columns by display width, so non-ASCII titles stay aligned and valid UTF-8, and sanitizes PR titles, authors, and branch names before printing them
+- Commands that take a worktree reference (`remove`, `cd`, `open`, `note`, `protect`, `rename`, …) now match paths however they are spelled: relative (`../myapp-auth`), with a trailing slash, `.` from the worktree root, or through a symlinked parent such as macOS `/tmp`
 
 ## [0.10.0] — 2026-08-10
 
