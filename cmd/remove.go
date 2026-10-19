@@ -13,6 +13,7 @@ import (
 var (
 	removeForce            bool
 	removeIncludeProtected bool
+	removeGitWorktree      = git.RemoveWorktree
 )
 
 func init() {
@@ -199,25 +200,47 @@ func removeManagedWorktree(root string, cfg config.Config, s *state.State, wt ma
 		}
 	}
 
+	latest, err := state.Load(root)
+	if err != nil {
+		return false, err
+	}
+	current, ok := latest.Get(wt.Alias)
+	if !ok {
+		return false, fmt.Errorf("state entry %q disappeared while removing", wt.Alias)
+	}
+	if current.Path != wt.Path || current.Branch != wt.Branch {
+		return false, fmt.Errorf("state entry %q changed while removing — retry", wt.Alias)
+	}
+	if current.Protected && !wt.IncludeProtected {
+		return false, fmt.Errorf("worktree %q became protected while removing — pass --include-protected to remove it", wt.Alias)
+	}
+
+	// Protection is rechecked immediately before deletion, but is not atomic with it.
+	if !pathMissing {
+		if err := removeGitWorktree(wt.Path, force); err != nil {
+			return false, err
+		}
+	}
+
+	changedConcurrently := false
 	if err := updateManagedState(root, s, func(latest *state.State) error {
 		current, ok := latest.Get(wt.Alias)
 		if !ok {
-			return fmt.Errorf("state entry %q disappeared while removing", wt.Alias)
+			return nil
 		}
 		if current.Path != wt.Path || current.Branch != wt.Branch {
-			return fmt.Errorf("state entry %q changed while removing — retry", wt.Alias)
-		}
-		if current.Protected && !wt.IncludeProtected {
-			return fmt.Errorf("worktree %q became protected while removing — pass --include-protected to remove it", wt.Alias)
-		}
-		if !pathMissing {
-			if err := git.RemoveWorktree(wt.Path, force); err != nil {
-				return err
-			}
+			changedConcurrently = true
+			return fmt.Errorf("worktree at %s was removed but the state entry changed concurrently; run 'grove doctor'", wt.Path)
 		}
 		return latest.Remove(wt.Alias)
 	}); err != nil {
-		return false, err
+		if pathMissing {
+			return false, err
+		}
+		if changedConcurrently {
+			return true, err
+		}
+		return true, fmt.Errorf("worktree at %s was removed but its state entry could not be updated; run 'grove doctor --fix': %w", wt.Path, err)
 	}
 
 	if pathMissing {

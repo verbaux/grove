@@ -3,12 +3,14 @@ package cmd
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/verbaux/grove/internal/config"
 	"github.com/verbaux/grove/internal/git"
@@ -844,6 +846,149 @@ func TestRemoveRechecksConcurrentProtectionChange(t *testing.T) {
 	protected, ok := loaded.Get("protect-race")
 	if !ok || !protected.Protected {
 		t.Fatalf("protected state should remain: %+v", protected)
+	}
+}
+
+func TestRemoveDoesNotHoldStateLockWhileRemovingWorktree(t *testing.T) {
+	dir := setupIntegrationRepo(t, baseConfig())
+	createName, createFrom, createDetach, createJSON = "lock-free-remove", "", false, false
+	t.Cleanup(func() { createName = "" })
+	if err := runCreate(createCmd, []string{"feature/lock-free-remove"}); err != nil {
+		t.Fatal(err)
+	}
+
+	current, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := current.Get("lock-free-remove")
+	if !ok {
+		t.Fatal("expected lock-free-remove entry")
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(entry.Path, true) })
+
+	realRemove := removeGitWorktree
+	t.Cleanup(func() { removeGitWorktree = realRemove })
+	removeGitWorktree = func(path string, force bool) error {
+		updated := make(chan error, 1)
+		go func() {
+			updated <- state.Update(dir, func(*state.State) error { return nil })
+		}()
+		select {
+		case err := <-updated:
+			if err != nil {
+				return err
+			}
+		case <-time.After(2 * time.Second):
+			return fmt.Errorf("state lock remained held during git worktree removal")
+		}
+		return realRemove(path, force)
+	}
+
+	stale := current
+	removed, err := removeManagedWorktree(dir, baseConfig(), &stale, managedRemoveTarget{
+		Alias: "lock-free-remove", Branch: entry.Branch, Path: entry.Path, Port: entry.Port,
+	}, true)
+	if err != nil || !removed {
+		t.Fatalf("removeManagedWorktree() = %v, %v", removed, err)
+	}
+}
+
+func TestRemoveSucceedsWhenStateEntryDisappearsDuringRemoval(t *testing.T) {
+	dir := setupIntegrationRepo(t, baseConfig())
+	createName, createFrom, createDetach, createJSON = "remove-disappeared", "", false, false
+	t.Cleanup(func() { createName = "" })
+	if err := runCreate(createCmd, []string{"feature/remove-disappeared"}); err != nil {
+		t.Fatal(err)
+	}
+
+	current, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := current.Get("remove-disappeared")
+	if !ok {
+		t.Fatal("expected remove-disappeared entry")
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(entry.Path, true) })
+
+	realRemove := removeGitWorktree
+	t.Cleanup(func() { removeGitWorktree = realRemove })
+	removeGitWorktree = func(path string, force bool) error {
+		if err := realRemove(path, force); err != nil {
+			return err
+		}
+		return state.Update(dir, func(latest *state.State) error {
+			return latest.Remove("remove-disappeared")
+		})
+	}
+
+	stale := current
+	removed, err := removeManagedWorktree(dir, baseConfig(), &stale, managedRemoveTarget{
+		Alias: "remove-disappeared", Branch: entry.Branch, Path: entry.Path, Port: entry.Port,
+	}, true)
+	if err != nil || !removed {
+		t.Fatalf("removeManagedWorktree() = %v, %v; want success", removed, err)
+	}
+	latest, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := latest.Get("remove-disappeared"); ok {
+		t.Fatal("state entry still exists after concurrent removal")
+	}
+}
+
+func TestRemovePreservesConcurrentlyChangedStateEntry(t *testing.T) {
+	dir := setupIntegrationRepo(t, baseConfig())
+	createName, createFrom, createDetach, createJSON = "remove-changed", "", false, false
+	t.Cleanup(func() { createName = "" })
+	if err := runCreate(createCmd, []string{"feature/remove-changed"}); err != nil {
+		t.Fatal(err)
+	}
+
+	current, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := current.Get("remove-changed")
+	if !ok {
+		t.Fatal("expected remove-changed entry")
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(entry.Path, true) })
+	changedPath := entry.Path + "-changed"
+
+	realRemove := removeGitWorktree
+	t.Cleanup(func() { removeGitWorktree = realRemove })
+	removeGitWorktree = func(path string, force bool) error {
+		if err := realRemove(path, force); err != nil {
+			return err
+		}
+		return state.Update(dir, func(latest *state.State) error {
+			changed, ok := latest.Get("remove-changed")
+			if !ok {
+				return fmt.Errorf("remove-changed entry disappeared in test")
+			}
+			changed.Path = changedPath
+			latest.Worktrees["remove-changed"] = changed
+			return nil
+		})
+	}
+
+	stale := current
+	removed, err := removeManagedWorktree(dir, baseConfig(), &stale, managedRemoveTarget{
+		Alias: "remove-changed", Branch: entry.Branch, Path: entry.Path, Port: entry.Port,
+	}, true)
+	if !removed || err == nil || !strings.Contains(err.Error(), "grove doctor") {
+		t.Fatalf("removeManagedWorktree() = %v, %v; want removed with doctor guidance", removed, err)
+	}
+	latest, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, ok := latest.Get("remove-changed")
+	if !ok || changed.Path != changedPath {
+		t.Fatalf("concurrently changed entry was deleted or altered: %+v", changed)
 	}
 }
 
