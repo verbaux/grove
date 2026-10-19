@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
 	"github.com/verbaux/grove/internal/git"
@@ -129,21 +130,28 @@ func renderPRTable(items []prListItem) string {
 	numStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
 	titleStyle := lipgloss.NewStyle().Bold(true)
 	authorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	rows := make([]prListItem, len(items))
+	for i, item := range items {
+		rows[i] = item
+		rows[i].Title = terminalSafe(item.Title)
+		rows[i].Author.Login = terminalSafe(item.Author.Login)
+		rows[i].HeadRefName = terminalSafe(item.HeadRefName)
+	}
 
 	numW := len("#")
-	titleW := len("TITLE")
-	authorW := len("AUTHOR")
+	titleW := lipgloss.Width("TITLE")
+	authorW := lipgloss.Width("AUTHOR")
 
-	for _, item := range items {
+	for _, item := range rows {
 		w := len(fmt.Sprintf("%d", item.Number))
 		if w > numW {
 			numW = w
 		}
-		if len(item.Title) > titleW {
-			titleW = len(item.Title)
+		if w := lipgloss.Width(item.Title); w > titleW {
+			titleW = w
 		}
-		if len(item.Author.Login) > authorW {
-			authorW = len(item.Author.Login)
+		if w := lipgloss.Width(item.Author.Login); w > authorW {
+			authorW = w
 		}
 	}
 
@@ -153,10 +161,11 @@ func renderPRTable(items []prListItem) string {
 	}
 
 	pad := func(s string, w int) string {
-		if len(s) > w {
-			return s[:w-1] + "…" + "  "
+		if lipgloss.Width(s) > w {
+			value := ansi.Truncate(s, w, "…")
+			return value + strings.Repeat(" ", w-lipgloss.Width(value)+2)
 		}
-		return s + strings.Repeat(" ", w-len(s)+2)
+		return s + strings.Repeat(" ", w-lipgloss.Width(s)+2)
 	}
 
 	var sb strings.Builder
@@ -168,7 +177,7 @@ func renderPRTable(items []prListItem) string {
 			header.Render("BRANCH") + "\n",
 	)
 
-	for _, item := range items {
+	for _, item := range rows {
 		sb.WriteString(
 			numStyle.Render(pad(fmt.Sprintf("%d", item.Number), numW)) +
 				titleStyle.Render(pad(item.Title, titleW)) +
