@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,6 +52,11 @@ func FindEnvFiles(srcDir string) ([]string, error) {
 
 		// Skip blacklisted directories entirely — don't recurse into them.
 		if d.IsDir() && skipDirs[d.Name()] {
+			return filepath.SkipDir
+		}
+		// Other worktrees can live under the project when worktreeDir points
+		// inside it; their .env files belong to them, not to the source.
+		if d.IsDir() && path != srcDir && isLinkedWorktree(path) {
 			return filepath.SkipDir
 		}
 
@@ -285,6 +291,11 @@ func CopyDir(src, dst string) (bool, error) {
 	if !info.IsDir() {
 		return true, copyFile(src, dst)
 	}
+	// WalkDir does not follow a symlinked root, so resolve it first.
+	src, err = filepath.EvalSymlinks(src)
+	if err != nil {
+		return false, err
+	}
 
 	err = filepath.WalkDir(src, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -296,8 +307,16 @@ func CopyDir(src, dst string) (bool, error) {
 		}
 		target := filepath.Join(dst, rel)
 
-		if d.IsDir() {
+		switch {
+		case d.Type()&fs.ModeSymlink != 0:
+			// Recreate links as-is, like `cp -R`; relative links (node_modules/.bin,
+			// pnpm stores) keep resolving inside the copy.
+			return copySymlink(path, target)
+		case d.IsDir():
 			return os.MkdirAll(target, 0755)
+		case !d.Type().IsRegular():
+			// Sockets, FIFOs and devices cannot be copied meaningfully.
+			return nil
 		}
 		return copyFile(path, target)
 	})
@@ -307,7 +326,20 @@ func CopyDir(src, dst string) (bool, error) {
 	return true, nil
 }
 
+func copySymlink(src, dst string) error {
+	target, err := os.Readlink(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	return os.Symlink(target, dst)
+}
+
 // copyFile copies a single file from src to dst, creating parent directories as needed.
+// The destination gets the source permission bits, so secrets stay private and
+// executables stay executable.
 func copyFile(src, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return err
@@ -319,8 +351,19 @@ func copyFile(src, dst string) error {
 	}
 	defer in.Close()
 
-	out, err := os.Create(dst)
+	info, err := in.Stat()
 	if err != nil {
+		return err
+	}
+	perm := info.Mode().Perm()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	// Chmod covers umask and destinations that already existed.
+	if err := out.Chmod(perm); err != nil {
+		out.Close()
 		return err
 	}
 
@@ -329,6 +372,22 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// isLinkedWorktree reports whether dir is a git linked worktree: its .git is a
+// file pointing into <git-common-dir>/worktrees/. Submodules also use a .git
+// file, but theirs points into modules/.
+func isLinkedWorktree(dir string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, ".git"))
+	if err != nil {
+		return false
+	}
+	gitdir, ok := strings.CutPrefix(strings.TrimSpace(string(data)), "gitdir:")
+	if !ok {
+		return false
+	}
+	gitdir = filepath.ToSlash(strings.TrimSpace(gitdir))
+	return strings.Contains(gitdir, "/worktrees/")
 }
 
 func isEnvFile(name string) bool {

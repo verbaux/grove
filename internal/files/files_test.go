@@ -44,6 +44,37 @@ func TestFindEnvFiles(t *testing.T) {
 	}
 }
 
+func TestFindEnvFilesSkipsNestedWorktrees(t *testing.T) {
+	dir := t.TempDir()
+
+	touch(t, dir, ".env")
+	// Linked worktree under the project (worktreeDir inside root).
+	touch(t, dir, ".wt/feature/.env")
+	if err := os.WriteFile(filepath.Join(dir, ".wt", "feature", ".git"), []byte("gitdir: /repo/.git/worktrees/feature\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Submodules also use a .git file but must still be searched.
+	touch(t, dir, "libs/sub/.env")
+	if err := os.WriteFile(filepath.Join(dir, "libs", "sub", ".git"), []byte("gitdir: ../../.git/modules/sub\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	found, err := FindEnvFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, f := range found {
+		got[filepath.ToSlash(f)] = true
+	}
+	if !got[".env"] || !got["libs/sub/.env"] {
+		t.Errorf("missing expected env files, got %v", found)
+	}
+	if got[".wt/feature/.env"] {
+		t.Errorf("env file from a nested worktree must be skipped, got %v", found)
+	}
+}
+
 func TestCopyEnvFiles(t *testing.T) {
 	src := t.TempDir()
 	dst := t.TempDir()
@@ -393,6 +424,103 @@ func TestCopyDirIsIndependent(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dst, "file.txt"))
 	if string(data) != "original" {
 		t.Error("copy should be independent of source")
+	}
+}
+
+func TestCopyDirPreservesSymlinks(t *testing.T) {
+	src := t.TempDir()
+	dst := filepath.Join(t.TempDir(), "copied")
+
+	touch(t, src, "pkg/bin/run")
+	if err := os.Symlink("pkg", filepath.Join(src, "dirlink")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("pkg/bin/run", filepath.Join(src, "filelink")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("missing", filepath.Join(src, "broken")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := CopyDir(src, dst); err != nil {
+		t.Fatal("CopyDir failed:", err)
+	}
+
+	for name, want := range map[string]string{"dirlink": "pkg", "filelink": "pkg/bin/run", "broken": "missing"} {
+		got, err := os.Readlink(filepath.Join(dst, name))
+		if err != nil {
+			t.Fatalf("%s should be a symlink: %v", name, err)
+		}
+		if got != want {
+			t.Errorf("%s → %q, want %q", name, got, want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dst, "dirlink", "bin", "run")); err != nil {
+		t.Errorf("relative symlink should resolve inside the copy: %v", err)
+	}
+}
+
+func TestCopyDirFollowsSymlinkedRoot(t *testing.T) {
+	real := t.TempDir()
+	touch(t, real, "file.txt")
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "copied")
+
+	if _, err := CopyDir(link, dst); err != nil {
+		t.Fatal("CopyDir failed:", err)
+	}
+	info, err := os.Lstat(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("dst should be a real directory, got mode %v", info.Mode())
+	}
+	if _, err := os.Stat(filepath.Join(dst, "file.txt")); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCopyPreservesFileMode(t *testing.T) {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, ".env"), []byte("SECRET=1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(src, ".env"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	touch(t, src, "bin/run")
+	if err := os.Chmod(filepath.Join(src, "bin", "run"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	envDst := t.TempDir()
+	// A pre-existing destination must end up with the source mode too.
+	if err := os.WriteFile(filepath.Join(envDst, ".env"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CopyEnvFiles(src, envDst); err != nil {
+		t.Fatal(err)
+	}
+	dirDst := filepath.Join(t.TempDir(), "copied")
+	if _, err := CopyDir(filepath.Join(src, "bin"), dirDst); err != nil {
+		t.Fatal(err)
+	}
+
+	for path, want := range map[string]os.FileMode{
+		filepath.Join(envDst, ".env"): 0600,
+		filepath.Join(dirDst, "run"):  0755,
+	} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("%s mode = %v, want %v", path, got, want)
+		}
 	}
 }
 
