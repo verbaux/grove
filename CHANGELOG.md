@@ -5,6 +5,7 @@
 ### Changed
 
 - `grove review` now checks out fork PRs into a dedicated local branch `pr-<number>` instead of the fork's head branch name, so a fork PR from `main` can no longer fetch into your local `main`
+- `grove list` and index lookups such as `grove cd 3` check worktree status with up to 8 parallel `git status` calls, which makes them several times faster with many worktrees
 
 ### Fixed
 

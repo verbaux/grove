@@ -4,11 +4,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/git"
 	"github.com/verbaux/grove/internal/state"
 )
 
@@ -253,6 +255,64 @@ func TestResolveWorktreeDoesNotResolveMainByPath(t *testing.T) {
 	resolved, err := resolveWorktree(root, ".")
 	if err != nil || resolved != nil {
 		t.Fatalf("resolveWorktree(main path) = %#v, %v; want no match", resolved, err)
+	}
+}
+
+func TestBuildWorktreeRowsStatusOrderAndErrors(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{WorktreeDir: "../", Prefix: "testproject"})
+	trackedPath := filepath.Join(root, "tracked.txt")
+	if err := os.WriteFile(trackedPath, []byte("original\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"git", "add", "tracked.txt"}, {"git", "commit", "-m", "add tracked file"}} {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %s", args, out)
+		}
+	}
+
+	paths := make([]string, 5)
+	for i := range paths {
+		paths[i] = filepath.Join(filepath.Dir(root), "testproject-row-"+strconv.Itoa(i))
+		addTestWorktree(t, root, paths[i], "feature/row-"+strconv.Itoa(i))
+	}
+	if err := os.WriteFile(filepath.Join(paths[1], "untracked.txt"), []byte("new\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(paths[2], "tracked.txt"), []byte("modified\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(paths[4]); err != nil {
+		t.Fatalf("remove worktree directory: %v", err)
+	}
+
+	worktrees, err := git.ListWorktrees()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := buildWorktreeRows(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != len(worktrees) {
+		t.Fatalf("got %d rows, want %d worktrees", len(rows), len(worktrees))
+	}
+	wantStatus := map[string]string{
+		root:     "clean",
+		paths[0]: "clean",
+		paths[1]: "1 untracked",
+		paths[2]: "1 modified",
+		paths[3]: "clean",
+		paths[4]: "unknown",
+	}
+	for i, wt := range worktrees {
+		if rows[i].Index != i+1 || rows[i].Path != wt.Path {
+			t.Errorf("row %d = index %d path %q, want index %d path %q", i, rows[i].Index, rows[i].Path, i+1, wt.Path)
+		}
+		if rows[i].Status != wantStatus[wt.Path] {
+			t.Errorf("row %d (%s) status = %q, want %q", i, wt.Path, rows[i].Status, wantStatus[wt.Path])
+		}
 	}
 }
 

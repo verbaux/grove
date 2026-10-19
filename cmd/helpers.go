@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/spf13/cobra"
@@ -166,7 +167,31 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 		pathToNote[entry.Path] = entry.Note
 	}
 
-	var rows []worktreeRow
+	statuses := make([]string, len(worktrees))
+	workerCount := min(len(worktrees), 8)
+	worktreeIndexes := make(chan int)
+	var workers sync.WaitGroup
+	// Cap concurrent git processes so large lists don't spawn unbounded subprocesses.
+	for range workerCount {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for i := range worktreeIndexes {
+				status, err := git.Status(worktrees[i].Path)
+				if err != nil {
+					status = "unknown"
+				}
+				statuses[i] = status
+			}
+		}()
+	}
+	for i := range worktrees {
+		worktreeIndexes <- i
+	}
+	close(worktreeIndexes)
+	workers.Wait()
+
+	rows := make([]worktreeRow, 0, len(worktrees))
 	for i, wt := range worktrees {
 		name := pathToAlias[wt.Path]
 		if name == "" {
@@ -175,11 +200,6 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 			} else {
 				name = "?"
 			}
-		}
-
-		status, err := git.Status(wt.Path)
-		if err != nil {
-			status = "unknown"
 		}
 
 		rows = append(rows, worktreeRow{
@@ -191,7 +211,7 @@ func buildWorktreeRows(root string) ([]worktreeRow, error) {
 			Protected: pathToProtected[wt.Path],
 			Detached:  pathToDetached[wt.Path],
 			Note:      pathToNote[wt.Path],
-			Status:    status,
+			Status:    statuses[i],
 			IsMain:    wt.IsMain,
 		})
 	}
