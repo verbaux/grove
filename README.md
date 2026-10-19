@@ -100,7 +100,7 @@ Creates a worktree for a branch and sets it up automatically:
 5. Runs `afterCreate` command if set
 6. Saves an alias for easy reference
 
-If the branch doesn't exist, it's created from current HEAD.
+If the branch doesn't exist locally but exists on a remote (`origin` preferred), it's created from that remote branch with upstream tracking. Otherwise it's created from current HEAD. If setup fails, Grove removes the worktree and deletes the branch when this run created it.
 
 **Flags:**
 
@@ -605,6 +605,8 @@ grove review 42 --name hotfix
 
 Grove fetches the PR branch, creates the worktree, and runs the usual setup (`.env` copy, symlinks, `afterCreate`). Works with fork PRs too.
 
+Fork PRs are checked out into a dedicated local branch `pr-<number>`, so a fork's `main` never touches your local `main`. For same-repo PRs, an existing local branch is fast-forwarded to the fetched head; a diverged branch is kept as is, with a warning.
+
 ---
 
 ## Shell integration
@@ -692,6 +694,8 @@ Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`
 
 `symlink` and `copyDirs` entries use Go glob syntax relative to the project root. `*`, `?`, and character classes such as `[ab]` are supported; recursive `**` is not. Absolute patterns and patterns containing `..` do not match. Escape metacharacters to address a literal name that contains them—for example, write `"app\\[dev\\]"` for the directory `app[dev]`. Matches are deduplicated and sorted. Glob patterns that match nothing, and files matched by a glob, are skipped with a warning. Existing literal file entries remain supported. The patterns themselves remain unchanged when Grove saves the config.
 
+`copyDirs` copies keep file permissions. Symlinks inside copied directories are recreated as symlinks, not followed, so relative links such as `node_modules/.bin` keep working in the copy.
+
 ### `.grove/state.json` — don't commit this
 
 Local state that maps aliases to paths, ports, protection flags, optional notes, and the `.groverc.json` setup hash used when each worktree was created. Add `.grove/` to your `.gitignore`.
@@ -719,6 +723,8 @@ Grove walks your project directory recursively and copies every file matching `.
 Skips: `node_modules/`, `.git/`, `dist/`, `.next/`, `build/`
 
 Directory structure is preserved. If you have `apps/api/.env.local`, the copy lands at `<worktree>/apps/api/.env.local`.
+
+Copies keep the source file permissions (a `0600` `.env` stays `0600`). Other git worktrees nested under the project (when `worktreeDir` points inside it) are skipped.
 
 ## How symlinks work
 

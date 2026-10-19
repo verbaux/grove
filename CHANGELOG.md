@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `grove review` now checks out fork PRs into a dedicated local branch `pr-<number>` instead of the fork's head branch name, so a fork PR from `main` can no longer fetch into your local `main`
+
+### Fixed
+
+- `copyDirs` no longer fails on symlinks: links inside copied directories are recreated as links, and a symlinked `copyDirs` entry is copied by content
+- Copied `.env*` files and `copyDirs` files now keep their source permissions instead of becoming `0644`, so secrets stay private and executables stay executable
+- `grove create` for a branch that exists only on a remote now creates it from the remote branch with upstream tracking instead of starting a fresh branch from HEAD
+- `grove create` rollback now deletes the branch when the failed run created it, so a retry does not silently reuse it and ignore `--from`
+- `.env*` copying skips other git worktrees nested under the project, so a `worktreeDir` inside the root no longer copies their env files into new worktrees
+- `grove review` fast-forwards an existing local branch of a same-repo PR to the fetched head instead of checking out a stale copy; diverged branches are kept with a warning
+
 ## [0.10.0] — 2026-08-10
 
 ### Added

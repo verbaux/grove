@@ -44,7 +44,7 @@ grove create feature/my-branch --detach     # skip symlinks; runs afterDetachedC
 grove create feature/my-branch --json       # machine-readable result
 ```
 
-Creates worktree, copies `.env*`, sets up symlinks, copies `copyDirs`, runs `afterCreate`. Detached creates skip `copyDirs` when `copyDirsOnDetach` is `false`. Rolls back `git worktree add` on setup failure.
+Creates worktree, copies `.env*`, sets up symlinks, copies `copyDirs`, runs `afterCreate`. Detached creates skip `copyDirs` when `copyDirsOnDetach` is `false`. Rolls back `git worktree add` on setup failure and deletes the branch if create made it. A branch that exists only on a remote is checked out from it with upstream tracking.
 
 Use `--detach` when branch has different dependencies than main (e.g. major `package.json` bump) — produces a standalone worktree that won't share `node_modules` with main.
 
@@ -73,7 +73,7 @@ grove review 42                 # checkout PR #42, alias: "pr-42"
 grove review 42 --name hotfix   # custom alias
 ```
 
-Requires `gh` CLI. Handles fork PRs.
+Requires `gh` CLI. Fork PRs are checked out as local branch `pr-<N>`.
 
 ### List
 
