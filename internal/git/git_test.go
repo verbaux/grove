@@ -574,6 +574,69 @@ func TestDeleteBranch(t *testing.T) {
 	}
 }
 
+func TestFastForwardBranch(t *testing.T) {
+	dir := setupTestRepo(t)
+	base := currentBranch(t, dir)
+
+	gitIn(t, dir, "branch", "behind")
+	gitIn(t, dir, "checkout", "-b", "diverged")
+	commitFile(t, dir, "local.txt", "local", "local work")
+	gitIn(t, dir, "checkout", base)
+	commitFile(t, dir, "base.txt", "base", "base advances")
+	tip := gitOut(t, dir, "rev-parse", "HEAD")
+
+	updated, err := FastForwardBranch("behind", base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated {
+		t.Error("expected behind branch to be fast-forwarded")
+	}
+	if got := gitOut(t, dir, "rev-parse", "behind"); got != tip {
+		t.Errorf("behind = %s, want %s", got, tip)
+	}
+
+	localTip := gitOut(t, dir, "rev-parse", "diverged")
+	updated, err = FastForwardBranch("diverged", base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated {
+		t.Error("diverged branch must not be moved")
+	}
+	if got := gitOut(t, dir, "rev-parse", "diverged"); got != localTip {
+		t.Errorf("diverged branch moved to %s", got)
+	}
+
+	updated, err = FastForwardBranch("behind", base)
+	if err != nil || updated {
+		t.Errorf("up-to-date branch: updated=%v err=%v, want false, nil", updated, err)
+	}
+}
+
+func TestFastForwardBranchSkipsCheckedOutBranch(t *testing.T) {
+	dir := setupTestRepo(t)
+	base := currentBranch(t, dir)
+
+	gitIn(t, dir, "branch", "busy")
+	if _, err := AddWorktree(filepath.Join(t.TempDir(), "wt"), "busy", ""); err != nil {
+		t.Fatal(err)
+	}
+	commitFile(t, dir, "base.txt", "base", "base advances")
+	before := gitOut(t, dir, "rev-parse", "busy")
+
+	updated, err := FastForwardBranch("busy", base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated {
+		t.Error("branch checked out in a worktree must not be moved")
+	}
+	if got := gitOut(t, dir, "rev-parse", "busy"); got != before {
+		t.Errorf("busy moved from %s to %s", before, got)
+	}
+}
+
 func gitOut(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)

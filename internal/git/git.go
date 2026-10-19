@@ -93,6 +93,50 @@ func remoteTrackingBranch(branch string) (string, error) {
 	return "", fmt.Errorf("branch %q exists on several remotes (%s) — pass --from <remote>/%s", branch, strings.Join(matches, ", "), branch)
 }
 
+// LocalBranchExists reports whether refs/heads/<branch> exists.
+func LocalBranchExists(branch string) bool {
+	return branchExists(branch)
+}
+
+// FastForwardBranch moves a local branch to target when that is a pure
+// fast-forward. It reports false without error when the branch is already at
+// target, ahead of it, or has diverged, so local commits are never discarded.
+// A branch checked out in any worktree is left alone: moving its ref would
+// desynchronize that worktree's files from HEAD.
+func FastForwardBranch(branch, target string) (bool, error) {
+	worktrees, err := ListWorktrees()
+	if err != nil {
+		return false, err
+	}
+	for _, wt := range worktrees {
+		if wt.Branch == branch {
+			return false, nil
+		}
+	}
+
+	ref := "refs/heads/" + branch
+	current, err := run("rev-parse", "--verify", ref)
+	if err != nil {
+		return false, err
+	}
+	targetSHA, err := run("rev-parse", "--verify", target+"^{commit}")
+	if err != nil {
+		return false, err
+	}
+	if current == targetSHA {
+		return false, nil
+	}
+	if _, err := run("merge-base", "--is-ancestor", current, targetSHA); err != nil {
+		return false, nil
+	}
+	// update-ref with the old value is a compare-and-swap; it refuses if the
+	// branch moved in the meantime.
+	if _, err := run("update-ref", "-m", "grove: fast-forward to "+target, ref, targetSHA, current); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // DeleteBranch force-deletes a local branch.
 func DeleteBranch(branch string) error {
 	_, err := run("branch", "-D", branch)

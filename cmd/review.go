@@ -193,9 +193,10 @@ func runReviewCheckout(number string) error {
 	}
 	fmt.Printf("  #%d: %s\n", pr.Number, pr.Title)
 
+	branch := reviewBranch(pr)
 	from := ""
 	if pr.IsCrossRepository {
-		refspec := fmt.Sprintf("pull/%d/head:%s", pr.Number, pr.HeadRefName)
+		refspec := fmt.Sprintf("pull/%d/head:%s", pr.Number, branch)
 		if err := git.Fetch("origin", refspec); err != nil {
 			return fmt.Errorf("fetching fork PR: %w", err)
 		}
@@ -204,6 +205,11 @@ func runReviewCheckout(number string) error {
 			return fmt.Errorf("fetching branch: %w", err)
 		}
 		from = "origin/" + pr.HeadRefName
+		if git.LocalBranchExists(branch) {
+			if err := syncReviewBranch(branch, from); err != nil {
+				return err
+			}
+		}
 	}
 	fmt.Println("  ✓ branch fetched")
 
@@ -232,13 +238,46 @@ func runReviewCheckout(number string) error {
 		return err
 	}
 
-	if _, err := doCreate(root, cfg, &s, pr.HeadRefName, alias, from, false, false); err != nil {
+	if _, err := doCreate(root, cfg, &s, branch, alias, from, false, false); err != nil {
 		return err
 	}
 
 	if pr.IsCrossRepository {
-		fmt.Println("  Note: fork PR — push requires adding the fork as a remote")
+		fmt.Printf("  Note: fork PR checked out as local branch %q — push requires adding the fork as a remote\n", branch)
 	}
 
+	return nil
+}
+
+// reviewBranch returns the local branch a PR is checked out into. Fork PRs get
+// a dedicated pr-<number> branch: their head name (often "main") would
+// otherwise collide with an unrelated local branch and the fetch would write
+// into it.
+func reviewBranch(pr prInfo) string {
+	if pr.IsCrossRepository {
+		return fmt.Sprintf("pr-%d", pr.Number)
+	}
+	return pr.HeadRefName
+}
+
+// syncReviewBranch fast-forwards an existing local PR branch to the freshly
+// fetched remote head. A diverged or checked-out branch is kept as is, with a
+// warning, so local commits are never discarded.
+func syncReviewBranch(branch, remoteRef string) error {
+	updated, err := git.FastForwardBranch(branch, remoteRef)
+	if err != nil {
+		return fmt.Errorf("updating local branch %q: %w", branch, err)
+	}
+	if updated {
+		fmt.Printf("  ✓ fast-forwarded local branch %q to %s\n", branch, remoteRef)
+		return nil
+	}
+	_, behind, err := git.AheadBehind(branch, remoteRef)
+	if err != nil {
+		return err
+	}
+	if behind > 0 {
+		fmt.Fprintf(os.Stderr, "  warning: local branch %q is %d commit(s) behind %s and was not updated (diverged or checked out elsewhere)\n", branch, behind, remoteRef)
+	}
 	return nil
 }
