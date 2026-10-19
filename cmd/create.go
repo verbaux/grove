@@ -166,7 +166,8 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		printExpansionWarnings("copyDir", copyDirWarnings)
 	}
 
-	if err := git.AddWorktree(worktreePath, branch, from); err != nil {
+	createdBranch, err := git.AddWorktree(worktreePath, branch, from)
+	if err != nil {
 		return result, err
 	}
 	if !quiet {
@@ -181,6 +182,12 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 			}
 			if rbErr := git.RemoveWorktree(worktreePath, true); rbErr != nil {
 				fmt.Fprintf(os.Stderr, "  warning: rollback failed, manual cleanup needed: %v\n", rbErr)
+				return
+			}
+			if createdBranch {
+				if rbErr := git.DeleteBranch(branch); rbErr != nil {
+					fmt.Fprintf(os.Stderr, "  warning: could not delete branch %q created by this run: %v\n", branch, rbErr)
+				}
 			}
 		}
 	}()

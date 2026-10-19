@@ -23,7 +23,7 @@ func TestAdoptWorktreeRegistersPathAndAllocatesPort(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(parent, "adopted")
-	if err := git.AddWorktree(path, "feature/adopted", ""); err != nil {
+	if _, err := git.AddWorktree(path, "feature/adopted", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = git.RemoveWorktree(path, true) })
@@ -83,7 +83,7 @@ func TestAdoptWorktreeRejectsMissingPathStillKnownToGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(parent, "vanished")
-	if err := git.AddWorktree(path, "feature/vanished-path", ""); err != nil {
+	if _, err := git.AddWorktree(path, "feature/vanished-path", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = git.PruneWorktrees() })

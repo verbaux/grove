@@ -117,7 +117,7 @@ func TestNoteRejectsMainAndOrphanWorktrees(t *testing.T) {
 		t.Fatal(err)
 	}
 	orphanPath := filepath.Join(parent, "orphan")
-	if err := git.AddWorktree(orphanPath, "feature/note-orphan", ""); err != nil {
+	if _, err := git.AddWorktree(orphanPath, "feature/note-orphan", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = git.RemoveWorktree(orphanPath, true) })

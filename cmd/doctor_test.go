@@ -244,7 +244,7 @@ func TestDoctorFixAdoptsUnambiguousOrphan(t *testing.T) {
 		t.Fatal(err)
 	}
 	orphanPath := filepath.Join(orphanRoot, "orphan")
-	if err := git.AddWorktree(orphanPath, "feature/orphan", ""); err != nil {
+	if _, err := git.AddWorktree(orphanPath, "feature/orphan", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = git.RemoveWorktree(orphanPath, true) })
@@ -298,10 +298,10 @@ func TestDoctorFixSkipsAmbiguousOrphanAliases(t *testing.T) {
 	}
 	firstPath := filepath.Join(firstRoot, "feature-auth")
 	secondPath := filepath.Join(secondRoot, "fix-auth")
-	if err := git.AddWorktree(firstPath, "feature/auth", ""); err != nil {
+	if _, err := git.AddWorktree(firstPath, "feature/auth", ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := git.AddWorktree(secondPath, "fix/auth", ""); err != nil {
+	if _, err := git.AddWorktree(secondPath, "fix/auth", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -357,7 +357,7 @@ func TestDoctorFixDoesNotReadoptPrunableStaleWorktree(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(parent, "stale-prunable")
-	if err := git.AddWorktree(path, "feature/stale-prunable", ""); err != nil {
+	if _, err := git.AddWorktree(path, "feature/stale-prunable", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = git.PruneWorktrees() })

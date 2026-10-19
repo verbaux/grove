@@ -174,6 +174,42 @@ func TestCreateRollbackOnAfterCreateFailure(t *testing.T) {
 	if s.AliasExists("rollback-test") {
 		t.Error("rollback failed: alias still present in state.json")
 	}
+
+	if branchExistsIn(t, dir, "feature/rollback-test") {
+		t.Error("rollback failed: branch created by create still exists")
+	}
+}
+
+func TestCreateRollbackKeepsPreexistingBranch(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{},
+		AfterCreate: config.HookCommands{"exit 1"},
+	})
+	c := exec.Command("git", "branch", "feature/existing")
+	c.Dir = dir
+	if out, err := c.CombinedOutput(); err != nil {
+		t.Fatalf("git branch: %s", out)
+	}
+
+	createName = ""
+	createFrom = ""
+	createDetach = false
+
+	if err := runCreate(createCmd, []string{"feature/existing"}); err == nil {
+		t.Fatal("expected runCreate to fail")
+	}
+	if !branchExistsIn(t, dir, "feature/existing") {
+		t.Error("rollback must not delete a branch that existed before create")
+	}
+}
+
+func branchExistsIn(t *testing.T, dir, branch string) bool {
+	t.Helper()
+	c := exec.Command("git", "rev-parse", "--verify", "--quiet", "refs/heads/"+branch)
+	c.Dir = dir
+	return c.Run() == nil
 }
 
 func TestCreateRollbackOnStateSaveFailure(t *testing.T) {

@@ -164,7 +164,7 @@ func TestRenameRejectsMainWorktree(t *testing.T) {
 func TestRenameRejectsOrphanWorktree(t *testing.T) {
 	root := setupIntegrationRepo(t, baseConfig())
 	orphanPath := filepath.Join(filepath.Dir(root), "orphan-worktree")
-	if err := git.AddWorktree(orphanPath, "feature/orphan", ""); err != nil {
+	if _, err := git.AddWorktree(orphanPath, "feature/orphan", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = git.RemoveWorktree(orphanPath, true) })
@@ -231,7 +231,7 @@ func TestRenameRejectsNumericAlias(t *testing.T) {
 func TestRenameKeepsCustomWorktreePath(t *testing.T) {
 	root := setupIntegrationRepo(t, baseConfig())
 	customPath := filepath.Join(filepath.Dir(root), "hand-placed-worktree")
-	if err := git.AddWorktree(customPath, "feature/custom", ""); err != nil {
+	if _, err := git.AddWorktree(customPath, "feature/custom", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = git.RemoveWorktree(customPath, true) })

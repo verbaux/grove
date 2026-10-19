@@ -76,7 +76,7 @@ func TestAddAndRemoveWorktree(t *testing.T) {
 
 	wtPath := filepath.Join(t.TempDir(), "test-worktree")
 
-	if err := AddWorktree(wtPath, "test-branch", ""); err != nil {
+	if _, err := AddWorktree(wtPath, "test-branch", ""); err != nil {
 		t.Fatal("AddWorktree failed:", err)
 	}
 
@@ -115,7 +115,7 @@ func TestRemoveWorktreeWithInitializedSubmodule(t *testing.T) {
 	gitIn(t, repo, "commit", "-am", "add submodule")
 
 	wtPath := filepath.Join(t.TempDir(), "submodule-worktree")
-	if err := AddWorktree(wtPath, "submodule-branch", ""); err != nil {
+	if _, err := AddWorktree(wtPath, "submodule-branch", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = RemoveWorktree(wtPath, true) })
@@ -198,7 +198,7 @@ func TestStatusRespectsIgnoredDirtySubmodule(t *testing.T) {
 	gitIn(t, repo, "commit", "-m", "add ignored submodule")
 
 	wtPath := filepath.Join(t.TempDir(), "ignored-submodule-worktree")
-	if err := AddWorktree(wtPath, "ignored-submodule-branch", ""); err != nil {
+	if _, err := AddWorktree(wtPath, "ignored-submodule-branch", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = RemoveWorktree(wtPath, true) })
@@ -269,7 +269,7 @@ func TestMoveWorktree(t *testing.T) {
 	parent := t.TempDir()
 	oldPath := filepath.Join(parent, "old-worktree")
 	newPath := filepath.Join(parent, "new-worktree")
-	if err := AddWorktree(oldPath, "move-branch", ""); err != nil {
+	if _, err := AddWorktree(oldPath, "move-branch", ""); err != nil {
 		t.Fatal("AddWorktree failed:", err)
 	}
 	t.Cleanup(func() {
@@ -515,6 +515,74 @@ func TestIsMergedNotMerged(t *testing.T) {
 	if merged {
 		t.Error("expected un-merged feature to be detected as not merged")
 	}
+}
+
+func TestAddWorktreeTracksRemoteOnlyBranch(t *testing.T) {
+	upstream := setupTestRepo(t)
+	gitIn(t, upstream, "checkout", "-b", "feature/remote")
+	commitFile(t, upstream, "remote.txt", "work", "remote work")
+	remoteTip := gitOut(t, upstream, "rev-parse", "HEAD")
+	gitIn(t, upstream, "checkout", "-")
+
+	clone, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, clone, "clone", "-q", upstream, ".")
+	if err := os.Chdir(clone); err != nil {
+		t.Fatal(err)
+	}
+
+	wtPath := filepath.Join(t.TempDir(), "wt")
+	created, err := AddWorktree(wtPath, "feature/remote", "")
+	if err != nil {
+		t.Fatal("AddWorktree failed:", err)
+	}
+	if !created {
+		t.Error("expected AddWorktree to report a newly created local branch")
+	}
+	if got := gitOut(t, wtPath, "rev-parse", "HEAD"); got != remoteTip {
+		t.Errorf("worktree HEAD = %s, want remote tip %s", got, remoteTip)
+	}
+	if got := gitOut(t, wtPath, "rev-parse", "--abbrev-ref", "@{upstream}"); got != "origin/feature/remote" {
+		t.Errorf("upstream = %q, want origin/feature/remote", got)
+	}
+}
+
+func TestAddWorktreeReportsExistingBranch(t *testing.T) {
+	dir := setupTestRepo(t)
+	gitIn(t, dir, "branch", "existing")
+
+	created, err := AddWorktree(filepath.Join(t.TempDir(), "wt"), "existing", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created {
+		t.Error("expected created=false for an existing local branch")
+	}
+}
+
+func TestDeleteBranch(t *testing.T) {
+	dir := setupTestRepo(t)
+	gitIn(t, dir, "branch", "doomed")
+
+	if err := DeleteBranch("doomed"); err != nil {
+		t.Fatal(err)
+	}
+	if branchExists("doomed") {
+		t.Error("expected branch to be deleted")
+	}
+}
+
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v failed: %v", args, err)
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func TestDefaultBranch(t *testing.T) {

@@ -33,22 +33,69 @@ type Worktree struct {
 	IsMain bool
 }
 
-// AddWorktree creates a new worktree. If the branch doesn't exist, it creates it.
-// `from` is the base branch/commit — if empty, uses current HEAD.
-func AddWorktree(path, branch, from string) error {
+// AddWorktree creates a new worktree. If the local branch doesn't exist, it
+// creates it: from `from` when given, otherwise from a same-named
+// remote-tracking branch (with upstream set), otherwise from current HEAD.
+// createdBranch reports whether a new local branch was created, so callers can
+// delete it when rolling back.
+func AddWorktree(path, branch, from string) (createdBranch bool, err error) {
 	// Make path absolute so git doesn't get confused by relative paths
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if branchExists(branch) {
 		_, err = run("worktree", "add", absPath, branch)
-	} else if from != "" {
+		return false, err
+	}
+	if from != "" {
 		_, err = run("worktree", "add", "-b", branch, absPath, from)
+		return err == nil, err
+	}
+	remoteRef, err := remoteTrackingBranch(branch)
+	if err != nil {
+		return false, err
+	}
+	if remoteRef != "" {
+		_, err = run("worktree", "add", "--track", "-b", branch, absPath, remoteRef)
 	} else {
 		_, err = run("worktree", "add", "-b", branch, absPath)
 	}
+	return err == nil, err
+}
+
+// remoteTrackingBranch returns "<remote>/<branch>" when a remote-tracking ref
+// with that exact branch name exists, preferring origin. It returns "" when
+// none exists and an error when several non-origin remotes match.
+func remoteTrackingBranch(branch string) (string, error) {
+	out, err := run("remote")
+	if err != nil || out == "" {
+		return "", nil
+	}
+	var matches []string
+	for _, remote := range strings.Split(out, "\n") {
+		ref := remote + "/" + branch
+		if _, err := run("rev-parse", "--verify", "--quiet", "refs/remotes/"+ref); err != nil {
+			continue
+		}
+		if remote == "origin" {
+			return ref, nil
+		}
+		matches = append(matches, ref)
+	}
+	switch len(matches) {
+	case 0:
+		return "", nil
+	case 1:
+		return matches[0], nil
+	}
+	return "", fmt.Errorf("branch %q exists on several remotes (%s) — pass --from <remote>/%s", branch, strings.Join(matches, ", "), branch)
+}
+
+// DeleteBranch force-deletes a local branch.
+func DeleteBranch(branch string) error {
+	_, err := run("branch", "-D", branch)
 	return err
 }
 
