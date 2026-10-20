@@ -120,9 +120,9 @@ func filterRows(rows []worktreeRow, query string) []worktreeRow {
 }
 
 var (
-	cursorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
+	cursorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
 	nameHighStyle = lipgloss.NewStyle().Bold(true)
-	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	cleanMark    = dimStyle.Render("✓")
-	dirtyMark    = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	dimStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	cleanMark     = dimStyle.Render("✓")
+	dirtyMark     = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 )
