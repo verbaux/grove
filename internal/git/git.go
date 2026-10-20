@@ -13,6 +13,7 @@ import (
 var ErrSubmoduleForceRequired = errors.New("worktree contains initialized or retained submodule data — rerun with --force to confirm removal of local-only submodule commits")
 var ErrSubmoduleSafetyUnknown = errors.New("could not verify submodule removal safety — rerun with --force only if discarding possible local-only submodule data is acceptable")
 var ErrSubmoduleMoveUnsupported = errors.New("cannot move worktree with initialized or retained submodule data; deinitialize its submodules before moving it")
+var ErrBranchNotMerged = errors.New("branch is not fully merged")
 
 // run executes a git command and returns its stdout.
 // All git operations go through this — one place to debug if something breaks.
@@ -137,9 +138,16 @@ func FastForwardBranch(branch, target string) (bool, error) {
 	return true, nil
 }
 
-// DeleteBranch force-deletes a local branch.
-func DeleteBranch(branch string) error {
-	_, err := run("branch", "-D", branch)
+// DeleteBranch deletes a local branch, forcing deletion when force is true.
+func DeleteBranch(branch string, force bool) error {
+	flag := "-d"
+	if force {
+		flag = "-D"
+	}
+	_, err := run("branch", flag, branch)
+	if !force && err != nil && strings.Contains(err.Error(), "not fully merged") {
+		return fmt.Errorf("%w: %v", ErrBranchNotMerged, err)
+	}
 	return err
 }
 

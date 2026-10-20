@@ -19,6 +19,7 @@ var (
 	pruneDryRun           bool
 	pruneJSON             bool
 	pruneIncludeProtected bool
+	pruneDeleteBranch     bool
 )
 
 func init() {
@@ -29,6 +30,7 @@ func init() {
 	pruneCmd.Flags().BoolVar(&pruneDryRun, "dry-run", false, "show what would be removed without removing worktrees")
 	pruneCmd.Flags().BoolVar(&pruneJSON, "json", false, "print dry-run result as JSON")
 	pruneCmd.Flags().BoolVar(&pruneIncludeProtected, "include-protected", false, "include protected worktrees")
+	pruneCmd.Flags().BoolVar(&pruneDeleteBranch, "delete-branch", false, "delete local branches of removed worktrees")
 }
 
 type pruneCandidate struct {
@@ -162,7 +164,11 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Printf("Merged into %q — would remove:\n", base)
 		for _, wt := range merged {
-			fmt.Printf("  %s → %s\n", wt.Alias, wt.Path)
+			if pruneDeleteBranch {
+				fmt.Printf("  %s → %s (branch %s will be deleted)\n", wt.Alias, wt.Path, wt.Branch)
+			} else {
+				fmt.Printf("  %s → %s\n", wt.Alias, wt.Path)
+			}
 		}
 		return nil
 	}
@@ -220,6 +226,10 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	var removed int
 	var removalFailures []error
+	defaultBranch := ""
+	if pruneDeleteBranch {
+		defaultBranch = git.DefaultBranch()
+	}
 	for _, wt := range merged {
 		force, err := forceForRemoval(wt.Path, wt.Status, pruneForce, dirtyConfirmed)
 		if err != nil {
@@ -234,6 +244,9 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			Port:             wt.Port,
 			IncludeProtected: pruneIncludeProtected,
 		}, force)
+		if ok && pruneDeleteBranch {
+			deleteBranchAfterRemoval(wt.Branch, defaultBranch, true)
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  failed to remove %q: %v\n", wt.Alias, err)
 			removalFailures = append(removalFailures, err)

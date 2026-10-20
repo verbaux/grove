@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `grove remove --delete-branch` deletes the worktree's local branch after removal with `git branch -d`; unmerged branches are kept with a `git branch -D` hint, and `--force` force-deletes them. `grove prune --delete-branch` force-deletes branches of the merged worktrees it removes, and its dry run lists them. The default branch is never deleted
+
 ### Changed
 
 - `grove review` now checks out fork PRs into a dedicated local branch `pr-<number>` instead of the fork's head branch name, so a fork PR from `main` can no longer fetch into your local `main`

@@ -992,6 +992,141 @@ func TestRemovePreservesConcurrentlyChangedStateEntry(t *testing.T) {
 	}
 }
 
+func TestRemoveDeleteBranchAfterManagedRemoval(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		deleteBranch  bool
+		unmerged      bool
+		force         bool
+		wantBranch    bool
+		wantNotMerged bool
+	}{
+		{name: "merged branch deleted", deleteBranch: true},
+		{name: "unmerged branch kept", deleteBranch: true, unmerged: true, wantBranch: true, wantNotMerged: true},
+		{name: "force deletes unmerged branch", deleteBranch: true, unmerged: true, force: true},
+		{name: "branch kept without flag", unmerged: true, wantBranch: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := setupIntegrationRepo(t, baseConfig())
+			alias := "delete-branch"
+			branch := "feature/delete-branch"
+			path := createManagedRemoveTestWorktree(t, root, alias, branch, tc.unmerged)
+			removeForce = tc.force
+			removeDeleteBranch = tc.deleteBranch
+			t.Cleanup(func() {
+				removeForce = false
+				removeDeleteBranch = false
+			})
+
+			var stderr string
+			out, err := captureStdout(t, func() error {
+				var runErr error
+				stderr, runErr = captureStderr(t, func() error {
+					return runRemove(removeCmd, []string{alias})
+				})
+				return runErr
+			})
+			if err != nil {
+				t.Fatalf("runRemove() error = %v", err)
+			}
+			if got := git.LocalBranchExists(branch); got != tc.wantBranch {
+				t.Errorf("branch exists = %v, want %v", got, tc.wantBranch)
+			}
+			if tc.wantNotMerged && !strings.Contains(stderr, "not fully merged") {
+				t.Errorf("stderr = %q, want unmerged warning", stderr)
+			}
+			if tc.wantNotMerged && !strings.Contains(stderr, `delete it with: git branch -D feature/delete-branch`) {
+				t.Errorf("stderr = %q, want actionable branch deletion hint", stderr)
+			}
+			if !tc.wantNotMerged && strings.Contains(stderr, "not fully merged") {
+				t.Errorf("unexpected unmerged warning: %q", stderr)
+			}
+			if tc.deleteBranch && !tc.wantBranch && !strings.Contains(out, "✓ deleted branch "+branch) {
+				t.Errorf("stdout missing branch deletion: %q", out)
+			}
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Errorf("worktree still exists at %s", path)
+			}
+		})
+	}
+}
+
+func TestRemoveDeleteBranchForOrphan(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	branch := "feature/orphan-delete"
+	path := filepath.Join(filepath.Dir(root), "testproject-orphan-delete")
+	cmd := exec.Command("git", "worktree", "add", "-b", branch, path)
+	cmd.Dir = root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add: %s", out)
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(path, true) })
+	removeForce, removeDeleteBranch = false, true
+	t.Cleanup(func() {
+		removeForce = false
+		removeDeleteBranch = false
+	})
+
+	out, err := captureStdout(t, func() error { return runRemove(removeCmd, []string{path}) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if git.LocalBranchExists(branch) {
+		t.Fatal("orphan branch still exists after removal")
+	}
+	if !strings.Contains(out, "✓ deleted branch "+branch) {
+		t.Errorf("stdout missing branch deletion: %q", out)
+	}
+}
+
+func TestRemoveDeleteBranchAfterRemoveHookFailure(t *testing.T) {
+	root := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{},
+		AfterRemove: config.HookCommands{"exit 1"},
+	})
+	branch := "feature/hook-delete-branch"
+	path := createManagedRemoveTestWorktree(t, root, "hook-delete-branch", branch, false)
+	removeForce, removeDeleteBranch = false, true
+	t.Cleanup(func() {
+		removeForce = false
+		removeDeleteBranch = false
+	})
+
+	err := runRemove(removeCmd, []string{"hook-delete-branch"})
+	if err == nil || !strings.Contains(err.Error(), "afterRemove command") {
+		t.Fatalf("runRemove() error = %v, want afterRemove hook error", err)
+	}
+	if git.LocalBranchExists(branch) {
+		t.Fatal("branch still exists after worktree removal and hook failure")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("worktree still exists at %s", path)
+	}
+}
+
+func createManagedRemoveTestWorktree(t *testing.T, root, alias, branch string, unmerged bool) string {
+	t.Helper()
+	createName, createFrom, createDetach, createJSON = alias, "", false, false
+	t.Cleanup(func() { createName = "" })
+	if err := runCreate(createCmd, []string{branch}); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := resolveWorktree(root, alias)
+	if err != nil || resolved == nil {
+		t.Fatalf("resolveWorktree(%q) = %#v, %v", alias, resolved, err)
+	}
+	if unmerged {
+		cmd := exec.Command("git", "-C", resolved.Path, "commit", "--allow-empty", "-m", "unmerged work")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git commit: %s", out)
+		}
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(resolved.Path, true) })
+	return resolved.Path
+}
+
 func cleanupWorktree(t *testing.T, root, path string) {
 	t.Helper()
 	removeForce = true

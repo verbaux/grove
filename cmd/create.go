@@ -185,7 +185,7 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 				return
 			}
 			if createdBranch {
-				if rbErr := git.DeleteBranch(branch); rbErr != nil {
+				if rbErr := git.DeleteBranch(branch, true); rbErr != nil {
 					fmt.Fprintf(os.Stderr, "  warning: could not delete branch %q created by this run: %v\n", branch, rbErr)
 				}
 			}

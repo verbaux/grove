@@ -335,6 +335,7 @@ For managed worktrees, `beforeRemove` runs before deletion and can stop it; `aft
 
 Protected worktrees are refused unless you pass `--include-protected`.
 Worktrees containing initialized Git submodules require an explicit `--force` because removal may discard local-only submodule commits.
+Pass `--delete-branch` to delete the local branch after the worktree is removed. Branch deletion is safe by default; unmerged branches are kept with a warning. Combine it with `--force` to force-delete the branch.
 
 ```sh
 grove remove auth
@@ -344,6 +345,12 @@ grove remove auth --force
 
 # Remove even if protected
 grove remove auth --include-protected
+
+# Remove the worktree and its merged local branch
+grove remove auth --delete-branch
+
+# Also delete the branch when it has unmerged commits
+grove remove auth --force --delete-branch
 ```
 
 ---
@@ -400,6 +407,9 @@ grove prune --dry-run --json
 
 # Include protected merged worktrees
 grove prune --include-protected
+
+# Delete local branches for worktrees that are removed
+grove prune --delete-branch
 ```
 
 The base branch is auto-detected from the remote's default (`origin/HEAD`), falling back to the main working tree's branch. Without `--force`, a non-interactive run (`--yes`) skips worktrees with uncommitted changes rather than discarding them.
@@ -414,6 +424,7 @@ The base branch is auto-detected from the remote's default (`origin/HEAD`), fall
 | `--dry-run`      | Show what would be removed without removing worktrees      |
 | `--json`         | Print dry-run result as JSON (requires `--dry-run`)        |
 | `--include-protected` | Include protected worktrees in prune candidates       |
+| `--delete-branch` | Force-delete local branches for removed worktrees       |
 
 ---
 

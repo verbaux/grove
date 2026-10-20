@@ -566,11 +566,33 @@ func TestDeleteBranch(t *testing.T) {
 	dir := setupTestRepo(t)
 	gitIn(t, dir, "branch", "doomed")
 
-	if err := DeleteBranch("doomed"); err != nil {
+	if err := DeleteBranch("doomed", false); err != nil {
 		t.Fatal(err)
 	}
 	if branchExists("doomed") {
 		t.Error("expected branch to be deleted")
+	}
+}
+
+func TestDeleteBranchRefusesUnmergedUnlessForced(t *testing.T) {
+	dir := setupTestRepo(t)
+	base := currentBranch(t, dir)
+	gitIn(t, dir, "checkout", "-b", "unmerged")
+	commitFile(t, dir, "unmerged.txt", "unmerged", "unmerged work")
+	gitIn(t, dir, "checkout", base)
+
+	if err := DeleteBranch("unmerged", false); !errors.Is(err, ErrBranchNotMerged) {
+		t.Fatalf("DeleteBranch(unmerged, false) = %v, want ErrBranchNotMerged", err)
+	}
+	if !branchExists("unmerged") {
+		t.Fatal("unmerged branch was deleted by safe delete")
+	}
+
+	if err := DeleteBranch("unmerged", true); err != nil {
+		t.Fatal(err)
+	}
+	if branchExists("unmerged") {
+		t.Fatal("unmerged branch still exists after forced delete")
 	}
 }
 

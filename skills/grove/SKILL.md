@@ -185,6 +185,8 @@ Install commands (`yarn install`, `pnpm install`, `uv sync`, `go mod download`, 
 ```sh
 grove remove my-branch          # checks uncommitted changes and submodule data
 grove remove my-branch --force  # allow discarding changes or local-only submodule commits
+grove remove my-branch --delete-branch  # delete the branch if merged; otherwise warn and keep it
+grove remove my-branch --force --delete-branch  # force-delete the branch too
 grove remove my-branch --include-protected  # remove protected worktree too
 ```
 
@@ -192,6 +194,7 @@ Resolves by alias → branch → path → orphan.
 
 Initialized or retained submodule data always requires an explicit `--force`.
 Confirm that losing possible local-only submodule commits is acceptable before using it.
+`--delete-branch` safely deletes a merged local branch; use it with `--force` to delete an unmerged branch.
 
 Managed removals run `beforeRemove` in the worktree before deletion and `afterRemove` from the project root after deletion/state update. Orphan cleanup does not run remove hooks.
 
@@ -221,6 +224,7 @@ initialized or retained submodule data.
 grove prune                         # remove merged managed worktrees, prompts first
 grove prune --yes                   # non-interactive removal of clean merged worktrees
 grove prune --force                 # allow discarding changes or local-only submodule commits
+grove prune --delete-branch         # force-delete branches of worktrees that are removed
 grove prune --dry-run --json        # machine-readable preview, removes nothing
 grove prune --include-protected     # include protected merged worktrees too
 ```

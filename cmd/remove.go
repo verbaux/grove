@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
@@ -13,6 +15,7 @@ import (
 var (
 	removeForce            bool
 	removeIncludeProtected bool
+	removeDeleteBranch     bool
 	removeGitWorktree      = git.RemoveWorktree
 )
 
@@ -20,6 +23,7 @@ func init() {
 	rootCmd.AddCommand(removeCmd)
 	removeCmd.Flags().BoolVar(&removeForce, "force", false, "remove despite uncommitted changes or initialized submodules")
 	removeCmd.Flags().BoolVar(&removeIncludeProtected, "include-protected", false, "allow removing protected worktrees")
+	removeCmd.Flags().BoolVar(&removeDeleteBranch, "delete-branch", false, "delete the local branch after removing the worktree")
 }
 
 var removeCmd = &cobra.Command{
@@ -28,7 +32,8 @@ var removeCmd = &cobra.Command{
 	Long: `Remove a worktree by alias or by its index number from 'grove list'.
 
 Checks for uncommitted changes and asks for confirmation before removing.
-Use --force to remove despite uncommitted changes or initialized submodule data.`,
+Use --force to remove despite uncommitted changes or initialized submodule data.
+Use --delete-branch to delete the local branch after removal.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeAliases,
 	RunE:              runRemove,
@@ -39,7 +44,14 @@ func runRemove(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	defaultBranch := ""
+	if removeDeleteBranch {
+		defaultBranch = git.DefaultBranch()
+	}
 	removed, err := removeResolvedWorktree(&ctx)
+	if removed && removeDeleteBranch {
+		deleteBranchAfterRemoval(ctx.target.Branch, defaultBranch, removeForce)
+	}
 	if err != nil || !removed {
 		return err
 	}
@@ -151,6 +163,30 @@ func removeOrphanTarget(target *resolvedWorktree, label string) (bool, error) {
 	}
 	fmt.Printf("  ✓ removed worktree at %s\n", target.Path)
 	return true, nil
+}
+
+func deleteBranchAfterRemoval(branch, defaultBranch string, force bool) {
+	if branch == "" || strings.HasPrefix(branch, "(detached") {
+		fmt.Fprintf(os.Stderr, "  note: skipped branch deletion for %q (empty or detached branch)\n", branch)
+		return
+	}
+	if branch == defaultBranch {
+		fmt.Fprintf(os.Stderr, "  note: kept default branch %q\n", branch)
+		return
+	}
+	if !git.LocalBranchExists(branch) {
+		fmt.Fprintf(os.Stderr, "  note: branch %q no longer exists locally\n", branch)
+		return
+	}
+	if err := git.DeleteBranch(branch, force); err != nil {
+		if errors.Is(err, git.ErrBranchNotMerged) {
+			fmt.Fprintf(os.Stderr, "  warning: kept branch %q: not fully merged — delete it with: git branch -D %s\n", branch, branch)
+		} else {
+			fmt.Fprintf(os.Stderr, "  warning: could not delete branch %q: %v\n", branch, err)
+		}
+		return
+	}
+	fmt.Printf("  ✓ deleted branch %s\n", branch)
 }
 
 func confirmDirtyRemoval(label, path, status string, explicitForce bool) (force, proceed bool, err error) {
