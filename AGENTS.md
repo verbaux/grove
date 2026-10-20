@@ -15,14 +15,17 @@
 - Git operations should go through `internal/git`, not direct `exec.Command("git", ...)`, unless the command is intentionally outside that wrapper's scope.
 
 ## Grove Behavior To Preserve
-- `grove create` must roll back `git worktree add` on any setup failure after the worktree exists. Preserve the `setupErr` pattern in `cmd/create.go`; tests assert no orphaned worktree or state entry remains.
+- `grove create` must roll back `git worktree add` on any setup failure after the worktree exists. Preserve the `setupErr` pattern in `cmd/create.go`; tests assert no orphaned worktree or state entry remains. Rollback deletes the local branch only when `git.AddWorktree` reports this run created it; pre-existing branches survive.
+- A branch missing locally but present as a remote-tracking branch is created from it with `--track` (`origin` preferred, error with a `--from` hint when several other remotes match); otherwise from `--from` or HEAD.
 - Worktree paths are `worktreeDir` + `prefix` + `-` + alias, resolved to absolute paths and through the parent symlink to handle macOS `/tmp` versus `/private/tmp`.
 - `afterCreate` and `afterDetachedCreate` accept a string or array, run sequentially via `sh -c`, fail fast, and expose `GROVE_PORT`, `GROVE_ALIAS`, `GROVE_BRANCH`, and `GROVE_PATH`.
 - `beforeRemove` and `afterRemove` accept the same string-or-array hook format for managed worktrees. `beforeRemove` runs in the worktree and can block deletion; `afterRemove` runs from the project root after deletion and state update. Orphan cleanup and stale state cleanup do not run remove hooks.
 - Protected worktrees are persisted in state. `grove clean` and `grove prune` skip them, and `grove remove` refuses them unless `--include-protected` is explicitly passed.
+- `removeManagedWorktree` rechecks the entry (path, branch, protection) from fresh state, runs `git worktree remove` outside the state lock, then drops the entry in a short `state.Update` only if it still matches. Keep slow git and filesystem work out of state transactions; the lock times out after 10s for other processes.
+- `--delete-branch` deletes a branch only after its worktree was removed. `grove remove` uses `git branch -d` (`-D` only with `--force`) and keeps unmerged branches with a warning; `grove prune` uses `-D` because `IsMerged` already confirmed the merge, including squash merges. The default branch is never deleted.
 - `--detach` skips configured symlinks and runs `afterDetachedCreate` before `afterCreate`; normal `.env*` copying still applies, and `copyDirs` apply unless `copyDirsOnDetach` is `false`. Detached mode is persisted in state, including after `grove detach`, and `grove sync` must preserve it unless `--reattach` completes without real destination conflicts.
 - The detector is conservative: Docker Compose only pulls images; Vite/Remix/SvelteKit get an `npm install` fallback only when no package-manager signal exists; Makefile suggestions require an explicit `setup:` target.
-- `.env*` copying is recursive but intentionally skips `node_modules`, `.git`, `dist`, `.next`, and `build`.
+- `.env*` copying is recursive but intentionally skips `node_modules`, `.git`, `dist`, `.next`, `build`, and linked worktrees nested under the root (their `.git` file points into `worktrees/`). Copies keep source permission bits; `copyDirs` recreate symlinks as symlinks.
 - Ports are deterministic from alias within the configured range, collision-resolved against existing state, and persisted in `.grove/state.json`.
 - State writes are atomic, and mutating commands reread state while holding the inter-process lock. Do not reintroduce production `state.Load` → mutate → `state.Save` sequences; they lose unrelated concurrent updates.
 - `grove rename` preserves the assigned port and all state metadata. It moves only worktrees still at the standard path for the old alias; adopted/custom paths stay in place, and a failed state save rolls a directory move back.
@@ -32,8 +35,8 @@
 
 ## Orphans And PRs
 - An orphan is a git worktree not tracked in Grove state. `grove list` shows it as `?`; `grove adopt`, `grove clean`, `grove doctor`, and `grove remove` all have orphan-specific behavior in `cmd/helpers.go`.
-- `resolveWorktree()` resolves aliases, list indexes, branch names, paths, and picker selections. Numeric-only aliases are reserved for `grove cd 3` style indexes.
-- `grove review` depends on the `gh` CLI, fetches PR branch metadata, then reuses the normal create-worktree setup path.
+- `resolveWorktree()` resolves in this order: picker (empty query), list index, alias, branch in state, path in state, orphan branch or path. Path queries are normalized (absolute, cleaned, symlinks resolved) before comparison. Numeric-only aliases are reserved for `grove cd 3` style indexes.
+- `grove review` depends on the `gh` CLI, fetches PR branch metadata, then reuses the normal create-worktree setup path. Fork PRs use a dedicated `pr-<number>` branch; an existing same-repo PR branch is only fast-forwarded, never reset, and left alone when checked out elsewhere.
 
 ## Embedded Skill
 - `skills/grove/SKILL.md` is embedded by root-level `skill_embed.go` into `cmd.SkillContent`; keep the embed file at repo root because Go embed cannot ascend with `..`.
