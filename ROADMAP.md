@@ -4,10 +4,14 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.10.0`. This release adds glob-based setup paths, persistent detached-worktree policy with safe reattachment, and more reliable removal diagnostics.
+Latest published tag: `v0.11.0`. This release adds `--delete-branch` for `remove` and `prune`, fixes worktree setup (symlinks and permissions in copies, remote-only branches, rollback cleanup), isolates fork PR branches in `grove review`, and keeps removals from blocking other Grove commands.
 
 ## Recently shipped
 
+- **Branch cleanup on removal.** `grove remove --delete-branch` safely deletes merged branches (`--force` for unmerged); `grove prune --delete-branch` deletes branches of the merged worktrees it removes.
+- **Correct worktree setup.** `copyDirs` handle symlinks, copies keep file permissions, remote-only branches are checked out with upstream tracking, and failed creates delete the branch they made.
+- **Safer PR review.** Fork PRs use a dedicated `pr-<number>` branch, existing same-repo PR branches are fast-forwarded, and the PR list renders non-ASCII and untrusted titles safely.
+- **Faster, non-blocking maintenance.** `grove list` checks status in parallel, removals no longer hold the state lock, and worktree paths match however they are spelled.
 - **Glob-based setup paths.** `symlink` and `copyDirs` accept root-relative Go glob patterns with deterministic expansion, deduplication, and actionable warnings.
 - **Persistent detached setup.** `copyDirsOnDetach` controls build-cache reuse, detached mode is visible in list/status/JSON, and `grove sync --reattach` restores sharing only after local destination conflicts are resolved.
 - **Reliable removal batches.** `remove`, `clean`, and `prune` retain per-target diagnostics, aggregate failures without duplicate output, and report partial orphan-cleanup success.

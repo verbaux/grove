@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-20
+
 ### Added
 
 - `grove remove --delete-branch` deletes the worktree's local branch after removal with `git branch -d`; unmerged branches are kept with a `git branch -D` hint, and `--force` force-deletes them. `grove prune --delete-branch` force-deletes branches of the merged worktrees it removes, and its dry run lists them. The default branch is never deleted
