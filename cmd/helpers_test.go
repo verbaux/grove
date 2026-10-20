@@ -264,7 +264,8 @@ func TestBuildWorktreeRowsStatusOrderAndErrors(t *testing.T) {
 	if err := os.WriteFile(trackedPath, []byte("original\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"git", "add", "tracked.txt"}, {"git", "commit", "-m", "add tracked file"}} {
+	// Commit .groverc.json too so the main worktree is clean without relying on a global gitignore.
+	for _, args := range [][]string{{"git", "add", "-f", "tracked.txt", ".groverc.json"}, {"git", "commit", "-m", "add tracked file"}} {
 		cmd := exec.Command(args[0], args[1:]...)
 		cmd.Dir = root
 		if out, err := cmd.CombinedOutput(); err != nil {
