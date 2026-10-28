@@ -512,9 +512,15 @@ func makefileHasTarget(root, target string) bool {
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ".") {
 			continue
 		}
-		if strings.HasPrefix(line, prefix) {
-			return true
+		rest, ok := strings.CutPrefix(line, prefix)
+		if !ok {
+			continue
 		}
+		// "setup:=x", "setup::=x" and "setup:::=x" assign a variable.
+		if strings.HasPrefix(strings.TrimLeft(rest, ":"), "=") {
+			continue
+		}
+		return true
 	}
 	return false
 }

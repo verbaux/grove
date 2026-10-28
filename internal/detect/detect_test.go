@@ -311,6 +311,26 @@ func TestDetectMakefileSkipsWithoutSetupTarget(t *testing.T) {
 	}
 }
 
+func TestDetectMakefileSkipsSetupVariableAssignment(t *testing.T) {
+	for _, line := range []string{"setup:=x", "setup::=x", "setup:::=x"} {
+		dir := t.TempDir()
+		writeFile(t, dir, "Makefile", line+"\ntest:\n\tgo test ./...\n")
+
+		if hasSuggestion(Analyze(dir), KindAfterCreate, "make setup") {
+			t.Errorf("%q is a variable assignment, not a setup target", line)
+		}
+	}
+}
+
+func TestDetectMakeSetupDoubleColonTarget(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "Makefile", "setup::\n\t./script/setup\n")
+
+	if !hasSuggestion(Analyze(dir), KindAfterCreate, "make setup") {
+		t.Error("expected make setup for a double-colon setup target")
+	}
+}
+
 func TestDetectMakeSetupUsesGNUmakefileFirst(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "GNUmakefile", "test:\n\tgo test ./...\n")
