@@ -44,6 +44,20 @@ func TestFindEnvFiles(t *testing.T) {
 	}
 }
 
+func TestFindEnvFilesRootNamedLikeSkippedDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "build")
+	touch(t, dir, ".env")
+	touch(t, dir, "build/.env.ignored")
+
+	found, err := FindEnvFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 1 || found[0] != ".env" {
+		t.Errorf("expected [.env], got %v", found)
+	}
+}
+
 func TestFindEnvFilesSkipsNestedWorktrees(t *testing.T) {
 	dir := t.TempDir()
 

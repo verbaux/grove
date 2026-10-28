@@ -51,7 +51,7 @@ func FindEnvFiles(srcDir string) ([]string, error) {
 		}
 
 		// Skip blacklisted directories entirely — don't recurse into them.
-		if d.IsDir() && skipDirs[d.Name()] {
+		if d.IsDir() && path != srcDir && skipDirs[d.Name()] {
 			return filepath.SkipDir
 		}
 		// Other worktrees can live under the project when worktreeDir points
