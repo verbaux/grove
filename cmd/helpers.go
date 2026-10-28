@@ -62,6 +62,13 @@ func forceForRemoval(path, status string, explicitForce, dirtyConfirmed bool) (b
 	return true, nil
 }
 
+// hasUncommittedWork reports whether a worktreeStatus result may hold work
+// that removal would discard. "unknown" counts, because git could not prove
+// the worktree clean. A "stale" worktree no longer exists on disk.
+func hasUncommittedWork(status string) bool {
+	return status != "clean" && status != "stale"
+}
+
 func ensureNoBlockingSubmodules(path string) error {
 	hasSubmodules, err := git.HasSubmodulesBlockingRemoval(path)
 	if err != nil {

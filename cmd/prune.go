@@ -143,12 +143,9 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			}
 			continue
 		}
-		status, err := git.Status(entry.Path)
-		if err != nil {
-			status = "unknown"
-		}
+		status := worktreeStatus(entry.Path)
 		merged = append(merged, pruneCandidate{Alias: alias, Branch: entry.Branch, Path: entry.Path, Port: entry.Port, Protected: entry.Protected, Status: status})
-		if status != "clean" {
+		if hasUncommittedWork(status) {
 			dirty = append(dirty, fmt.Sprintf("  %s (%s)", alias, status))
 		}
 	}
@@ -183,7 +180,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	if pruneYes && len(dirty) > 0 && !pruneForce {
 		var clean []pruneCandidate
 		for _, wt := range merged {
-			if wt.Status == "clean" {
+			if !hasUncommittedWork(wt.Status) {
 				clean = append(clean, wt)
 			} else {
 				fmt.Fprintf(os.Stderr, "  skipping %s (%s) — pass --force to remove\n", wt.Alias, wt.Status)

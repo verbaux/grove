@@ -1134,3 +1134,32 @@ func cleanupWorktree(t *testing.T, root, path string) {
 		t.Logf("cleanup remove %s: %v", path, err)
 	}
 }
+
+func TestCleanDoesNotReportStaleEntryAsChanged(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	s, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add("gone", "feature/gone", filepath.Join(t.TempDir(), "gone"), 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(root, s); err != nil {
+		t.Fatal(err)
+	}
+
+	reader = bufio.NewReader(strings.NewReader("y\n"))
+	cleanForce, cleanIncludeProtected = false, false
+	t.Cleanup(func() { reader = nil })
+
+	stdout, err := captureStdout(t, func() error { return runClean(cleanCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stdout, "uncommitted changes") {
+		t.Errorf("stale entry reported as having changes:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "cleaned stale entry gone") {
+		t.Errorf("stale entry was not cleaned:\n%s", stdout)
+	}
+}

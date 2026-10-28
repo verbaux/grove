@@ -81,16 +81,13 @@ func runClean(cmd *cobra.Command, args []string) error {
 
 	for _, alias := range aliases {
 		entry := s.Worktrees[alias]
-		status, err := git.Status(entry.Path)
-		if err != nil {
-			status = "unknown"
-		}
+		status := worktreeStatus(entry.Path)
 		if entry.Protected && !cleanIncludeProtected {
 			fmt.Printf("  skipping protected worktree %s — pass --include-protected to remove\n", alias)
 			continue
 		}
 		toRemove = append(toRemove, worktreeInfo{alias, entry.Branch, entry.Path, entry.Port, status})
-		if status != "clean" {
+		if hasUncommittedWork(status) {
 			dirty = append(dirty, fmt.Sprintf("  %s (%s)", alias, status))
 		}
 	}

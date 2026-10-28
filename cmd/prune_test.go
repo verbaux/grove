@@ -322,3 +322,43 @@ func TestPruneSkipsProtectedUnlessIncluded(t *testing.T) {
 		t.Fatalf("protected worktree should be removed with include-protected, stat err=%v", err)
 	}
 }
+
+func TestPruneYesRemovesStaleMergedEntry(t *testing.T) {
+	repo := setupIntegrationRepo(t, config.Config{Prefix: "testproject"})
+
+	stalePath := filepath.Join(t.TempDir(), "stale")
+	addWorktreeWithCommit(t, repo, "stale-feat", stalePath)
+	gitInRepo(t, repo, "merge", "--no-ff", "stale-feat", "-m", "merge stale-feat")
+	if err := os.RemoveAll(stalePath); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := state.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add("stale", "stale-feat", stalePath, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(repo, s); err != nil {
+		t.Fatal(err)
+	}
+
+	pruneForce, pruneBase, pruneYes = false, "", true
+	t.Cleanup(func() { pruneYes = false })
+
+	if _, err := captureStderr(t, func() error {
+		_, runErr := captureStdout(t, func() error { return runPrune(pruneCmd, nil) })
+		return runErr
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := state.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.AliasExists("stale") {
+		t.Error("stale merged entry was skipped as dirty instead of cleaned")
+	}
+}
