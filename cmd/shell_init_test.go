@@ -9,7 +9,7 @@ func TestGcdSnippet(t *testing.T) {
 	tests := map[string]string{
 		"bash":       `gcd() { cd "$(grove cd "$@")"; }`,
 		"zsh":        `gcd() { cd "$(grove cd "$@")"; }`,
-		"fish":       "function gcd",
+		"fish":       `set -l dir (grove cd $argv); and test -n "$dir"; and cd $dir`,
 		"powershell": "function gcd { Set-Location (grove cd @args) }",
 	}
 	for shell, want := range tests {

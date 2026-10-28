@@ -56,7 +56,9 @@ Then: gcd <name>   (or gcd with no args for the picker)`,
 func gcdSnippet(shell string) string {
 	switch shell {
 	case "fish":
-		return "\nfunction gcd\n    cd (grove cd $argv)\nend\n"
+		// An empty substitution leaves a bare `cd`, which in fish goes to
+		// $HOME; a cancelled picker prints nothing.
+		return "\nfunction gcd\n    set -l dir (grove cd $argv); and test -n \"$dir\"; and cd $dir\nend\n"
 	case "powershell":
 		return "\nfunction gcd { Set-Location (grove cd @args) }\n"
 	default: // bash, zsh
