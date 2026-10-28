@@ -122,7 +122,13 @@ func List() ([]string, error) {
 		if !strings.HasSuffix(name, ext) {
 			continue
 		}
-		names = append(names, strings.TrimSuffix(name, ext))
+		name = strings.TrimSuffix(name, ext)
+		// Load and Delete reject these names, so listing them would offer
+		// templates that cannot be used.
+		if validateName(name) != nil {
+			continue
+		}
+		names = append(names, name)
 	}
 	sort.Strings(names)
 	return names, nil

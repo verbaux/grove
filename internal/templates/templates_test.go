@@ -93,6 +93,32 @@ func TestList(t *testing.T) {
 	}
 }
 
+func TestListSkipsInvalidNames(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	if err := Save("good", config.Default()); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range []string{"good.bak.json", "has space.json", ".json"} {
+		if err := os.WriteFile(filepath.Join(dir, file), []byte("{}"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	names, err := List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 1 || names[0] != "good" {
+		t.Errorf("expected [good], got %v", names)
+	}
+}
+
 func TestListEmpty(t *testing.T) {
 	xdg := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", xdg)
