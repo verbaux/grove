@@ -257,10 +257,11 @@ func parsePortRange(s string) (config.PortRange, error) {
 	if err1 != nil || err2 != nil {
 		return config.PortRange{}, fmt.Errorf("invalid port range %q", s)
 	}
-	if minV <= 0 || maxV < minV {
+	pr := config.PortRange{Min: minV, Max: maxV}
+	if !pr.Valid() {
 		return config.PortRange{}, fmt.Errorf("invalid port range %q", s)
 	}
-	return config.PortRange{Min: minV, Max: maxV}, nil
+	return pr, nil
 }
 
 // splitAndTrim splits a comma-separated string and trims whitespace from each part.
