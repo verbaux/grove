@@ -67,13 +67,7 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	var target orphanWorktree
 
 	if len(args) == 1 {
-		query := args[0]
-		for _, o := range orphans {
-			if o.Branch == query || o.Path == query {
-				target = o
-				break
-			}
-		}
+		target = findOrphan(orphans, args[0])
 		if target.Path == "" {
 			fmt.Println("No orphan worktree matches that query. Available orphans:")
 			for _, o := range orphans {
@@ -118,6 +112,18 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Worktree %q adopted (%s, port %d).\n", alias, target.Path, port)
 	return nil
+}
+
+// findOrphan returns the orphan whose branch or path matches query, or a zero
+// value when none does.
+func findOrphan(orphans []orphanWorktree, query string) orphanWorktree {
+	queryPath := normalizeWorktreePath(query)
+	for _, o := range orphans {
+		if o.Branch == query || normalizeWorktreePath(o.Path) == queryPath {
+			return o
+		}
+	}
+	return orphanWorktree{}
 }
 
 func adoptWorktree(root string, cfg config.Config, target orphanWorktree, alias string) (int, error) {

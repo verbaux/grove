@@ -103,3 +103,29 @@ func TestAdoptWorktreeRejectsMissingPathStillKnownToGit(t *testing.T) {
 		t.Fatalf("missing worktree was registered: %+v", loaded.Worktrees)
 	}
 }
+
+func TestFindOrphanMatchesEquivalentPaths(t *testing.T) {
+	parent := t.TempDir()
+	path := filepath.Join(parent, "legacy")
+	if err := os.Mkdir(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orphans := []orphanWorktree{
+		{Path: filepath.Join(resolved, "..", "other"), Branch: "feature/other"},
+		{Path: resolved, Branch: "feature/legacy"},
+	}
+	t.Chdir(parent)
+
+	for _, query := range []string{"feature/legacy", resolved, path, path + "/", "legacy", "./legacy"} {
+		if got := findOrphan(orphans, query); got.Branch != "feature/legacy" {
+			t.Errorf("findOrphan(%q) = %+v, want feature/legacy", query, got)
+		}
+	}
+	if got := findOrphan(orphans, "missing"); got.Path != "" {
+		t.Errorf("findOrphan(missing) = %+v, want no match", got)
+	}
+}
