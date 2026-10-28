@@ -60,6 +60,9 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(orphans) == 0 {
+		if len(args) == 1 {
+			return fmt.Errorf("no orphan worktree matching %q — all worktrees are tracked by grove", args[0])
+		}
 		fmt.Println("No orphan worktrees found. All worktrees are tracked by grove.")
 		return nil
 	}
@@ -69,11 +72,11 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	if len(args) == 1 {
 		target = findOrphan(orphans, args[0])
 		if target.Path == "" {
-			fmt.Println("No orphan worktree matches that query. Available orphans:")
+			fmt.Println("Available orphans:")
 			for _, o := range orphans {
 				fmt.Printf("  %s → %s\n", o.Branch, o.Path)
 			}
-			return nil
+			return fmt.Errorf("no orphan worktree matching %q", args[0])
 		}
 	} else if len(orphans) == 1 {
 		target = orphans[0]

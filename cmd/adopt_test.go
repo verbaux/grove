@@ -129,3 +129,24 @@ func TestFindOrphanMatchesEquivalentPaths(t *testing.T) {
 		t.Errorf("findOrphan(missing) = %+v, want no match", got)
 	}
 }
+
+func TestRunAdoptFailsWhenQueryMatchesNothing(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+
+	if _, err := captureStdout(t, func() error { return runAdopt(adoptCmd, []string{"feature/none"}) }); err == nil ||
+		!strings.Contains(err.Error(), `no orphan worktree matching "feature/none"`) {
+		t.Fatalf("without orphans: error = %v, want no-match error", err)
+	}
+
+	path := filepath.Join(t.TempDir(), "orphan")
+	gitInRepo(t, root, "worktree", "add", "-b", "feature/orphan", path)
+	t.Cleanup(func() { _ = git.RemoveWorktree(path, true) })
+
+	out, err := captureStdout(t, func() error { return runAdopt(adoptCmd, []string{"feature/none"}) })
+	if err == nil || !strings.Contains(err.Error(), `no orphan worktree matching "feature/none"`) {
+		t.Fatalf("with orphans: error = %v, want no-match error", err)
+	}
+	if !strings.Contains(out, "feature/orphan") {
+		t.Errorf("available orphans not listed:\n%s", out)
+	}
+}
