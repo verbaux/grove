@@ -180,3 +180,24 @@ func TestDetachDoesNotRecordModeWhenAnySymlinkRemovalFails(t *testing.T) {
 		t.Fatalf("failed detach changed state: %+v", entry)
 	}
 }
+
+func TestIsSubdir(t *testing.T) {
+	parent := filepath.Join(string(filepath.Separator), "repo", "wt")
+	tests := []struct {
+		child string
+		want  bool
+	}{
+		{filepath.Join(parent, "src"), true},
+		{filepath.Join(parent, ".github"), true},
+		{filepath.Join(parent, "..hidden"), true},
+		{filepath.Join(parent, ".husky", "_"), true},
+		{parent, false},
+		{filepath.Dir(parent), false},
+		{filepath.Join(filepath.Dir(parent), "wt-other"), false},
+	}
+	for _, tt := range tests {
+		if got := isSubdir(tt.child, parent); got != tt.want {
+			t.Errorf("isSubdir(%q, %q) = %v, want %v", tt.child, parent, got, tt.want)
+		}
+	}
+}

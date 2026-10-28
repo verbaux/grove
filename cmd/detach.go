@@ -168,5 +168,5 @@ func isSubdir(child, parent string) bool {
 	if err != nil {
 		return false
 	}
-	return rel != ".." && len(rel) > 0 && rel[0] != '.'
+	return rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
