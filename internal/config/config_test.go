@@ -521,3 +521,23 @@ func TestRemoveHooksLoadStringOrArray(t *testing.T) {
 		t.Fatalf("afterRemove = %v", got.AfterRemove)
 	}
 }
+
+func TestResolvedPortRange(t *testing.T) {
+	tests := []struct {
+		name     string
+		r        *PortRange
+		min, max int
+	}{
+		{"nil", nil, DefaultPortMin, DefaultPortMax},
+		{"valid", &PortRange{Min: 4000, Max: 4999}, 4000, 4999},
+		{"max port", &PortRange{Min: 65000, Max: MaxPort}, 65000, MaxPort},
+		{"reversed", &PortRange{Min: 5000, Max: 4000}, DefaultPortMin, DefaultPortMax},
+		{"above max port", &PortRange{Min: 60000, Max: 70000}, DefaultPortMin, DefaultPortMax},
+	}
+	for _, tt := range tests {
+		gotMin, gotMax := Config{PortRange: tt.r}.ResolvedPortRange()
+		if gotMin != tt.min || gotMax != tt.max {
+			t.Errorf("%s: ResolvedPortRange() = %d-%d, want %d-%d", tt.name, gotMin, gotMax, tt.min, tt.max)
+		}
+	}
+}

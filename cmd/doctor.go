@@ -372,7 +372,7 @@ func doctorResult(diags []diagnostic) doctorJSONResult {
 func diagConfigRange(cfg config.Config) []diagnostic {
 	var out []diagnostic
 	if cfg.PortRange != nil {
-		if cfg.PortRange.Min <= 0 || cfg.PortRange.Max < cfg.PortRange.Min {
+		if !cfg.PortRange.Valid() {
 			out = append(out, diagnostic{levelError, fmt.Sprintf("invalid portRange: min=%d max=%d", cfg.PortRange.Min, cfg.PortRange.Max)})
 		}
 	}

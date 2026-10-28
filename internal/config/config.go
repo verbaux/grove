@@ -220,9 +220,18 @@ const (
 	DefaultPortMax = 3999
 )
 
-// ResolvedPortRange returns the configured range or defaults.
+// MaxPort is the highest valid TCP port.
+const MaxPort = 65535
+
+// Valid reports whether the range is non-empty and within TCP port numbers.
+func (r PortRange) Valid() bool {
+	return r.Min > 0 && r.Max >= r.Min && r.Max <= MaxPort
+}
+
+// ResolvedPortRange returns the configured range, or defaults when it is
+// missing or invalid.
 func (c Config) ResolvedPortRange() (int, int) {
-	if c.PortRange != nil && c.PortRange.Min > 0 && c.PortRange.Max >= c.PortRange.Min {
+	if c.PortRange != nil && c.PortRange.Valid() {
 		return c.PortRange.Min, c.PortRange.Max
 	}
 	return DefaultPortMin, DefaultPortMax

@@ -506,6 +506,14 @@ func TestDiagConfigRangeInvalid(t *testing.T) {
 	}
 }
 
+func TestDiagConfigRangeAboveMaxPort(t *testing.T) {
+	cfg := config.Config{PortRange: &config.PortRange{Min: 60000, Max: 70000}}
+	diags := diagConfigRange(cfg)
+	if len(diags) != 1 || diags[0].Level != levelError {
+		t.Errorf("expected error for range above 65535, got %v", diags)
+	}
+}
+
 func TestDiagConfigRangeValid(t *testing.T) {
 	cfg := config.Config{PortRange: &config.PortRange{Min: 3001, Max: 3999}}
 	diags := diagConfigRange(cfg)
