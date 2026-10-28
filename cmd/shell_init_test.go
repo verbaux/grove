@@ -10,7 +10,7 @@ func TestGcdSnippet(t *testing.T) {
 		"bash":       `gcd() { cd "$(grove cd "$@")"; }`,
 		"zsh":        `gcd() { cd "$(grove cd "$@")"; }`,
 		"fish":       `set -l dir (grove cd $argv); and test -n "$dir"; and cd $dir`,
-		"powershell": "function gcd { Set-Location (grove cd @args) }",
+		"powershell": "function gcd { $dir = grove cd @args; if ($LASTEXITCODE -eq 0 -and $dir) { Set-Location $dir } }",
 	}
 	for shell, want := range tests {
 		got := gcdSnippet(shell)

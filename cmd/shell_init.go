@@ -60,7 +60,7 @@ func gcdSnippet(shell string) string {
 		// $HOME; a cancelled picker prints nothing.
 		return "\nfunction gcd\n    set -l dir (grove cd $argv); and test -n \"$dir\"; and cd $dir\nend\n"
 	case "powershell":
-		return "\nfunction gcd { Set-Location (grove cd @args) }\n"
+		return "\nfunction gcd { $dir = grove cd @args; if ($LASTEXITCODE -eq 0 -and $dir) { Set-Location $dir } }\n"
 	default: // bash, zsh
 		return "\ngcd() { cd \"$(grove cd \"$@\")\"; }\n"
 	}
