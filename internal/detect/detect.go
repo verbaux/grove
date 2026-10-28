@@ -488,7 +488,8 @@ func huskyHooksReferenceUnderscore(root string) bool {
 
 func makefileHasTarget(root, target string) bool {
 	var path string
-	for _, name := range []string{"Makefile", "makefile", "GNUmakefile"} {
+	// GNU make's lookup order: only the first existing file is read.
+	for _, name := range []string{"GNUmakefile", "makefile", "Makefile"} {
 		p := filepath.Join(root, name)
 		if fileExists(p) {
 			path = p

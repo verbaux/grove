@@ -311,6 +311,17 @@ func TestDetectMakefileSkipsWithoutSetupTarget(t *testing.T) {
 	}
 }
 
+func TestDetectMakeSetupUsesGNUmakefileFirst(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "GNUmakefile", "test:\n\tgo test ./...\n")
+	writeFile(t, dir, "Makefile", "setup:\n\t./script/setup\n")
+
+	sugs := Analyze(dir)
+	if hasSuggestion(sugs, KindAfterCreate, "make setup") {
+		t.Errorf("make reads GNUmakefile, which has no setup target; got %+v", sugs)
+	}
+}
+
 func TestDetectDirenv(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, ".envrc", "export FOO=bar\n")
