@@ -4,10 +4,11 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.11.0`. This release adds `--delete-branch` for `remove` and `prune`, fixes worktree setup (symlinks and permissions in copies, remote-only branches, rollback cleanup), isolates fork PR branches in `grove review`, and keeps removals from blocking other Grove commands.
+Latest published tag: `v0.11.1`. This patch release fixes install-hook routing in setup suggestions, stale-worktree handling in `clean` and `prune`, `.env*` copying for roots named like skipped directories, and several smaller command, detection, and display bugs.
 
 ## Recently shipped
 
+- **Bug-fix sweep.** Install suggestions no longer target symlinked dependencies, stale worktrees no longer block `clean` and `prune`, `adopt` and `detach` resolve paths reliably, port ranges stay within 65535, and shell `gcd` helpers stay put on cancel.
 - **Branch cleanup on removal.** `grove remove --delete-branch` safely deletes merged branches (`--force` for unmerged); `grove prune --delete-branch` deletes branches of the merged worktrees it removes.
 - **Correct worktree setup.** `copyDirs` handle symlinks, copies keep file permissions, remote-only branches are checked out with upstream tracking, and failed creates delete the branch they made.
 - **Safer PR review.** Fork PRs use a dedicated `pr-<number>` branch, existing same-repo PR branches are fast-forwarded, and the PR list renders non-ASCII and untrusted titles safely.

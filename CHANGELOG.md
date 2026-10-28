@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-10-28
+
+### Fixed
+
+- `grove analyze`, `grove doctor`, and `grove init` now route an install suggestion to `afterDetachedCreate` when its symlink (such as `node_modules`) is suggested or accepted in the same run, so applying both no longer runs the install inside the main worktree's `node_modules`
+- `grove clean` and `grove prune` no longer treat a managed worktree whose directory is gone as having uncommitted changes; `prune --yes` now cleans its state entry instead of skipping it
+- `.env*` files are copied again when the project root itself is named like a skipped directory, such as `build` or `dist`
+- Port ranges above 65535 are invalid: `grove init` rejects them, `grove doctor` reports them, and worktree creation falls back to the default range
+- `grove adopt <path>` matches relative paths, trailing slashes, and symlinked parents, and `grove adopt <query>` exits non-zero when nothing matches
+- `grove detach` works from dot-directories inside a worktree, such as `.github`
+- The `gcd` helper from `grove shell-init fish` and `powershell` stays put when the picker is cancelled or `grove cd` fails; in fish it used to jump to `$HOME`
+- Makefile detection reads `GNUmakefile`, `makefile`, and `Makefile` in GNU make's order and ignores `setup:=`-style variable assignments
+- `grove create --detach` no longer reports symlink pattern warnings for symlinks it never creates
+- `grove template list` and template completion no longer offer file names that the other template commands reject, such as `foo.bak.json`
+- The worktree picker and `grove ps` align columns by display width, so colors and wide or non-ASCII names no longer shift them
+- `grove doctor` prints diagnostics in a stable order
+
 ## [0.11.0] — 2026-10-20
 
 ### Added
