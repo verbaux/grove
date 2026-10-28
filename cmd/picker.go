@@ -86,7 +86,13 @@ func (m pickerModel) View() string {
 				cursor = cursorStyle.Render("> ")
 			}
 
-			name := nameHighStyle.Render(r.Name)
+			// Pad by display width before styling. Escape codes and
+			// double-width characters would otherwise shift the branch column.
+			name := r.Name
+			if w := lipgloss.Width(name); w < pickerNameWidth {
+				name += strings.Repeat(" ", pickerNameWidth-w)
+			}
+			name = nameHighStyle.Render(name)
 			branch := dimStyle.Render(r.Branch)
 
 			status := cleanMark
@@ -94,7 +100,7 @@ func (m pickerModel) View() string {
 				status = dirtyMark.Render("● " + r.Status)
 			}
 
-			sb.WriteString(fmt.Sprintf("%s%-14s %s  %s\n", cursor, name, branch, status))
+			sb.WriteString(fmt.Sprintf("%s%s %s  %s\n", cursor, name, branch, status))
 		}
 	}
 
@@ -118,6 +124,8 @@ func filterRows(rows []worktreeRow, query string) []worktreeRow {
 	}
 	return out
 }
+
+const pickerNameWidth = 14
 
 var (
 	cursorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
