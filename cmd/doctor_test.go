@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -737,5 +739,39 @@ func TestDiagSymlinksHealthy(t *testing.T) {
 	diags := diagSymlinks(cfg.Symlink, s)
 	if len(diags) != 1 || diags[0].Level != levelOK {
 		t.Errorf("expected single ok, got %v", diags)
+	}
+}
+
+func TestDoctorDiagnosticsAreSortedByAlias(t *testing.T) {
+	aliases := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
+	s := state.State{Worktrees: map[string]state.WorktreeEntry{}}
+	for i, alias := range aliases {
+		port := 3001
+		if i%2 == 1 {
+			port = 3002
+		}
+		s.Worktrees[alias] = state.WorktreeEntry{Path: filepath.Join(t.TempDir(), "missing"), Port: port}
+	}
+
+	var stale []string
+	for _, d := range diagStatePaths(s) {
+		stale = append(stale, d.Message)
+	}
+	for i, alias := range aliases {
+		if i >= len(stale) || !strings.Contains(stale[i], fmt.Sprintf("%q", alias)) {
+			t.Fatalf("stale diagnostics not sorted by alias: %v", stale)
+		}
+	}
+
+	var collisions []string
+	for _, d := range diagPortCollisions(s) {
+		collisions = append(collisions, d.Message)
+	}
+	want := []string{
+		"port collision on 3001: [a c e g i]",
+		"port collision on 3002: [b d f h j]",
+	}
+	if !reflect.DeepEqual(collisions, want) {
+		t.Errorf("collisions = %v, want %v", collisions, want)
 	}
 }

@@ -3,9 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/charmbracelet/lipgloss"
@@ -391,7 +393,8 @@ func diagConfigDrift(cfg config.Config, s state.State) []diagnostic {
 
 	var out []diagnostic
 	var checked int
-	for alias, entry := range s.Worktrees {
+	for _, alias := range slices.Sorted(maps.Keys(s.Worktrees)) {
+		entry := s.Worktrees[alias]
 		if entry.ConfigHash == "" {
 			out = append(out, diagnostic{
 				Level:   levelWarn,
@@ -416,7 +419,8 @@ func diagConfigDrift(cfg config.Config, s state.State) []diagnostic {
 func diagStatePaths(s state.State) []diagnostic {
 	var out []diagnostic
 	missing := 0
-	for alias, entry := range s.Worktrees {
+	for _, alias := range slices.Sorted(maps.Keys(s.Worktrees)) {
+		entry := s.Worktrees[alias]
 		if _, err := os.Stat(entry.Path); errors.Is(err, os.ErrNotExist) {
 			out = append(out, diagnostic{levelError, fmt.Sprintf("stale state: %q path missing: %s", alias, entry.Path)})
 			missing++
@@ -455,7 +459,8 @@ func diagSymlinks(symlinks []string, s state.State) []diagnostic {
 	var out []diagnostic
 	checked := 0
 	broken := 0
-	for _, entry := range s.Worktrees {
+	for _, alias := range slices.Sorted(maps.Keys(s.Worktrees)) {
+		entry := s.Worktrees[alias]
 		for _, name := range symlinks {
 			link := filepath.Join(entry.Path, name)
 			info, err := os.Lstat(link)
@@ -490,14 +495,16 @@ func diagSymlinks(symlinks []string, s state.State) []diagnostic {
 func diagPortCollisions(s state.State) []diagnostic {
 	var out []diagnostic
 	portToAliases := make(map[int][]string)
-	for alias, entry := range s.Worktrees {
+	for _, alias := range slices.Sorted(maps.Keys(s.Worktrees)) {
+		entry := s.Worktrees[alias]
 		if entry.Port == 0 {
 			continue
 		}
 		portToAliases[entry.Port] = append(portToAliases[entry.Port], alias)
 	}
 	collisions := 0
-	for port, aliases := range portToAliases {
+	for _, port := range slices.Sorted(maps.Keys(portToAliases)) {
+		aliases := portToAliases[port]
 		if len(aliases) > 1 {
 			out = append(out, diagnostic{levelError, fmt.Sprintf("port collision on %d: %v", port, aliases)})
 			collisions++
