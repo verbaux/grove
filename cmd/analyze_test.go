@@ -198,3 +198,33 @@ func TestRemoveStalePathsNoopWhenEmpty(t *testing.T) {
 		t.Errorf("expected unchanged cfg, got %+v", got)
 	}
 }
+
+func writeNodeProject(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	for name, content := range map[string]string{"package.json": "{}", "pnpm-lock.yaml": ""} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(filepath.Join(root, "node_modules"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func TestAdaptedSuggestionsRoutesInstallWithSuggestedSymlink(t *testing.T) {
+	root := writeNodeProject(t)
+
+	got := adaptedSuggestions(root, config.Config{})
+
+	var kinds []detect.Kind
+	for _, s := range got {
+		if s.Value == "pnpm install" {
+			kinds = append(kinds, s.Kind)
+		}
+	}
+	if !reflect.DeepEqual(kinds, []detect.Kind{detect.KindAfterDetachedCreate}) {
+		t.Errorf("pnpm install kinds = %v, want [afterDetachedCreate]; suggestions %+v", kinds, got)
+	}
+}

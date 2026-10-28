@@ -1,6 +1,13 @@
 package cmd
 
-import "testing"
+import (
+	"bufio"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/verbaux/grove/internal/config"
+)
 
 func TestParsePortRange(t *testing.T) {
 	valid := map[string][2]int{
@@ -18,5 +25,33 @@ func TestParsePortRange(t *testing.T) {
 		if got, err := parsePortRange(input); err == nil {
 			t.Errorf("parsePortRange(%q) = %+v, want error", input, got)
 		}
+	}
+}
+
+func TestApplyDetectPromptsRoutesInstallByAcceptedSymlink(t *testing.T) {
+	tests := []struct {
+		name         string
+		answers      string
+		wantSymlink  []string
+		wantAfter    config.HookCommands
+		wantDetached config.HookCommands
+	}{
+		{"symlink accepted", "y\ny\n", []string{"node_modules"}, nil, config.HookCommands{"pnpm install"}},
+		{"symlink declined", "n\ny\n", nil, config.HookCommands{"pnpm install"}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := writeNodeProject(t)
+			reader = bufio.NewReader(strings.NewReader(tt.answers))
+			t.Cleanup(func() { reader = nil })
+
+			got := applyDetectPrompts(root, config.Config{})
+
+			if !reflect.DeepEqual(got.Symlink, tt.wantSymlink) ||
+				!reflect.DeepEqual(got.AfterCreate, tt.wantAfter) ||
+				!reflect.DeepEqual(got.AfterDetachedCreate, tt.wantDetached) {
+				t.Errorf("got symlink=%v afterCreate=%v afterDetachedCreate=%v", got.Symlink, got.AfterCreate, got.AfterDetachedCreate)
+			}
+		})
 	}
 }

@@ -65,7 +65,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	all := detect.Adapt(cfg.Symlink, detect.Analyze(root))
+	all := adaptedSuggestions(root, cfg)
 	pending := pendingSuggestions(cfg, all)
 	var stale []StalePath
 	if analyzeClean {
@@ -212,6 +212,21 @@ func mergeSuggestions(cfg config.Config, pending []detect.Suggestion) config.Con
 		}
 	}
 	return out
+}
+
+// adaptedSuggestions routes install suggestions as if every detected symlink
+// were applied along with them. Applying both a node_modules symlink and an
+// afterCreate install would run the install inside the main worktree's
+// node_modules.
+func adaptedSuggestions(root string, cfg config.Config) []detect.Suggestion {
+	raw := detect.Analyze(root)
+	symlinks := append([]string(nil), cfg.Symlink...)
+	for _, s := range raw {
+		if s.Kind == detect.KindSymlink {
+			symlinks = append(symlinks, s.Value)
+		}
+	}
+	return detect.Adapt(symlinks, raw)
 }
 
 func pendingSuggestions(cfg config.Config, all []detect.Suggestion) []detect.Suggestion {

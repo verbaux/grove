@@ -554,7 +554,7 @@ func expandDoctorPaths(root string, cfg config.Config) ([]string, []diagnostic) 
 }
 
 func diagSuggestions(root string, cfg config.Config) []diagnostic {
-	sugs := detect.Adapt(cfg.Symlink, detect.Analyze(root))
+	sugs := adaptedSuggestions(root, cfg)
 	var out []diagnostic
 	for _, s := range sugs {
 		if configHasSuggestion(cfg, s) {

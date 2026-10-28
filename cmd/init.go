@@ -158,26 +158,21 @@ func writeAgentsMd(dir string) error {
 }
 
 // applyDetectPrompts scans the project for known frameworks and offers each
-// suggestion the user has not already covered as a y/n prompt.
+// suggestion the user has not already covered as a y/n prompt. Symlinks are
+// offered first so that install hooks are routed against the symlinks the
+// user has accepted by then.
 func applyDetectPrompts(root string, cfg config.Config) config.Config {
-	sugs := detect.Adapt(cfg.Symlink, detect.Analyze(root))
-	if len(sugs) == 0 {
-		return cfg
-	}
-
-	pending := make([]detect.Suggestion, 0, len(sugs))
-	for _, s := range sugs {
-		if !configCoversSuggestion(cfg, s) {
-			pending = append(pending, s)
+	headerShown := false
+	for _, raw := range groupByKind(detect.Analyze(root)) {
+		s := detect.Adapt(cfg.Symlink, []detect.Suggestion{raw})[0]
+		if configCoversSuggestion(cfg, s) {
+			continue
 		}
-	}
-	if len(pending) == 0 {
-		return cfg
-	}
-
-	fmt.Println()
-	fmt.Println("Detected project conventions — accept any suggestions?")
-	for _, s := range pending {
+		if !headerShown {
+			fmt.Println()
+			fmt.Println("Detected project conventions — accept any suggestions?")
+			headerShown = true
+		}
 		question := fmt.Sprintf("  Add %s %q? (%s) [Y/n]", s.Kind, s.Value, s.Reason)
 		answer := strings.ToLower(prompt(question, "y"))
 		if answer == "n" {

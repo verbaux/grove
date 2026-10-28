@@ -676,7 +676,7 @@ func TestDiagSuggestionsWarnsOnMissing(t *testing.T) {
 		if containsAll(d.Message, "symlink", "node_modules") {
 			wantSymlink = true
 		}
-		if containsAll(d.Message, "afterCreate", "pnpm install") {
+		if containsAll(d.Message, "afterDetachedCreate", "pnpm install") {
 			wantAfter = true
 		}
 	}
@@ -684,7 +684,7 @@ func TestDiagSuggestionsWarnsOnMissing(t *testing.T) {
 		t.Errorf("expected node_modules symlink suggestion, got %+v", diags)
 	}
 	if !wantAfter {
-		t.Errorf("expected pnpm install afterCreate suggestion, got %+v", diags)
+		t.Errorf("expected pnpm install routed to afterDetachedCreate alongside the suggested symlink, got %+v", diags)
 	}
 }
 
