@@ -124,19 +124,19 @@ func renderPSTable(rows []psRow) string {
 	columns := []string{"ALIAS", "BRANCH", "PORT", "STATUS", "PID", "PROCESS"}
 	widths := make([]int, len(columns))
 	for i, column := range columns {
-		widths[i] = len(column)
+		widths[i] = lipgloss.Width(column)
 	}
 	values := make([][]string, len(rows))
 	for i, row := range rows {
 		values[i] = psValues(row)
 		for j, value := range values[i] {
-			if len(value) > widths[j] {
-				widths[j] = len(value)
+			if w := lipgloss.Width(value); w > widths[j] {
+				widths[j] = w
 			}
 		}
 	}
 	pad := func(value string, width int) string {
-		return value + strings.Repeat(" ", width-len(value)+2)
+		return value + strings.Repeat(" ", width-lipgloss.Width(value)+2)
 	}
 
 	var output strings.Builder

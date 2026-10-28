@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/verbaux/grove/internal/processes"
 	"github.com/verbaux/grove/internal/state"
 )
@@ -109,5 +110,23 @@ func TestPSReturnsListenerDiscoveryError(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "discovery failed") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRenderPSTableAlignsNonASCIIValues(t *testing.T) {
+	rows := []psRow{
+		{Alias: "auth", Branch: "feature/auth", Port: 3001, Status: "stopped"},
+		{Alias: "фича", Branch: "feature/fix", Port: 3002, Status: "stopped"},
+	}
+	columns := map[string]int{}
+	for _, line := range strings.Split(renderPSTable(rows), "\n") {
+		for _, branch := range []string{"feature/auth", "feature/fix"} {
+			if i := strings.Index(line, branch); i >= 0 {
+				columns[branch] = lipgloss.Width(line[:i])
+			}
+		}
+	}
+	if len(columns) != 2 || columns["feature/auth"] != columns["feature/fix"] {
+		t.Errorf("branch columns differ: %v", columns)
 	}
 }
