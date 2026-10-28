@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
@@ -572,5 +573,33 @@ func TestCreatePreservesStateAddedAfterInitialLoad(t *testing.T) {
 	}
 	if _, ok := loaded.Get("auth"); !ok {
 		t.Fatal("created auth entry is missing")
+	}
+}
+
+func TestCreateDetachIgnoresSymlinkExpansionWarnings(t *testing.T) {
+	setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "../",
+		Prefix:      "testproject",
+		Symlink:     []string{"packages/*/node_modules"},
+	})
+	createName, createFrom, createDetach, createJSON = "detach-warn", "", true, true
+	t.Cleanup(func() { createName, createDetach, createJSON = "", false, false })
+
+	var out string
+	stderr, err := captureStderr(t, func() error {
+		var runErr error
+		out, runErr = captureStdout(t, func() error { return runCreate(createCmd, []string{"feature/detach-warn"}) })
+		return runErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result createResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	t.Cleanup(func() { _ = git.RemoveWorktree(result.Path, true) })
+	if len(result.SkippedSymlinks) != 0 || strings.Contains(stderr, "symlink") {
+		t.Errorf("detached create reported symlink warnings: skipped=%v stderr=%q", result.SkippedSymlinks, stderr)
 	}
 }

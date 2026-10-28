@@ -156,6 +156,10 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 		}
 	}
 	symlinkWarnings := actionableExpansionWarnings(symlinks.Warnings)
+	if detach {
+		// No symlinks are created, so problems expanding them do not apply.
+		symlinkWarnings = nil
+	}
 	copyDirWarnings := actionableExpansionWarnings(copyDirs.Warnings)
 	result.SkippedSymlinks = expansionWarningValues(symlinkWarnings)
 	result.SkippedCopyDirs = expansionWarningValues(copyDirWarnings)
