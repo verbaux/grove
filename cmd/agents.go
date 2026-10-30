@@ -5,31 +5,29 @@ const groveAgentsSection = `## Grove — Git Worktree Manager
 This project uses [Grove](https://github.com/verbaux/grove) to manage git worktrees.
 Use Grove commands instead of raw ` + "`git worktree`" + ` commands.
 
-Config fields in ` + "`.groverc.json`" + `: ` + "`worktreeDir`" + ` (path), ` + "`prefix`" + ` (name prefix), ` + "`symlink`" + ` (dirs to symlink from main), ` + "`afterCreate`" + ` (hook command).
+Config lives in ` + "`.groverc.json`" + `: ` + "`worktreeDir`" + `, ` + "`prefix`" + `, ` + "`symlink`" + ` (shared from main), ` + "`copyDirs`" + ` (copied build cache), ` + "`afterCreate`" + ` / ` + "`afterDetachedCreate`" + ` / ` + "`beforeRemove`" + ` / ` + "`afterRemove`" + ` (hooks), ` + "`portRange`" + `.
 Worktree path formula: ` + "`<worktreeDir>/<prefix>-<alias>/`" + `.
 
 ### Commands
 
-- ` + "`grove create <branch>`" + ` — create worktree with .env copy, symlinks, and hooks
-- ` + "`grove create <branch> --name <alias>`" + ` — custom alias
-- ` + "`grove create <branch> --from main`" + ` — branch from specific base
-- ` + "`cd $(grove cd <alias>) && <next command>`" + ` — switch to worktree (always combine cd with next command in a single shell call)
-- ` + "`grove list`" + ` — show all worktrees
-- ` + "`grove list --json`" + ` — machine-readable output
-- ` + "`grove ps --json`" + ` — inspect live listeners on assigned worktree ports without changing state
-- ` + "`grove review <pr-number>`" + ` — checkout PR into worktree (requires gh CLI)
-- ` + "`grove rename <alias-or-index> <new-alias>`" + ` — rename a managed worktree; preserves its port
-- ` + "`grove note <alias-or-index> [text]`" + ` — show or set a short local worktree note; ` + "`--clear`" + ` removes it
-- ` + "`grove remove <alias>`" + ` — remove worktree
-- ` + "`grove detach`" + ` — remove symlinks in current worktree for independent dependencies (run from inside worktree)
-- ` + "`grove clean`" + ` — remove all managed worktrees
+- ` + "`grove create <branch> --json`" + ` — create worktree (.env copy, symlinks, hooks); prints alias, path, port. ` + "`--name <alias>`" + `, ` + "`--from <base>`" + `, ` + "`--detach`" + ` (no shared symlinks)
+- ` + "`grove review <pr-number> --json`" + ` — check out a PR into a worktree (requires gh CLI); without a number lists open PRs
+- ` + "`cd \"$(grove cd <alias-or-index>)\" && <next command>`" + ` — run in a worktree (cd does not persist between shell calls)
+- ` + "`grove list --json`" + ` / ` + "`grove status --json`" + ` — worktrees with path, port, status, note
+- ` + "`grove ps --json`" + ` — live listeners on assigned worktree ports (read-only)
+- ` + "`grove sync <alias> --json`" + ` — apply current config to an existing worktree
+- ` + "`grove note <alias> \"text\"`" + ` — short local note; ` + "`--clear`" + ` removes it
+- ` + "`grove rename <alias-or-index> <new-alias>`" + ` — rename a managed worktree; keeps its port
+- ` + "`grove detach`" + ` — run inside a worktree to remove shared symlinks; ` + "`--copy`" + ` copies their contents first
+- ` + "`grove doctor --json`" + ` — diagnostics; ` + "`--fix`" + ` repairs only safe, unambiguous issues
+- ` + "`grove remove <alias>`" + ` — remove worktree; ` + "`--delete-branch`" + ` also deletes a merged branch
+- ` + "`grove prune --dry-run --json`" + ` — preview merged worktrees that prune would remove
 
 ### Rules
 
 - NEVER use ` + "`git worktree add/remove`" + ` directly — it bypasses Grove state tracking
-- NEVER call ` + "`grove cd`" + ` without arguments — it launches an interactive picker that hangs in non-interactive shells
-- Use ` + "`grove list --json`" + ` to parse worktree info programmatically
-- Use ` + "`grove review`" + ` for PR checkouts — it handles fetch + worktree + setup in one step
-- Always ` + "`grove remove`" + ` when done to keep state clean
-- ` + "`grove clean`" + ` is destructive (removes ALL worktrees) — confirm with user before running
+- Always pass an alias or index to ` + "`grove cd`" + ` / ` + "`grove open`" + `; without one they need an interactive terminal
+- Run dev servers on the worktree's own port: ` + "`port`" + ` in ` + "`grove list --json`" + ` (` + "`$GROVE_PORT`" + ` inside hooks); it is stable per worktree
+- Do not pass ` + "`--force`" + `, ` + "`--include-protected`" + `, or run ` + "`grove clean`" + ` / ` + "`grove prune`" + ` without user confirmation
+- If ` + "`beforeRemove`" + ` blocks removal, treat it as intentional
 `
