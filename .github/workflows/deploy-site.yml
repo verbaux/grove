@@ -49,9 +49,10 @@ jobs:
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          perl -0pi -e 's{(<span data-version>)[^<]+(</span>)}{$1 . $ENV{RELEASE_VERSION} . $2}e; s{(style\.css\?v=)[^"]+}{$1 . $ENV{RELEASE_VERSION}}e' docs/index.html
+          perl -0pi -e 's{(<span data-version>)[^<]+(</span>)}{$1 . $ENV{RELEASE_VERSION} . $2}e; s{((?:base|skin-manual)\.css\?v=)[^"]+}{$1 . $ENV{RELEASE_VERSION}}ge' docs/index.html
           grep -q "<span data-version>${RELEASE_VERSION}</span>" docs/index.html
-          grep -q "style.css?v=${RELEASE_VERSION}" docs/index.html
+          grep -q "base.css?v=${RELEASE_VERSION}" docs/index.html
+          grep -q "skin-manual.css?v=${RELEASE_VERSION}" docs/index.html
 
       - name: Setup SSH
         env:

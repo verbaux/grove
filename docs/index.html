@@ -6,87 +6,38 @@
 <title>Grove — Git worktree manager that handles the setup</title>
 <meta name="description" content="Grove automates .env copying, node_modules symlinks, and setup scripts for git worktrees. Written in Go.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="style.css?v=v0.12.0">
-<script>
-  (function(){
-    try {
-      var t = localStorage.getItem('grove-theme') || 'dark';
-      document.documentElement.setAttribute('data-theme', t);
-    } catch(e){}
-  })();
-</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css?v=v0.12.0">
+<link rel="stylesheet" href="skin-manual.css?v=v0.12.0">
+<script>(function(){try{var d=document.documentElement;d.setAttribute('data-theme',localStorage.getItem('grove-theme')||'dark');}catch(e){}})();</script>
 </head>
 <body>
-
 <header class="nav" data-nav>
-  <div class="container nav-inner">
-    <a class="logo" href="#">
-      <span class="logo-mark">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
-          <path d="M12 4 V21"/>
-          <path d="M12 15 C13.5 13.5, 16 13.5, 16 8"/>
-          <path d="M12 16 C9 14, 4 14, 4 5"/>
-          <path d="M12 16 C15 14, 20 14, 20 5"/>
-          <circle cx="12" cy="4" r="1.3" fill="currentColor" stroke="none"/>
-          <circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/>
-          <circle cx="4" cy="5" r="1.3" fill="currentColor" stroke="none"/>
-          <circle cx="20" cy="5" r="1.3" fill="currentColor" stroke="none"/>
-        </svg>
-      </span>
-      <span>grove</span>
-    </a>
-    <nav>
-      <a href="#features">Features</a>
-      <a href="#install">Install</a>
-      <a href="#commands">Commands</a>
-      <a href="https://github.com/verbaux/grove" target="_blank" rel="noopener">GitHub ↗</a>
-      <button class="theme-toggle" aria-label="Toggle theme" data-theme-toggle>
-        <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-        <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-      </button>
-    </nav>
-  </div>
+<div class="wrap">
+<a class="brand" href="#"><span class="mark"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 4 V21"></path><path d="M12 15 C13.5 13.5, 16 13.5, 16 8"></path><path d="M12 16 C9 14, 4 14, 4 5"></path><path d="M12 16 C15 14, 20 14, 20 5"></path><circle cx="12" cy="4" r="1.3" fill="currentColor" stroke="none"></circle><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"></circle><circle cx="4" cy="5" r="1.3" fill="currentColor" stroke="none"></circle><circle cx="20" cy="5" r="1.3" fill="currentColor" stroke="none"></circle></svg></span><span>grove</span></a>
+<div class="links">
+<a href="#features">Features</a><a href="#agents">Agents</a><a href="#install">Install</a><a href="#commands">Commands</a><a href="https://github.com/verbaux/grove" target="_blank" rel="noopener">GitHub <span class="arr">↗</span></a>
+<button class="tog" aria-label="Toggle theme" data-theme-toggle><svg class="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg><svg class="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></button>
+</div>
+</div>
 </header>
-
 <main>
-
-<!-- ================= HERO ================= -->
 <section class="hero">
-  <div class="hero-bg" aria-hidden="true"></div>
-  <div class="container hero-grid">
-    <div class="hero-text">
-      <div class="eyebrow">
-        <span class="dot"></span>
-        git worktree manager · <span data-version>v0.12.0</span>
-      </div>
-      <h1>Git worktrees <span class="hi">without</span><br>the setup friction.</h1>
-      <p class="lede">
-        <code>git worktree add</code> is the easy part. <code>.env</code> files, <code>node_modules</code>,
-        build caches, install scripts — that's where every team gives up. Grove automates it.
-      </p>
-      <div class="cta">
-        <a class="btn primary" href="#install">Install Grove</a>
-        <a class="btn ghost" href="https://github.com/verbaux/grove" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.6.5.5 5.6.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.1.8.9 1.2 1.9 1.2 3.2 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.6 18.4.5 12 .5z"/></svg>
-          Star on GitHub
-        </a>
-      </div>
-    </div>
-
-    <div class="hero-demo">
-      <div class="terminal-window">
-        <div class="tw-chrome">
-          <span class="tw-dot tw-r"></span><span class="tw-dot tw-y"></span><span class="tw-dot tw-g"></span>
-          <div class="tw-tabs" role="tablist">
-            <button class="tw-tab active" data-demo="create" role="tab">create</button>
-            <button class="tw-tab" data-demo="list" role="tab">list</button>
-            <button class="tw-tab" data-demo="analyze" role="tab">analyze</button>
-            <button class="tw-tab" data-demo="review" role="tab">review</button>
-          </div>
-        </div>
-        <div class="tw-body-wrap">
-<pre data-demo-panel="create" class="tw-body active"><span class="p">$</span> grove create <span class="s">feature/auth</span>
-<span class="m">Creating worktree for branch "feature/auth" at /home/dev/myapp-auth</span>
+<div class="wrap">
+<div class="hero-grid">
+<div>
+<div class="eyebrow"><i></i>latest release · <span data-version>v0.12.0</span></div>
+<h1>Git worktrees <em>without</em> the setup friction.</h1>
+<p class="lede"><code>git worktree add</code> is the easy part. <code>.env</code> files, <code>node_modules</code>, build caches, install scripts — that's where every team gives up. Grove automates it.</p>
+<div class="cta"><a class="btn pri" href="#install">Install Grove</a><a class="btn ghost" href="https://github.com/verbaux/grove" target="_blank" rel="noopener">Star on GitHub</a></div>
+</div>
+<div class="term">
+<div class="term-bar" role="tablist"><button class="tt on" data-t="create">create</button><button class="tt" data-t="list">list</button><button class="tt" data-t="analyze">analyze</button><button class="tt" data-t="review">review</button></div>
+<div class="term-body">
+<pre class="tp on" data-p="create"><span class="p">$</span> grove create <span class="s">feature/auth</span>
+<span class="m">Creating worktree for "feature/auth" at /home/dev/myapp-auth</span>
   <span class="ok">✓</span> git worktree created
   <span class="ok">✓</span> copied 2 <span class="s">.env</span> file(s)
   <span class="ok">✓</span> symlinked <span class="s">node_modules</span>
@@ -94,459 +45,206 @@
 
 Worktree <span class="s">"auth"</span> ready (port <span class="n">3487</span>).
   cd $(grove cd auth)</pre>
-
-<pre data-demo-panel="list" class="tw-body"><span class="p">$</span> grove list
-<span class="m">#  NAME      BRANCH                PATH                      PORT  NOTE            STATUS</span>
-1  main      main                  /home/dev/myapp           -     -               <span class="ok">✓ clean</span>
-2  auth      feature/auth          /home/dev/myapp-auth      3487  -               <span class="ok">✓ clean</span>
-3  payments  feature/payments      /home/dev/myapp-payments  3612  waiting for QA  <span class="warn">2 modified</span>
-4  pr-42     fix/sidebar-overflow  /home/dev/myapp-pr-42     3721  -               <span class="ok">✓ clean</span></pre>
-
-<pre data-demo-panel="analyze" class="tw-body"><span class="p">$</span> grove analyze
+<pre class="tp" data-p="list"><span class="p">$</span> grove list
+<span class="m">#  NAME      BRANCH                PORT  NOTE            STATUS</span>
+1  main      main                  -     -               <span class="ok">✓ clean</span>
+2  auth      feature/auth          3487  -               <span class="ok">✓ clean</span>
+3  payments  feature/payments      3612  waiting for QA  <span class="w">2 modified</span>
+4  pr-42     fix/sidebar-overflow  3721  -               <span class="ok">✓ clean</span></pre>
+<pre class="tp" data-p="analyze"><span class="p">$</span> grove analyze
 <span class="m">Project: /home/dev/myapp</span>
 
 Suggested additions:
   <span class="ok">+</span> symlink <span class="s">"node_modules"</span>
-      <span class="m">reason: package.json + existing node_modules; symlink to skip reinstall per worktree</span>
+      <span class="m">reason: package.json + existing node_modules</span>
   <span class="ok">+</span> copyDir <span class="s">".next/cache"</span>
-      <span class="m">reason: Next.js config detected; copy .next/cache for faster first build in worktree</span>
+      <span class="m">reason: Next.js config detected</span>
   <span class="ok">+</span> afterDetachedCreate <span class="s">"yarn install"</span>
-      <span class="m">reason: package.json packageManager=yarn (declared field overrides lockfile detection) (routed to afterDetachedCreate because node_modules is symlinked; runs only with `grove create --detach`)</span>
+      <span class="m">reason: packageManager=yarn</span>
 
-<span class="m">Apply with: grove analyze --apply  (add --clean to remove stale entries too)</span></pre>
-
-<pre data-demo-panel="review" class="tw-body"><span class="p">$</span> grove review <span class="n">42</span>
-Fetching PR #42...
+Apply with: grove analyze --apply</pre>
+<pre class="tp" data-p="review"><span class="p">$</span> grove review <span class="n">42</span>
+<span class="m">Fetching PR #42...</span>
   #42: Fix sidebar overflow
   <span class="ok">✓</span> branch fetched
-<span class="m">Creating worktree for branch "fix/sidebar-overflow" at /home/dev/myapp-pr-42</span>
   <span class="ok">✓</span> git worktree created
   <span class="ok">✓</span> copied 2 <span class="s">.env</span> file(s)
   <span class="ok">✓</span> symlinked <span class="s">node_modules</span>
 
-Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>).
-  cd $(grove cd pr-42)</pre>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- meta strip -->
-  <div class="container">
-    <div class="meta-strip">
-      <div><span class="ms-k">binary</span><span class="ms-v">~6 MB</span></div>
-      <div><span class="ms-k">runtime deps</span><span class="ms-v">just <code>git</code></span></div>
-      <div><span class="ms-k">platforms</span><span class="ms-v">darwin · linux</span></div>
-      <div><span class="ms-k">arch</span><span class="ms-v">amd64 · arm64</span></div>
-      <div><span class="ms-k">language</span><span class="ms-v">Go</span></div>
-      <div><span class="ms-k">license</span><span class="ms-v">MIT</span></div>
-    </div>
-  </div>
+Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>).</pre>
+</div>
+</div>
+</div>
+<div class="meta">
+<div><span class="k">binary</span><span class="v">~6 MB</span></div>
+<div><span class="k">runtime deps</span><span class="v">just git</span></div>
+<div><span class="k">platforms</span><span class="v">darwin · linux</span></div>
+<div><span class="k">arch</span><span class="v">amd64 · arm64</span></div>
+<div><span class="k">language</span><span class="v">Go</span></div>
+<div><span class="k">license</span><span class="v">MIT</span></div>
+</div>
+</div>
 </section>
 
-<!-- ================= PROBLEM ================= -->
-<section class="problem">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">— 01 · the problem</span>
-      <h2 class="section-title">The part nobody ships.</h2>
-      <p class="section-sub">Worktrees are <em>almost</em> perfect for parallel branches. Almost.</p>
-    </div>
-
-    <div class="ba-grid">
-      <div class="ba-col ba-before">
-        <div class="ba-head">
-          <span class="ba-tag">plain <code>git worktree add</code></span>
-        </div>
-        <ul class="ba-list">
-          <li><span class="ba-x">✕</span> <code>.env</code> files missing</li>
-          <li><span class="ba-x">✕</span> no <code>node_modules</code>, full reinstall</li>
-          <li><span class="ba-x">✕</span> cold build cache</li>
-          <li><span class="ba-x">✕</span> port 3000 collision</li>
-          <li><span class="ba-x">✕</span> setup script not run</li>
-          <li><span class="ba-x">✕</span> orphans when you forget</li>
-        </ul>
-      </div>
-      <div class="ba-arrow" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-          <path d="M10 24 H38"/><path d="M30 16 L38 24 L30 32"/>
-        </svg>
-      </div>
-      <div class="ba-col ba-after">
-        <div class="ba-head">
-          <span class="ba-tag ok">with <code>grove create</code></span>
-        </div>
-        <ul class="ba-list">
-          <li><span class="ba-ok">✓</span> <code>.env*</code> copied recursively</li>
-          <li><span class="ba-ok">✓</span> <code>node_modules</code> symlinked</li>
-          <li><span class="ba-ok">✓</span> <code>.next</code>/<code>dist</code> warm-copied</li>
-          <li><span class="ba-ok">✓</span> stable port from alias hash</li>
-          <li><span class="ba-ok">✓</span> <code>afterCreate</code> hook runs</li>
-          <li><span class="ba-ok">✓</span> state updates locked + atomic in <code>.grove/state.json</code></li>
-        </ul>
-      </div>
-    </div>
-  </div>
+<section class="sec">
+<div class="wrap">
+<div class="sec-head rv"><span class="kick">01 · the problem</span><h2>The part nobody ships.</h2><p class="sub">Worktrees are <em>almost</em> perfect for parallel branches. Almost.</p></div>
+<div class="ba rv">
+<div class="ba-col"><span class="ba-tag">plain git worktree add</span><ul><li><span class="x">✕</span><span><code>.env</code> files missing</span></li><li><span class="x">✕</span><span>no <code>node_modules</code>, full reinstall</span></li><li><span class="x">✕</span><span>cold build cache</span></li><li><span class="x">✕</span><span>port 3000 collision</span></li><li><span class="x">✕</span><span>setup script not run</span></li><li><span class="x">✕</span><span>orphans when you forget</span></li></ul></div>
+<div class="ba-arrow" aria-hidden="true"><svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 24 H38"></path><path d="M30 16 L38 24 L30 32"></path></svg></div>
+<div class="ba-col after"><span class="ba-tag">with grove create</span><ul><li><span class="y">✓</span><span><code>.env*</code> copied recursively</span></li><li><span class="y">✓</span><span><code>node_modules</code> symlinked</span></li><li><span class="y">✓</span><span><code>.next</code> / <code>dist</code> warm-copied</span></li><li><span class="y">✓</span><span>stable port from alias hash</span></li><li><span class="y">✓</span><span><code>afterCreate</code> hook runs</span></li><li><span class="y">✓</span><span>state locked + atomic in <code>.grove/state.json</code></span></li></ul></div>
+</div>
+</div>
 </section>
 
-<!-- ================= FEATURES ================= -->
-<section id="features" class="features">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">— 02 · features</span>
-      <h2 class="section-title">Everything <code>git worktree add</code> should've done.</h2>
-      <p class="section-sub">Each one small. Together they turn "possible" into "default".</p>
-    </div>
+<section class="sec" id="features">
+<div class="wrap">
+<div class="sec-head rv"><span class="kick">02 · features</span><h2>Everything <code>git worktree add</code> should've done.</h2><p class="sub">Seventeen small behaviors, grouped by when they matter.</p></div>
+<div class="ftabs rv" role="tablist"><button class="ft on" data-f="setup">Setup <b>06</b></button><button class="ft" data-f="daily">Daily <b>06</b></button><button class="ft" data-f="safety">Safety <b>04</b></button><button class="ft" data-f="agents">Agents <b>01</b></button></div>
 
-    <div class="fgrid">
+<div class="fpanel on" data-fp="setup">
+<article class="card big"><div class="viz"><pre>myapp/
+├── main/          <span class="g">●</span> clean
+├── auth/          <span class="g">●</span> clean
+│   └── <span class="l">node_modules →</span>
+├── payments/      <span class="o">●</span> dirty
+│   └── <span class="l">node_modules →</span>
+└── review-42/     <span class="g">●</span> clean
+    └── <span class="l">node_modules →</span></pre></div>
+<div class="txt"><h3>Symlinked <code>node_modules</code></h3><p>No reinstall per worktree. Root-relative globs like <code>apps/*/node_modules</code> keep every workspace linked. <code>grove detach</code> breaks the links when branches diverge.</p></div></article>
+<article class="card"><h3>Auto <code>.env</code> copy</h3><p>Walks the project recursively and copies every <code>.env*</code>, preserving directory structure.</p></article>
+<article class="card"><h3>Build cache</h3><p>Copy <code>.next</code>, <code>dist</code>, or <code>packages/*/dist</code> for a warm start. <code>copyDirsOnDetach: false</code> keeps detached branches clean.</p></article>
+<article class="card"><h3><code>afterCreate</code> hooks</h3><p>One command or an array. Fail-fast, with <code>$GROVE_ALIAS/BRANCH/PORT/PATH</code> in scope.</p></article>
+<article class="card"><h3>Project detection</h3><p><code>grove analyze</code> spots package managers, Docker Compose, Vite, Next.js, Turbo, Go, Python, Ruby, Cargo, Gradle — and proposes config.</p></article>
+<article class="card"><h3>Templates</h3><p>Save any <code>.groverc.json</code> as a template. <code>grove init --template nextjs</code> in the next project.</p></article>
+</div>
 
-      <!-- spotlight 1 -->
-      <article class="fcard spotlight">
-        <div class="fcard-visual" aria-hidden="true">
-<pre>myapp/
-├── main/             <span class="vok">●</span> clean
-├── auth/             <span class="vok">●</span> clean
-│   └── <span class="vlk">node_modules →</span>
-├── payments/         <span class="vwn">●</span> dirty
-│   └── <span class="vlk">node_modules →</span>
-└── review-42/        <span class="vok">●</span> clean
-    └── <span class="vlk">node_modules →</span></pre>
-        </div>
-        <div class="fcard-copy">
-          <span class="fcard-num">01</span>
-          <h3>Symlinked <code>node_modules</code></h3>
-          <p>No reinstall per worktree. Root-relative glob patterns such as <code>apps/*/node_modules</code> keep every workspace linked automatically. <code>grove detach</code> breaks the links when branches diverge.</p>
-        </div>
-      </article>
+<div class="fpanel" data-fp="daily">
+<article class="card big"><div class="viz">
+<div class="prow"><span class="a">main</span><span class="d"></span><span class="q">:3000</span></div>
+<div class="prow"><span class="a">auth</span><span class="d"></span><span class="q">:3487</span></div>
+<div class="prow"><span class="a">payments</span><span class="d"></span><span class="q">:3612</span></div>
+<div class="prow"><span class="a">pr-42</span><span class="d"></span><span class="q">:3721</span></div></div>
+<div class="txt"><h3>Per-worktree ports</h3><p>Every worktree gets a stable port hashed from its alias — same alias, same port, every time. Exposed as <code>$GROVE_PORT</code> in your setup script.</p></div></article>
+<article class="card"><h3>PR review</h3><p><code>grove review 42</code> checks out a GitHub PR into a ready-to-run worktree via <code>gh</code>.</p></article>
+<article class="card"><h3>Interactive picker</h3><p><code>grove cd</code> with no args opens a fuzzy picker. Tab completion everywhere.</p></article>
+<article class="card"><h3>Worktree notes</h3><p><code>grove note auth "waiting for review"</code> keeps short context beside the worktree, shown in list and status.</p></article>
+<article class="card"><h3>Daily status</h3><p><code>grove status</code>: dirty trees, config drift, broken symlinks, port collisions, orphans, branch freshness. Read-only.</p></article>
+<article class="card"><h3>Config sync</h3><p>Changed <code>.groverc.json</code>? <code>grove sync</code> adds missing symlinks, envs and <code>copyDirs</code> to existing worktrees.</p></article>
+</div>
 
-      <!-- spotlight 2 -->
-      <article class="fcard spotlight">
-        <div class="fcard-visual port-visual" aria-hidden="true">
-          <div class="pv-row"><span class="pv-a">main</span><span class="pv-sep">────</span><span class="pv-p">:3000</span></div>
-          <div class="pv-row"><span class="pv-a">auth</span><span class="pv-sep">────</span><span class="pv-p">:3487</span></div>
-          <div class="pv-row"><span class="pv-a">payments</span><span class="pv-sep">────</span><span class="pv-p">:3612</span></div>
-          <div class="pv-row dim"><span class="pv-a">review-42</span><span class="pv-sep">────</span><span class="pv-p">:3721</span></div>
-          <div class="pv-note">stable · hashed from alias</div>
-        </div>
-        <div class="fcard-copy">
-          <span class="fcard-num">02</span>
-          <h3>Per-worktree ports</h3>
-          <p>Every worktree gets a stable port derived from its alias hash — same alias, same port, every time. Exposed as <code>$GROVE_PORT</code> in your setup script.</p>
-        </div>
-      </article>
+<div class="fpanel" data-fp="safety">
+<article class="card"><h3>Protected worktrees</h3><p><code>grove protect</code> keeps a worktree out of <code>remove</code>, <code>clean</code> and <code>prune</code> until you opt in.</p></article>
+<article class="card"><h3>Merged-branch cleanup</h3><p><code>grove prune</code> removes worktrees whose branches are merged — squash-merged PRs included.</p></article>
+<article class="card"><h3>Orphan handling</h3><p><code>grove adopt</code> registers outside worktrees. <code>grove doctor --fix</code> repairs only unambiguous issues.</p></article>
+<article class="card"><h3>Detached worktrees</h3><p><code>grove create --detach</code> skips symlinks and runs <code>afterDetachedCreate</code>. <code>sync --reattach</code> reverses it.</p></article>
+</div>
 
-      <article class="fcard">
-        <h3>Auto <code>.env</code> copy</h3>
-        <p>Walks the project recursively and copies every <code>.env*</code> to the new worktree, preserving directory structure.</p>
-      </article>
-      <article class="fcard">
-        <h3>Build cache (<code>copyDirs</code>)</h3>
-        <p>Copy <code>.next</code>, <code>dist</code>, or patterns such as <code>packages/*/dist</code> into new worktrees for a warm start. Set <code>copyDirsOnDetach</code> to <code>false</code> when detached branches need clean build artifacts.</p>
-      </article>
-      <article class="fcard">
-        <h3>PR review</h3>
-        <p><code>grove review 42</code> checks out a GitHub PR into a ready-to-run worktree via <code>gh</code>.</p>
-      </article>
-      <article class="fcard">
-        <h3><code>afterCreate</code> hooks</h3>
-        <p>One command or an array. Fail-fast, with <code>$GROVE_ALIAS/BRANCH/PORT/PATH</code> in scope.</p>
-      </article>
-      <article class="fcard">
-        <h3>Orphan handling</h3>
-        <p><code>grove adopt</code> registers outside worktrees. <code>grove doctor --fix</code> safely repairs only unambiguous local issues.</p>
-      </article>
-      <article class="fcard">
-        <h3>Merged-branch cleanup</h3>
-        <p><code>grove prune</code> removes managed worktrees whose branches are already merged, including squash-merged PRs.</p>
-      </article>
-      <article class="fcard">
-        <h3>Templates</h3>
-        <p>Save any <code>.groverc.json</code> as a reusable template. <code>grove init --template nextjs</code>.</p>
-      </article>
-      <article class="fcard">
-        <h3>Interactive picker</h3>
-        <p><code>grove cd</code> with no args opens a fuzzy picker. Tab completion everywhere.</p>
-      </article>
-      <article class="fcard">
-        <h3>Worktree notes</h3>
-        <p><code>grove note auth "waiting for review"</code> keeps short local context beside the worktree and shows it in list/status output.</p>
-      </article>
-      <article class="fcard">
-        <h3>Project detection</h3>
-        <p><code>grove analyze</code> scans for husky, package managers, Docker Compose, Vite/Remix/SvelteKit, Go, Python, Ruby, PHP, Cargo, Gradle, Next.js, Turbo, and Makefile setup targets — then proposes <code>.groverc.json</code> entries. Same detector runs inside <code>grove init</code> and <code>grove doctor</code>.</p>
-      </article>
-      <article class="fcard">
-        <h3>Detached worktrees</h3>
-        <p><code>grove create --detach</code> skips symlinks, can skip incompatible build artifacts with <code>copyDirsOnDetach</code>, and runs <code>afterDetachedCreate</code> for local setup. Later syncs preserve the visible mode; <code>sync --reattach</code> reverses it after local conflicts are resolved.</p>
-      </article>
-      <article class="fcard">
-        <h3>Daily status</h3>
-        <p><code>grove status</code> shows dirty worktrees, config drift, broken symlinks, port collisions, orphans, and how far each branch is ahead of or behind the local default branch. Read-only.</p>
-      </article>
-      <article class="fcard">
-        <h3>Config sync</h3>
-        <p>Changed <code>.groverc.json</code>? <code>grove sync</code> adds missing symlinks, <code>.env*</code> files, and <code>copyDirs</code> to an existing worktree. <code>--hooks</code> also reruns <code>afterCreate</code>.</p>
-      </article>
-      <article class="fcard">
-        <h3>Protected worktrees</h3>
-        <p><code>grove protect</code> keeps a worktree out of <code>remove</code>, <code>clean</code>, and <code>prune</code> until you pass <code>--include-protected</code> or run <code>grove unprotect</code>.</p>
-      </article>
-      <article class="fcard">
-        <h3>Agent skill</h3>
-        <p>Ships an embedded skill for agent CLIs. <code>grove skill install</code> autodetects Claude and Codex-style skill dirs so agents route worktree ops through Grove. <code>grove exec auth -- npm test</code> runs commands in a worktree without <code>cd</code>.</p>
-      </article>
-    </div>
-  </div>
+<div class="fpanel" data-fp="agents">
+<article class="card"><h3>Agent skill</h3><p>Ships an embedded skill. <code>grove skill install</code> detects Claude and Codex-style skill dirs, so agents route worktree ops through Grove. <a href="#agents">See it in action ↓</a></p></article>
+</div>
+</div>
 </section>
 
-<!-- ================= INSTALL ================= -->
-<section id="install" class="install">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">— 03 · install</span>
-      <h2 class="section-title">Three ways to plant it.</h2>
-      <p class="section-sub">Single static binary. darwin &amp; linux, amd64 &amp; arm64.</p>
-    </div>
-    <div class="install-grid">
-      <div class="install-card">
-        <div class="install-head">
-          <div>
-            <div class="install-label">macOS · Linux</div>
-            <h3>Homebrew</h3>
-          </div>
-          <span class="install-tag">recommended</span>
-        </div>
-        <pre class="mini-term" data-copyable><span class="p">$</span> brew install verbaux/tap/grove</pre>
-      </div>
-      <div class="install-card">
-        <div class="install-head">
-          <div>
-            <div class="install-label">any Go toolchain</div>
-            <h3><code>go install</code></h3>
-          </div>
-        </div>
-        <pre class="mini-term" data-copyable><span class="p">$</span> go install github.com/verbaux/grove@latest</pre>
-      </div>
-      <div class="install-card">
-        <div class="install-head">
-          <div>
-            <div class="install-label">prebuilt</div>
-            <h3>Binary release</h3>
-          </div>
-        </div>
-        <p class="install-prose">
-          <a href="https://github.com/verbaux/grove/releases" target="_blank" rel="noopener">GitHub Releases →</a><br>
-          <code>chmod +x</code>, drop in <code>$PATH</code>, done.
-        </p>
-      </div>
-    </div>
-  </div>
+<section class="sec" id="agents">
+<div class="wrap agent-grid">
+<div class="rv">
+<span class="kick">03 · agents</span><h2>Parallel agents, parallel worktrees.</h2>
+<p class="sub">Hand each agent its own branch. Grove gives it a working copy that actually boots, on its own port.</p>
+<ol class="steps">
+<li><span><strong>Install the skill</strong><code>grove skill install</code> finds Claude / Codex-style skill dirs.</span></li>
+<li><span><strong>Agents create worktrees</strong>Instead of raw <code>git worktree</code>, they call <code>grove create</code>, so envs and deps are always there.</span></li>
+<li><span><strong>Run without cd</strong><code>grove exec &lt;name&gt; -- &lt;cmd&gt;</code> runs tests in place, with <code>GROVE_PORT</code> set and exit codes passed through.</span></li>
+</ol>
+</div>
+<div class="chat rv">
+<div class="chat-bar"><span>agent session</span><span>~/myapp</span></div>
+<div class="chat-body">
+<div class="msg u">Fix the sidebar overflow in parallel — don't touch my auth branch.</div>
+<div class="msg a">I'll work in a separate worktree.</div>
+<div class="tool"><span class="p">$</span> grove create fix/sidebar --name sidebar
+<span class="m">  ✓ envs · symlinks · afterCreate  → port 3804</span></div>
+<div class="tool"><span class="p">$</span> grove exec sidebar -- npm test
+<span class="m">  ✓ 214 passed</span></div>
+<div class="msg a">Fixed and tested in <code>sidebar</code> on :3804. Your <code>auth</code> worktree is untouched.</div>
+</div>
+</div>
+</div>
 </section>
 
-<!-- ================= COMMANDS ================= -->
-<section id="commands" class="commands">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">— 04 · reference</span>
-      <h2 class="section-title">Commands.</h2>
-      <p class="section-sub">Grouped by when you'd reach for them.</p>
-    </div>
-
-    <div class="ref-group">
-      <div class="ref-label">
-        <span class="ref-idx">01</span>
-        <div><h4>Setup</h4><p>Once per project.</p></div>
-      </div>
-      <ul class="ref-list">
-        <li><code>grove init</code><span>Interactive wizard — creates <code>.groverc.json</code>, offers detected conventions as prompts</span></li>
-        <li><code>grove analyze</code><span>Scan project, suggest config additions; <code>--apply</code>, <code>--clean</code>, <code>--dry-run</code>, <code>--yes</code>, <code>--json</code></span></li>
-        <li><code>grove template</code><span>Save / list / show / apply / delete reusable configs</span></li>
-        <li><code>grove skill</code><span>Install, uninstall, or inspect the embedded agent skill in detected Claude / Codex-style skill dirs</span></li>
-        <li><code>grove shell-init</code><span>Completion + a <code>gcd</code> helper to <code>eval</code> from your shell rc</span></li>
-        <li><code>grove completion</code><span>Shell completion for zsh, bash, fish, powershell</span></li>
-      </ul>
-    </div>
-
-    <div class="ref-group">
-      <div class="ref-label">
-        <span class="ref-idx">02</span>
-        <div><h4>Daily</h4><p>The ones you'll alias.</p></div>
-      </div>
-      <ul class="ref-list">
-        <li><code>grove create &lt;branch&gt;</code><span>Create worktree + setup; <code>--name</code>, <code>--from</code>, <code>--detach</code></span></li>
-        <li><code>grove cd [name|index]</code><span>Print path to cd into; fuzzy picker without args</span></li>
-        <li><code>grove open [name|index]</code><span>Open a worktree in your editor; <code>editor</code> config / <code>$EDITOR</code> / <code>--editor</code></span></li>
-        <li><code>grove exec &lt;name|index&gt; -- &lt;cmd&gt;</code><span>Run a command in a worktree with <code>GROVE_PORT</code> and friends set; exit code passes through</span></li>
-        <li><code>grove list</code><span>Table of worktrees with status, detached mode, port, note, and index; <code>--json</code>, <code>--plain</code></span></li>
-        <li><code>grove status</code><span>Read-only health view: dirty state, config drift, symlinks, ports, orphans, branch freshness; <code>--json</code></span></li>
-        <li><code>grove ps</code><span>Live running/stopped status for assigned worktree ports; <code>--json</code></span></li>
-        <li><code>grove review [pr]</code><span>List open PRs or check one out; <code>--name</code> sets the alias, <code>--json</code></span></li>
-        <li><code>grove rename &lt;name|index&gt; &lt;new-alias&gt;</code><span>Rename a managed worktree; moves standard paths and preserves the assigned port</span></li>
-        <li><code>grove note &lt;name|index&gt; [text]</code><span>Show or set a short local worktree note; <code>--clear</code> removes it</span></li>
-      </ul>
-    </div>
-
-    <div class="ref-group">
-      <div class="ref-label">
-        <span class="ref-idx">03</span>
-        <div><h4>Maintenance</h4><p>When things get messy.</p></div>
-      </div>
-      <ul class="ref-list">
-        <li><code>grove remove &lt;name|index&gt;</code><span>Remove a worktree safely; submodule data requires <code>--force</code>, <code>--delete-branch</code> deletes its local branch, <code>--include-protected</code> allows protected ones</span></li>
-        <li><code>grove clean</code><span>Remove managed worktrees + orphans without forcing submodule neighbors; <code>--force</code> is explicit, protected worktrees are skipped</span></li>
-        <li><code>grove prune</code><span>Remove merged worktrees safely; <code>--base</code>, <code>--dry-run</code>, <code>--yes</code>, <code>--delete-branch</code>, <code>--json</code>, explicit <code>--force</code></span></li>
-        <li><code>grove sync &lt;name|index&gt;</code><span>Apply current <code>.groverc.json</code> to an existing worktree; <code>--hooks</code>, <code>--reattach</code>, <code>--json</code></span></li>
-        <li><code>grove protect &lt;name|index&gt;</code><span>Keep a worktree out of <code>remove</code>, <code>clean</code>, <code>prune</code>; <code>grove unprotect</code> reverses it</span></li>
-        <li><code>grove adopt</code><span>Register an orphan worktree</span></li>
-        <li><code>grove detach</code><span>Remove symlinks; <code>--copy</code> preserves contents first</span></li>
-        <li><code>grove doctor</code><span>Diagnose config, state, symlinks, ports, deps; <code>--fix</code> safely repairs unambiguous local issues</span></li>
-      </ul>
-    </div>
-  </div>
+<section class="sec" id="install">
+<div class="wrap">
+<div class="sec-head rv"><span class="kick">04 · install</span><h2>Three ways to plant it.</h2><p class="sub">Single static binary. darwin &amp; linux, amd64 &amp; arm64.</p></div>
+<div class="icards rv">
+<div class="icard"><span class="lbl">macOS · Linux</span><h3>Homebrew <span class="tag">recommended</span></h3><pre class="mini"><span class="p">$ </span>brew install verbaux/tap/grove</pre></div>
+<div class="icard"><span class="lbl">any Go toolchain</span><h3>go install</h3><pre class="mini"><span class="p">$ </span>go install github.com/verbaux/grove@latest</pre></div>
+<div class="icard"><span class="lbl">prebuilt</span><h3>Binary release</h3><p><a href="https://github.com/verbaux/grove/releases" target="_blank" rel="noopener">GitHub Releases →</a><br><code>chmod +x</code>, drop in <code>$PATH</code>, done.</p></div>
+</div>
+</div>
 </section>
 
-<!-- ================= FINAL CTA ================= -->
-<section class="final">
-  <div class="container">
-    <div class="final-card">
-      <div class="final-glyph" aria-hidden="true">
-        <svg viewBox="0 0 120 120" width="120" height="120" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M60 20 V105"/>
-          <path d="M60 75 C67.5 67.5, 80 67.5, 80 40"/>
-          <path d="M60 80 C45 70, 20 70, 20 25"/>
-          <path d="M60 80 C75 70, 100 70, 100 25"/>
-          <circle cx="60" cy="20" r="6.5" fill="currentColor" stroke="none"/>
-          <circle cx="80" cy="40" r="6.5" fill="currentColor" stroke="none"/>
-          <circle cx="20" cy="25" r="6.5" fill="currentColor" stroke="none"/>
-          <circle cx="100" cy="25" r="6.5" fill="currentColor" stroke="none"/>
-        </svg>
-      </div>
-      <div class="final-copy">
-        <span class="kicker">— 05 · ship it</span>
-        <h2 class="section-title">Tend your branches.<br>Grove does the rest.</h2>
-        <p class="section-sub">Small Go binary. No runtime dependencies beyond <code>git</code>. MIT-licensed.</p>
-      </div>
-      <div class="final-cta">
-        <a class="btn primary" href="https://github.com/verbaux/grove" target="_blank" rel="noopener">View on GitHub</a>
-        <a class="btn ghost" href="https://github.com/verbaux/grove#readme" target="_blank" rel="noopener">Read the README</a>
-      </div>
-    </div>
-  </div>
+<section class="sec" id="commands">
+<div class="wrap">
+<div class="sec-head rv"><span class="kick">05 · reference</span><h2>Commands.</h2><p class="sub">Grouped by when you'd reach for them.</p></div>
+<details class="grp"><summary><span class="idx">01</span><h4>Setup<span>once per project</span></h4><span class="cnt">6 commands</span><span class="chev">+</span></summary>
+<ul class="rows">
+<li><code>grove init</code><span>Interactive wizard — creates <code>.groverc.json</code>, offers detected conventions</span></li>
+<li><code>grove analyze</code><span>Suggest config additions; <code>--apply</code> <code>--clean</code> <code>--dry-run</code> <code>--json</code></span></li>
+<li><code>grove template</code><span>Save / list / show / apply / delete reusable configs</span></li>
+<li><code>grove skill</code><span>Install, uninstall, or inspect the embedded agent skill</span></li>
+<li><code>grove shell-init</code><span>Completion + a <code>gcd</code> helper to <code>eval</code> from your shell rc</span></li>
+<li><code>grove completion</code><span>zsh, bash, fish, powershell</span></li>
+</ul></details>
+<details class="grp" open><summary><span class="idx">02</span><h4>Daily<span>the ones you'll alias</span></h4><span class="cnt">10 commands</span><span class="chev">+</span></summary>
+<ul class="rows">
+<li><code>grove create &lt;branch&gt;</code><span>Create worktree + setup; <code>--name</code> <code>--from</code> <code>--detach</code></span></li>
+<li><code>grove cd [name|index]</code><span>Print path to cd into; fuzzy picker without args</span></li>
+<li><code>grove open [name|index]</code><span>Open in your editor; <code>editor</code> config / <code>$EDITOR</code> / <code>--editor</code></span></li>
+<li><code>grove exec &lt;name&gt; -- &lt;cmd&gt;</code><span>Run a command in a worktree with <code>GROVE_PORT</code> set</span></li>
+<li><code>grove list</code><span>Status, detached mode, port, note, index; <code>--json</code> <code>--plain</code></span></li>
+<li><code>grove status</code><span>Read-only health: dirty state, drift, symlinks, ports, orphans, freshness</span></li>
+<li><code>grove ps</code><span>Live running/stopped status for assigned ports</span></li>
+<li><code>grove review [pr]</code><span>List open PRs or check one out; <code>--name</code> sets the alias</span></li>
+<li><code>grove rename &lt;name&gt; &lt;alias&gt;</code><span>Rename a worktree; preserves its port</span></li>
+<li><code>grove note &lt;name&gt; [text]</code><span>Show or set a short note; <code>--clear</code> removes it</span></li>
+</ul></details>
+<details class="grp"><summary><span class="idx">03</span><h4>Maintenance<span>when things get messy</span></h4><span class="cnt">8 commands</span><span class="chev">+</span></summary>
+<ul class="rows">
+<li><code>grove remove &lt;name&gt;</code><span>Remove safely; <code>--force</code> <code>--delete-branch</code> <code>--include-protected</code></span></li>
+<li><code>grove clean</code><span>Remove managed worktrees + orphans; protected ones skipped</span></li>
+<li><code>grove prune</code><span>Remove merged worktrees; <code>--base</code> <code>--dry-run</code> <code>--yes</code></span></li>
+<li><code>grove sync &lt;name&gt;</code><span>Apply current config to a worktree; <code>--hooks</code> <code>--reattach</code></span></li>
+<li><code>grove protect &lt;name&gt;</code><span>Keep out of remove/clean/prune; <code>grove unprotect</code> reverses</span></li>
+<li><code>grove adopt</code><span>Register an orphan worktree</span></li>
+<li><code>grove detach</code><span>Remove symlinks; <code>--copy</code> preserves contents first</span></li>
+<li><code>grove doctor</code><span>Diagnose config, state, symlinks, ports, deps; <code>--fix</code></span></li>
+</ul></details>
+</div>
 </section>
 
+<section class="sec">
+<div class="wrap">
+<div class="final-card rv">
+<svg class="final-glyph" viewBox="0 0 24 24" width="200" height="200" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" aria-hidden="true"><path d="M12 4 V21"></path><path d="M12 15 C13.5 13.5, 16 13.5, 16 8"></path><path d="M12 16 C9 14, 4 14, 4 5"></path><path d="M12 16 C15 14, 20 14, 20 5"></path><circle cx="12" cy="4" r="1.1" fill="currentColor" stroke="none"></circle><circle cx="16" cy="8" r="1.1" fill="currentColor" stroke="none"></circle><circle cx="4" cy="5" r="1.1" fill="currentColor" stroke="none"></circle><circle cx="20" cy="5" r="1.1" fill="currentColor" stroke="none"></circle></svg>
+<div><span class="kick">06 · ship it</span><h2>Tend your branches.<br>Grove does the rest.</h2><p class="sub">Small Go binary. No runtime dependencies beyond <code>git</code>. MIT-licensed.</p></div>
+<div class="cta"><a class="btn pri" href="https://github.com/verbaux/grove" target="_blank" rel="noopener">View on GitHub</a><a class="btn ghost" href="https://github.com/verbaux/grove#readme" target="_blank" rel="noopener">Read the README</a></div>
+</div>
+</div>
+</section>
 </main>
+<footer><div class="wrap"><span>grove · MIT</span><nav><a href="https://github.com/verbaux/grove">GitHub</a><a href="https://github.com/verbaux/grove/issues">Issues</a><a href="https://github.com/sponsors/verbaux">Sponsor</a></nav></div></footer>
 
-<footer>
-  <div class="container footer-inner">
-    <div class="footer-brand">
-      <span class="footer-mark">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-          <path d="M12 4 V21"/><path d="M12 15 C13.5 13.5, 16 13.5, 16 8"/><path d="M12 16 C9 14, 4 14, 4 5"/><path d="M12 16 C15 14, 20 14, 20 5"/>
-          <circle cx="12" cy="4" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="5" r="1.3" fill="currentColor" stroke="none"/><circle cx="20" cy="5" r="1.3" fill="currentColor" stroke="none"/>
-        </svg>
-      </span>
-      grove · MIT
-    </div>
-    <nav class="footer-links">
-      <a href="https://github.com/verbaux/grove">GitHub</a>
-      <a href="https://github.com/verbaux/grove/issues">Issues</a>
-      <a href="https://github.com/sponsors/verbaux">Sponsor</a>
-    </nav>
-  </div>
-</footer>
 
 <script>
-  // theme toggle (with View Transitions if supported)
-  (function(){
-    var btn = document.querySelector('[data-theme-toggle]');
-    if (!btn) return;
-    function flip(){
-      var cur = document.documentElement.getAttribute('data-theme') || 'dark';
-      var next = cur === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      try { localStorage.setItem('grove-theme', next); } catch(e){}
-    }
-    btn.addEventListener('click', function(){
-      if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        document.startViewTransition(flip);
-      } else {
-        flip();
-      }
-    });
-  })();
-
-  // terminal tabs
-  (function(){
-    var tabs = document.querySelectorAll('.tw-tab');
-    var panels = document.querySelectorAll('[data-demo-panel]');
-    tabs.forEach(function(tab){
-      tab.addEventListener('click', function(){
-        var key = tab.getAttribute('data-demo');
-        tabs.forEach(function(t){ t.classList.toggle('active', t === tab); });
-        panels.forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-demo-panel') === key); });
-      });
-    });
-  })();
-
-  // copy-to-clipboard on code blocks
-  (function(){
-    function textOf(el){
-      var clone = el.cloneNode(true);
-      clone.querySelectorAll('.p, .prompt').forEach(function(p){ p.remove(); });
-      return clone.textContent.trim().split('\n').map(function(l){ return l.replace(/^\s*\$\s*/, ''); }).join('\n');
-    }
-    document.querySelectorAll('[data-copyable], .tw-body, .mini-term').forEach(function(pre){
-      if (pre.parentElement && pre.parentElement.classList.contains('cc-wrap')) return;
-      var wrap = document.createElement('div');
-      wrap.className = 'cc-wrap';
-      pre.parentNode.insertBefore(wrap, pre);
-      wrap.appendChild(pre);
-      var btn = document.createElement('button');
-      btn.className = 'cc-btn';
-      btn.type = 'button';
-      btn.setAttribute('aria-label', 'Copy command');
-      btn.innerHTML = '<svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="10" height="10" rx="1.5"/><path d="M12 6 V4.5 A1.5 1.5 0 0 0 10.5 3 H5.5 A1.5 1.5 0 0 0 4 4.5 V11 A1.5 1.5 0 0 0 5.5 12.5 H6"/></svg><span>Copy</span>';
-      wrap.appendChild(btn);
-      btn.addEventListener('click', function(){
-        var text = textOf(pre);
-        if (navigator.clipboard) navigator.clipboard.writeText(text);
-        btn.classList.add('copied');
-        btn.querySelector('span').textContent = 'Copied';
-        setTimeout(function(){
-          btn.classList.remove('copied');
-          btn.querySelector('span').textContent = 'Copy';
-        }, 1400);
-      });
-    });
-  })();
-
-  // nav compact on scroll
-  (function(){
-    var nav = document.querySelector('[data-nav]');
-    if (!nav) return;
-    var last = 0;
-    window.addEventListener('scroll', function(){
-      var y = window.scrollY;
-      nav.classList.toggle('compact', y > 40);
-      last = y;
-    }, { passive: true });
-  })();
-
-  // auto-fetch latest version from GitHub Releases
-  (function(){
-    var targets = document.querySelectorAll('[data-version]');
-    if (!targets.length) return;
-    try {
-      fetch('https://api.github.com/repos/verbaux/grove/releases/latest', { headers: { 'Accept': 'application/vnd.github+json' } })
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){
-          if (!d || !d.tag_name) return;
-          targets.forEach(function(el){ el.textContent = d.tag_name; });
-        })
-        .catch(function(){});
-    } catch(e) {}
-  })();
+(function(){var d=document.documentElement;
+function tab(btnSel,attr,panelSel,pattr){var bs=document.querySelectorAll(btnSel),ps=document.querySelectorAll(panelSel);bs.forEach(function(b){b.addEventListener('click',function(){var k=b.getAttribute(attr);bs.forEach(function(x){x.classList.toggle('on',x===b)});ps.forEach(function(p){p.classList.toggle('on',p.getAttribute(pattr)===k)})})})}
+tab('.tt','data-t','.tp','data-p');tab('.ft','data-f','.fpanel','data-fp');
+var tb=document.querySelector('[data-theme-toggle]');function flip(){var n=d.getAttribute('data-theme')==='dark'?'light':'dark';d.setAttribute('data-theme',n);try{localStorage.setItem('grove-theme',n)}catch(e){}}
+tb.addEventListener('click',function(){document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches?document.startViewTransition(flip):flip()});
+document.querySelectorAll('.tp,.mini').forEach(function(pre){var w=document.createElement('div');w.className='cc';pre.parentNode.insertBefore(w,pre);w.appendChild(pre);if(pre.classList.contains('tp')){w.className='cc tp-wrap'}var b=document.createElement('button');b.className='cc-btn';b.type='button';b.textContent='copy';w.appendChild(b);b.addEventListener('click',function(){var c=pre.cloneNode(true);c.querySelectorAll('.p').forEach(function(e){e.remove()});var t=c.textContent.split('\n')[0].trim();if(pre.classList.contains('mini'))t=c.textContent.trim();navigator.clipboard&&navigator.clipboard.writeText(t);b.textContent='copied';b.classList.add('done');setTimeout(function(){b.textContent='copy';b.classList.remove('done')},1400)})});
+var nav=document.querySelector('[data-nav]');addEventListener('scroll',function(){nav.classList.toggle('compact',scrollY>40)},{passive:true});
+if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -60px 0px'});document.querySelectorAll('.rv').forEach(function(el){io.observe(el)})}else{document.querySelectorAll('.rv').forEach(function(el){el.classList.add('in')})}
+})();
 </script>
-
 </body>
 </html>

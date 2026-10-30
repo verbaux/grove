@@ -1,0 +1,34 @@
+:root{--mono:"JetBrains Mono",ui-monospace,Menlo,monospace;--body:var(--mono);--r:0px}
+:root[data-theme="dark"]{--bg:#0c0d0b;--ink:#e8e6df;--ink-2:#b3b1a8;--ink-3:#7c7a72;--rule:#26271f;--rule-2:#3a3b32;--surface:transparent;--surface-2:#121310;--accent:#9be08f;--on-accent:#0c0d0b;--ok:#9be08f;--warn:#e8b65a;--bad:#e9786a;--str:#d9c98a;--num:#e8b65a;--term-bg:#0f100d;--term-bar:#0c0d0b;--term-ink:#e8e6df;--term-dim:#7c7a72}
+:root[data-theme="light"]{--bg:#f2efe6;--ink:#1b1c18;--ink-2:#45463f;--ink-3:#77766d;--rule:#d9d5c8;--rule-2:#b9b5a6;--surface:transparent;--surface-2:#ebe7dc;--accent:#2f7a3c;--on-accent:#f2efe6;--ok:#2f7a3c;--warn:#9a5d12;--bad:#b23b2c;--str:#6b5a12;--num:#9a5d12;--term-bg:#ebe7dc;--term-bar:#e4e0d4;--term-ink:#1b1c18;--term-dim:#77766d}
+body{font-size:15px;line-height:1.65}
+h1{font-size:clamp(2.1rem,4.4vw,3.3rem);font-weight:700;line-height:1.08;letter-spacing:-.04em}
+h2{font-size:clamp(1.6rem,3vw,2.3rem);font-weight:700;letter-spacing:-.035em;line-height:1.15}
+h3{font-weight:700;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--bg);background:var(--accent);padding:0 .15em}
+em{font-style:normal;color:var(--accent)}
+code{font-size:1em;color:var(--ink)}
+.kick{color:var(--accent);letter-spacing:.08em}.kick::before{content:"§ "}
+.eyebrow{border:1px solid var(--rule-2);padding:4px 10px}
+.btn.pri::before{content:"["}.btn.pri::after{content:"]"}
+.btn{font-weight:700}
+.btn.ghost{border-style:dashed}
+.meta{border-radius:0;border-style:solid none}
+.meta div{border-right-style:dashed}
+.ba-col,.card,.icard{border-style:dashed}
+.ba-col.after{border-style:solid}
+.card:hover{border-style:solid;border-color:var(--accent)}
+.card h3::before{content:"> ";color:var(--accent)}
+.card.big h3::before{content:""}
+.card.big{border-style:solid}
+.ft{font-size:.84rem}.ft.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ft.on::before{content:"▸"}
+.sec{border-top-style:dashed}
+.sec-head h2::after{content:"";display:block;width:48px;height:3px;background:var(--accent);margin-top:18px}
+.grp h4{font-size:1rem}.grp .chev{font-weight:700;color:var(--accent)}
+.rows{border-style:dashed}.rows li{border-top-style:dashed}
+.msg.u{background:var(--accent);color:var(--on-accent)}
+.chat{border-style:solid}
+.final-card{border-style:double;border-width:3px}
+.steps li::before{content:"[" counter(s) "]"}
+.hero{background:radial-gradient(circle at 1px 1px,var(--rule) 1px,transparent 0) 0 0/22px 22px}
