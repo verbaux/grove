@@ -21,6 +21,7 @@ Worktree path formula: ` + "`<worktreeDir>/<prefix>-<alias>/`" + `.
 - ` + "`grove detach`" + ` — run inside a worktree to remove shared symlinks; ` + "`--copy`" + ` copies their contents first
 - ` + "`grove doctor --json`" + ` — diagnostics; ` + "`--fix`" + ` repairs only safe, unambiguous issues
 - ` + "`grove remove <alias>`" + ` — remove worktree; ` + "`--delete-branch`" + ` also deletes a merged branch
+- ` + "`grove protect <alias>`" + ` / ` + "`grove unprotect <alias>`" + ` — keep a worktree out of remove, clean, and prune
 - ` + "`grove prune --dry-run --json`" + ` — preview merged worktrees that prune would remove
 
 ### Rules
