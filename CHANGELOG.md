@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-30
+
 ### Added
 
 - `grove exec <name|index> -- <command>` runs a command in a worktree with `GROVE_PATH`, `GROVE_BRANCH`, `GROVE_ALIAS`, and `GROVE_PORT` set, passing its exit code through; useful for scripts and AI agents whose shell calls don't keep `cd`

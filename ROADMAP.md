@@ -4,10 +4,12 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.11.1`. This patch release fixes install-hook routing in setup suggestions, stale-worktree handling in `clean` and `prune`, `.env*` copying for roots named like skipped directories, and several smaller command, detection, and display bugs.
+Latest published tag: `v0.12.0`. This release makes Grove easier for AI agents and scripts: `grove exec` runs commands inside a worktree, `grove review --json` returns the created worktree, the picker fails fast without a terminal, and `grove doctor --fix` repairs worktree paths that older versions stored through a symlink.
 
 ## Recently shipped
 
+- **Agent-friendly commands.** `grove exec` runs a command in a worktree with `GROVE_*` variables set, `grove review --json` adds machine-readable PR checkout, the picker exits with a hint when there is no terminal, and the AGENTS.md section from `grove init` lists the current commands.
+- **Path and init fixes.** New worktrees behind symlinked paths are tracked instead of showing as orphans, `grove doctor --fix` rewrites such paths saved earlier, and `grove init` no longer pre-fills `node_modules` for non-Node projects.
 - **Bug-fix sweep.** Install suggestions no longer target symlinked dependencies, stale worktrees no longer block `clean` and `prune`, `adopt` and `detach` resolve paths reliably, port ranges stay within 65535, and shell `gcd` helpers stay put on cancel.
 - **Branch cleanup on removal.** `grove remove --delete-branch` safely deletes merged branches (`--force` for unmerged); `grove prune --delete-branch` deletes branches of the merged worktrees it removes.
 - **Correct worktree setup.** `copyDirs` handle symlinks, copies keep file permissions, remote-only branches are checked out with upstream tracking, and failed creates delete the branch they made.
