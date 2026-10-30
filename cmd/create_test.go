@@ -103,6 +103,44 @@ func TestCreateStoresConfigHash(t *testing.T) {
 	}
 }
 
+func TestCreateFromSymlinkedRootWithMissingWorktreeDirIsTracked(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{
+		WorktreeDir: "wts",
+		Prefix:      "p",
+		Symlink:     []string{},
+	})
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(dir, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(link); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PWD", link)
+
+	createName = ""
+	createFrom = ""
+	createDetach = false
+	createJSON = false
+	if err := runCreate(createCmd, []string{"feature/first"}); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := buildWorktreeRows(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		if r.Branch == "feature/first" {
+			if r.Name != "first" {
+				t.Fatalf("first worktree in a new worktreeDir shown as %q, want tracked alias", r.Name)
+			}
+			return
+		}
+	}
+	t.Fatal("feature/first worktree missing from list")
+}
+
 // setupIntegrationRepo creates a real git repo with a .groverc.json and
 // changes cwd into it. Returns the repo directory and a cleanup function.
 func setupIntegrationRepo(t *testing.T, cfg config.Config) string {

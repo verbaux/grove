@@ -419,14 +419,7 @@ func normalizeWorktreePath(path string) string {
 	if err != nil {
 		return filepath.Clean(path)
 	}
-	absPath = filepath.Clean(absPath)
-	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
-		return resolved
-	}
-	if resolvedParent, err := filepath.EvalSymlinks(filepath.Dir(absPath)); err == nil {
-		return filepath.Join(resolvedParent, filepath.Base(absPath))
-	}
-	return absPath
+	return resolveExistingAncestor(filepath.Clean(absPath))
 }
 
 // rowToResolved builds a resolvedWorktree from a list row, marking state membership.

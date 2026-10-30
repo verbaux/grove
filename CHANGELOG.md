@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- The first worktree created in a not-yet-existing `worktreeDir` behind a symlinked path (such as macOS `/tmp` or `/var`) is now tracked instead of showing up as an orphan `?`
+
 ## [0.11.1] — 2026-10-28
 
 ### Fixed

@@ -339,10 +339,24 @@ func configuredWorktreePath(root string, cfg config.Config, alias string) (strin
 	if err != nil {
 		return "", err
 	}
-	if resolved, err := filepath.EvalSymlinks(filepath.Dir(path)); err == nil {
-		path = filepath.Join(resolved, filepath.Base(path))
+	return resolveExistingAncestor(path), nil
+}
+
+// resolveExistingAncestor resolves symlinks in the deepest existing ancestor of
+// an absolute path, so not-yet-created paths match what git reports later.
+// ponytail: state entries saved unresolved before this fix stay as orphans;
+// add a doctor --fix rewrite if users hit it.
+func resolveExistingAncestor(path string) string {
+	rest := ""
+	for dir := path; ; dir = filepath.Dir(dir) {
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			return filepath.Join(resolved, rest)
+		}
+		if filepath.Dir(dir) == dir {
+			return path
+		}
+		rest = filepath.Join(filepath.Base(dir), rest)
 	}
-	return path, nil
 }
 
 // branchAlias returns the last segment of a branch name.
