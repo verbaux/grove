@@ -14,7 +14,7 @@
 
 ### Fixed
 
-- The first worktree created in a not-yet-existing `worktreeDir` behind a symlinked path (such as macOS `/tmp` or `/var`) is now tracked instead of showing up as an orphan `?`
+- The first worktree created in a not-yet-existing `worktreeDir` behind a symlinked path (such as macOS `/tmp` or `/var`) is now tracked instead of showing up as an orphan `?`. `grove doctor` warns about worktrees already saved that way, and `grove doctor --fix` rewrites their state path to the one git reports
 - `grove cd` and `grove open` without arguments exit with a hint to pass an alias or index when stdin is not a terminal, instead of failing to open `/dev/tty` or waiting for input
 
 ## [0.11.1] — 2026-10-28

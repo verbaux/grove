@@ -529,6 +529,7 @@ Checks:
 - `.groverc.json` is valid and `portRange` is sane
 - every worktree path in `.grove/state.json` exists on disk
 - no orphan worktrees (git knows about them, grove doesn't)
+- tracked paths match the path git reports (older versions could store a symlinked spelling, such as `/var` instead of `/private/var` on macOS)
 - tracked worktrees were created with the current `.groverc.json` setup
 - configured symlinks in each worktree point to real targets
 - no port collisions in state
@@ -549,7 +550,7 @@ grove doctor --fix
 grove doctor --fix --json
 ```
 
-`--fix` runs without prompts. It removes stale state entries after rechecking them under the state lock, repairs an existing broken configured symlink only when its canonical target exists in the main worktree, and adopts an orphan only when its branch-derived alias is valid, available, and unique among current orphans. Ambiguous or changed cases are skipped and remain visible in the final diagnostics.
+`--fix` runs without prompts. It removes stale state entries after rechecking them under the state lock, rewrites a tracked path to git's path when both point to the same worktree on the same branch and no other entry claims it, repairs an existing broken configured symlink only when its canonical target exists in the main worktree, and adopts an orphan only when its branch-derived alias is valid, available, and unique among current orphans. Ambiguous or changed cases are skipped and remain visible in the final diagnostics.
 
 Repair mode never removes a worktree, overwrites a real destination, changes `.groverc.json`, runs lifecycle hooks, or rewrites port assignments. It reruns diagnostics after all attempted repairs, so the exit code reflects the final state; a failed repair is also reported as an error.
 

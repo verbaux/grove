@@ -137,6 +137,16 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			if wtErr != nil {
 				diags = append(diags, diagnostic{levelError, fmt.Sprintf("git worktree list after fixes: %v", wtErr)})
 			} else {
+				pathFixes, repairDiags := fixStatePaths(root, s, worktrees)
+				fixes = append(fixes, pathFixes...)
+				diags = append(diags, repairDiags...)
+				if len(pathFixes) > 0 {
+					if s, err = state.Load(root); err != nil {
+						diags = append(diags, diagnostic{levelError, fmt.Sprintf("state after path fixes: %v", err)})
+						return printDoctorOutcome(diags, fixes, err)
+					}
+				}
+
 				orphanFixes, orphanDiags := fixOrphanWorktrees(root, cfg, s, worktrees)
 				fixes = append(fixes, orphanFixes...)
 				diags = append(diags, orphanDiags...)
@@ -441,6 +451,11 @@ func diagOrphans(s state.State, worktrees []git.Worktree) []diagnostic {
 		tracked[e.Path] = true
 	}
 	var out []diagnostic
+	repairs := nonCanonicalStatePaths(s, worktrees)
+	for _, alias := range slices.Sorted(maps.Keys(repairs)) {
+		tracked[repairs[alias]] = true
+		out = append(out, diagnostic{levelWarn, fmt.Sprintf("state path for %q is %s but git reports %s — run 'grove doctor --fix'", alias, s.Worktrees[alias].Path, repairs[alias])})
+	}
 	for _, wt := range worktrees {
 		if wt.IsMain {
 			continue

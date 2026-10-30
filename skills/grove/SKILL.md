@@ -166,7 +166,7 @@ grove doctor --fix    # repair safe, unambiguous issues, then diagnose again
 
 Exits non-zero on errors. Run before manual git-worktree surgery. Also warns on config drift (tracked worktrees created with an older or unknown `.groverc.json` setup), stale `symlink` / `copyDirs` entries (target missing in main repo), and detected project conventions that the config does not yet cover (husky, package managers, direnv, mise, Python, Cargo, Gradle, Next.js, Turbo).
 
-Without `--fix`, doctor is read-only. Repair mode runs without prompts: it revalidates and removes stale state entries, repairs an existing broken configured symlink only when the main-worktree target exists, and adopts only orphans with a valid, free, unique branch-derived alias. It skips ambiguous cases, never deletes a worktree or runs hooks, and reruns diagnostics afterward. Combine `--fix --json` for a machine-readable `fixes` audit trail.
+Without `--fix`, doctor is read-only. Repair mode runs without prompts: it revalidates and removes stale state entries, rewrites a tracked path to the path git reports when both name the same worktree and branch (older versions could store a symlinked spelling that made the worktree look like an orphan), repairs an existing broken configured symlink only when the main-worktree target exists, and adopts only orphans with a valid, free, unique branch-derived alias. It skips ambiguous cases, never deletes a worktree or runs hooks, and reruns diagnostics afterward. Combine `--fix --json` for a machine-readable `fixes` audit trail.
 
 Use JSON output when another tool needs to parse diagnostics.
 

@@ -405,6 +405,103 @@ func TestDoctorFixDoesNotReadoptPrunableStaleWorktree(t *testing.T) {
 	}
 }
 
+func TestDoctorFixRewritesSymlinkedStatePath(t *testing.T) {
+	root := setupIntegrationRepo(t, baseConfig())
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(parent, "wt")
+	if _, err := git.AddWorktree(path, "feature/linked", ""); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(parent, link); err != nil {
+		t.Fatal(err)
+	}
+	// State written before the symlink fix stored the unresolved path.
+	if err := state.Save(root, state.State{Worktrees: map[string]state.WorktreeEntry{
+		"linked": {Branch: "feature/linked", Path: filepath.Join(link, "wt"), Port: 3005},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	doctorJSON = true
+	t.Cleanup(func() {
+		doctorJSON = false
+		doctorFixMode = false
+	})
+	out, _ := captureStdout(t, func() error { return runDoctor(doctorCmd, nil) })
+	var before doctorJSONResult
+	if err := json.Unmarshal([]byte(out), &before); err != nil {
+		t.Fatalf("doctor output is not JSON: %v\n%s", err, out)
+	}
+	var mismatch, orphan bool
+	for _, d := range before.Diagnostics {
+		mismatch = mismatch || strings.Contains(d.Message, "state path for \"linked\"")
+		orphan = orphan || strings.Contains(d.Message, "orphan worktree")
+	}
+	if !mismatch || orphan {
+		t.Fatalf("want path mismatch warning and no orphan warning, got %+v", before.Diagnostics)
+	}
+
+	doctorFixMode = true
+	out, err = captureStdout(t, func() error { return runDoctor(doctorCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result doctorJSONResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("doctor output is not JSON: %v\n%s", err, out)
+	}
+	if len(result.Fixes) != 1 || result.Fixes[0].Action != "repair-state-path" || result.Fixes[0].Status != "fixed" {
+		t.Fatalf("fixes = %+v, want one fixed repair-state-path", result.Fixes)
+	}
+	loaded, err := state.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := loaded.Worktrees["linked"]; got.Path != path || got.Port != 3005 {
+		t.Fatalf("entry after fix = %+v, want path %s and port kept", got, path)
+	}
+}
+
+func TestNonCanonicalStatePathsSkipsAmbiguousEntries(t *testing.T) {
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"a", "b", "c", "d"} {
+		if err := os.Mkdir(filepath.Join(parent, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(parent, link); err != nil {
+		t.Fatal(err)
+	}
+	worktrees := []git.Worktree{
+		{Path: filepath.Join(parent, "a"), Branch: "feature/a"},
+		{Path: filepath.Join(parent, "b"), Branch: "feature/b"},
+		{Path: filepath.Join(parent, "c"), Branch: "feature/c"},
+		{Path: filepath.Join(parent, "d"), Branch: "feature/d"},
+	}
+	s := state.State{Worktrees: map[string]state.WorktreeEntry{
+		"ok":      {Branch: "feature/a", Path: filepath.Join(link, "a")},
+		"wrong":   {Branch: "feature/other", Path: filepath.Join(link, "c")},
+		"dup-one": {Branch: "feature/b", Path: filepath.Join(link, "b")},
+		"dup-two": {Branch: "feature/b", Path: filepath.Join(link, ".", "b") + "/"},
+		"owner":   {Branch: "feature/d", Path: filepath.Join(parent, "d")},
+		"shadow":  {Branch: "feature/d", Path: filepath.Join(link, "d")},
+	}}
+
+	got := nonCanonicalStatePaths(s, worktrees)
+	want := map[string]string{"ok": filepath.Join(parent, "a")}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("repairs = %v, want %v", got, want)
+	}
+}
+
 func TestDiagStatePathsAllExist(t *testing.T) {
 	dir := t.TempDir()
 	s := state.State{Worktrees: map[string]state.WorktreeEntry{

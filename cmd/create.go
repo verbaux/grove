@@ -344,8 +344,7 @@ func configuredWorktreePath(root string, cfg config.Config, alias string) (strin
 
 // resolveExistingAncestor resolves symlinks in the deepest existing ancestor of
 // an absolute path, so not-yet-created paths match what git reports later.
-// ponytail: state entries saved unresolved before this fix stay as orphans;
-// add a doctor --fix rewrite if users hit it.
+// grove doctor --fix rewrites entries saved before this resolution existed.
 func resolveExistingAncestor(path string) string {
 	rest := ""
 	for dir := path; ; dir = filepath.Dir(dir) {
