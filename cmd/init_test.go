@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bufio"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -25,6 +27,42 @@ func TestParsePortRange(t *testing.T) {
 		if got, err := parsePortRange(input); err == nil {
 			t.Errorf("parsePortRange(%q) = %+v, want error", input, got)
 		}
+	}
+}
+
+func TestInitDefaultsSkipNodeModulesOutsideNodeProjects(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/x\n\ngo 1.24\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	reader = bufio.NewReader(strings.NewReader("")) // EOF: accept every default
+	t.Cleanup(func() { reader = nil })
+	initTemplate = ""
+
+	if _, err := captureStdout(t, func() error { return runInit(initCmd, nil) }); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Symlink) != 0 {
+		t.Fatalf("Go project got symlink defaults %v, want none", cfg.Symlink)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, config.FileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "null") {
+		t.Fatalf(".groverc.json contains null:\n%s", data)
 	}
 }
 

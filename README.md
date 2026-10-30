@@ -72,20 +72,26 @@ Interactive wizard that creates `.groverc.json` in the project root.
 $ grove init
 Prefix for worktree directories [myapp]:
 Where to place worktrees [../]:
-Directories to symlink (comma-separated) [node_modules]:
+Directories to symlink (comma-separated, leave empty for none; detected ones are offered below) []:
 Directories to copy as build cache (comma-separated, leave empty for none) []:
 Port range for worktrees (format min-max) [3001-3999]:
-Command to run after creating worktree (leave empty for none) []: npm install
+Command to run after creating worktree (leave empty for none) []:
+
+Detected project conventions — accept any suggestions?
+  Add symlink "node_modules"? (package.json + existing node_modules; symlink to skip reinstall per worktree) [Y/n]:
+  Add afterDetachedCreate "npm install"? (package-lock.json present; ...) [Y/n]:
 
 Created .groverc.json
 
   Prefix:       myapp
   Worktree dir: ../
   Symlink:      node_modules
-  After create: npm install
+Create AGENTS.md with AI coding agent instructions? [Y/n]:
 
 Next: grove create <branch>
 ```
+
+Nothing is symlinked by default: `node_modules` is offered only when `package.json` and an installed `node_modules` exist, so Go, Python, or Rust projects don't get a dangling symlink entry.
 
 ---
 

@@ -9,6 +9,7 @@
 
 ### Changed
 
+- `grove init` no longer pre-fills `node_modules` as a symlink; it is offered through project detection only when `package.json` and `node_modules` exist, so non-Node projects (Go, Python, Rust) start without it. The schema default for `symlink` is now empty to match
 - The AGENTS.md section written by `grove init` covers the current commands: JSON output modes, `status`, `sync`, `ps`, `doctor`, `prune --dry-run`, remove hooks, and per-worktree ports
 
 ### Fixed

@@ -31,7 +31,7 @@
     "symlink": {
       "type": "array",
       "items": { "type": "string" },
-      "default": ["node_modules"],
+      "default": [],
       "description": "File/directory paths or Go glob patterns, relative to the project root, to symlink from the main worktree (e.g. node_modules, apps/*/node_modules). Escape glob metacharacters in literal names."
     },
     "copyDirs": {

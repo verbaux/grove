@@ -76,8 +76,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 	)
 
 	symlinkInput := prompt(
-		fmt.Sprintf("Directories to symlink (comma-separated) [%s]", strings.Join(cfg.Symlink, ",")),
-		strings.Join(cfg.Symlink, ","),
+		"Directories to symlink (comma-separated, leave empty for none; detected ones are offered below) []",
+		"",
 	)
 	cfg.Symlink = splitAndTrim(symlinkInput)
 
@@ -263,7 +263,7 @@ func parsePortRange(s string) (config.PortRange, error) {
 // "node_modules, .yarn" → ["node_modules", ".yarn"]
 func splitAndTrim(s string) []string {
 	parts := strings.Split(s, ",")
-	var result []string
+	result := []string{}
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
 		if p != "" {

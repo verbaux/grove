@@ -282,7 +282,7 @@ func Default() Config {
 	return Config{
 		WorktreeDir: "../",
 		Prefix:      "",
-		Symlink:     []string{"node_modules"},
+		Symlink:     []string{},
 	}
 }
 
