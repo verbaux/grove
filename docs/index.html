@@ -293,7 +293,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
       </article>
       <article class="fcard">
         <h3>Agent skill</h3>
-        <p>Ships an embedded skill for agent CLIs. <code>grove skill install</code> autodetects Claude and Codex-style skill dirs so agents route worktree ops through Grove.</p>
+        <p>Ships an embedded skill for agent CLIs. <code>grove skill install</code> autodetects Claude and Codex-style skill dirs so agents route worktree ops through Grove. <code>grove exec auth -- npm test</code> runs commands in a worktree without <code>cd</code>.</p>
       </article>
     </div>
   </div>
@@ -380,7 +380,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
         <li><code>grove list</code><span>Table of worktrees with status, detached mode, port, note, and index; <code>--json</code>, <code>--plain</code></span></li>
         <li><code>grove status</code><span>Read-only health view: dirty state, config drift, symlinks, ports, orphans, branch freshness; <code>--json</code></span></li>
         <li><code>grove ps</code><span>Live running/stopped status for assigned worktree ports; <code>--json</code></span></li>
-        <li><code>grove review [pr]</code><span>List open PRs or check one out; <code>--name</code> sets the alias</span></li>
+        <li><code>grove review [pr]</code><span>List open PRs or check one out; <code>--name</code> sets the alias, <code>--json</code></span></li>
         <li><code>grove rename &lt;name|index&gt; &lt;new-alias&gt;</code><span>Rename a managed worktree; moves standard paths and preserves the assigned port</span></li>
         <li><code>grove note &lt;name|index&gt; [text]</code><span>Show or set a short local worktree note; <code>--clear</code> removes it</span></li>
       </ul>
