@@ -57,7 +57,7 @@ cd $(grove cd my-branch)   # by alias
 cd $(grove cd 2)           # by index from grove list
 ```
 
-NEVER call `grove cd` without arguments from a shell tool — launches interactive picker that hangs.
+Always pass an alias or index from a shell tool. Without one, `grove cd` opens an interactive picker; when stdin is not a terminal it exits with an error instead.
 
 Combine `cd` with next command in single shell call — `cd` alone has no effect across separate shell invocations:
 

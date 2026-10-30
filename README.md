@@ -254,6 +254,8 @@ Without arguments, opens an interactive fuzzy picker:
 cd $(grove cd)
 ```
 
+When stdin is not a terminal (scripts, AI agents), `grove cd` and `grove open` without arguments exit with an error instead of waiting for input.
+
 Also accepts an index number from `grove list`:
 
 ```sh

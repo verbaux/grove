@@ -5,6 +5,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
 )
@@ -65,6 +66,10 @@ func runCd(cmd *cobra.Command, args []string) error {
 // pickWorktree shows the interactive fuzzy picker and returns the selected
 // worktree path. An empty path with nil error means the picker was cancelled.
 func pickWorktree(root string) (string, error) {
+	if !term.IsTerminal(os.Stdin.Fd()) {
+		return "", fmt.Errorf("no worktree given and stdin is not a terminal — pass an alias or index (see 'grove list --json')")
+	}
+
 	rows, err := buildWorktreeRows(root)
 	if err != nil {
 		return "", err
