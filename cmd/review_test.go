@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -43,6 +46,39 @@ func TestSyncReviewBranchFastForwardsStaleBranch(t *testing.T) {
 	}
 	if got := runGit("rev-parse", "feature/stale"); got != tip {
 		t.Errorf("feature/stale = %s, want %s", got, tip)
+	}
+}
+
+func TestReviewCheckoutJSON(t *testing.T) {
+	dir := setupIntegrationRepo(t, config.Config{WorktreeDir: "../", Prefix: "rv", Symlink: []string{}})
+	for _, args := range [][]string{{"branch", "feature/pr"}, {"remote", "add", "origin", dir}} {
+		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %s", args, out)
+		}
+	}
+	bin := t.TempDir()
+	gh := "#!/bin/sh\necho '{\"headRefName\":\"feature/pr\",\"number\":7,\"title\":\"T\",\"isCrossRepository\":false}'\n"
+	if err := os.WriteFile(filepath.Join(bin, "gh"), []byte(gh), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	reviewName, reviewJSON = "", true
+	t.Cleanup(func() { reviewJSON = false })
+
+	out, err := captureStdout(t, func() error { return runReviewCheckout("7") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Alias, Branch, Path string
+		PR                  int
+		Fork                bool
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("review --json stdout is not JSON: %v\n%s", err, out)
+	}
+	if result.Alias != "pr-7" || result.Branch != "feature/pr" || result.PR != 7 || result.Fork || result.Path == "" {
+		t.Fatalf("unexpected review JSON: %+v", result)
 	}
 }
 

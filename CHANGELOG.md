@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `grove review --json` prints open PRs as JSON; `grove review <number> --json` prints the created worktree (same fields as `grove create --json`) plus `pr` and `fork`, with progress on stderr
+
 ### Fixed
 
 - The first worktree created in a not-yet-existing `worktreeDir` behind a symlinked path (such as macOS `/tmp` or `/var`) is now tracked instead of showing up as an orphan `?`

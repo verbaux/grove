@@ -614,6 +614,10 @@ grove review 42
 
 # Custom alias (default: pr-42)
 grove review 42 --name hotfix
+
+# Machine-readable output: open PRs, or the created worktree plus "pr" and "fork"
+grove review --json
+grove review 42 --json
 ```
 
 Grove fetches the PR branch, creates the worktree, and runs the usual setup (`.env` copy, symlinks, `afterCreate`). Works with fork PRs too.

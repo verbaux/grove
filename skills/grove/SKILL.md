@@ -71,6 +71,8 @@ cd $(grove cd my-branch) && git status
 grove review                    # list open PRs
 grove review 42                 # checkout PR #42, alias: "pr-42"
 grove review 42 --name hotfix   # custom alias
+grove review 42 --json          # create result plus "pr" and "fork"; progress goes to stderr
+grove review --json             # open PRs as JSON
 ```
 
 Requires `gh` CLI. Fork PRs are checked out as local branch `pr-<N>`.

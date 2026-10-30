@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -16,11 +17,15 @@ import (
 	"github.com/verbaux/grove/internal/state"
 )
 
-var reviewName string
+var (
+	reviewName string
+	reviewJSON bool
+)
 
 func init() {
 	rootCmd.AddCommand(reviewCmd)
 	reviewCmd.Flags().StringVar(&reviewName, "name", "", "alias for the worktree (default: pr-<number>)")
+	reviewCmd.Flags().BoolVar(&reviewJSON, "json", false, "print the PR list or created worktree as JSON")
 }
 
 var reviewCmd = &cobra.Command{
@@ -107,11 +112,14 @@ func runReview(cmd *cobra.Command, args []string) error {
 }
 
 func runReviewList() error {
-	fmt.Println("Fetching open pull requests...")
+	fmt.Fprintln(reviewOut(), "Fetching open pull requests...")
 
 	items, err := fetchPRList()
 	if err != nil {
 		return err
+	}
+	if reviewJSON {
+		return printJSON(items)
 	}
 
 	if len(items) == 0 {
@@ -194,13 +202,14 @@ func runReviewCheckout(number string) error {
 		return fmt.Errorf("expected a PR number, got %q", number)
 	}
 
-	fmt.Printf("Fetching PR #%s...\n", number)
+	out := reviewOut()
+	fmt.Fprintf(out, "Fetching PR #%s...\n", number)
 
 	pr, err := fetchPRInfo(number)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("  #%d: %s\n", pr.Number, pr.Title)
+	fmt.Fprintf(out, "  #%d: %s\n", pr.Number, pr.Title)
 
 	branch := reviewBranch(pr)
 	from := ""
@@ -220,7 +229,7 @@ func runReviewCheckout(number string) error {
 			}
 		}
 	}
-	fmt.Println("  ✓ branch fetched")
+	fmt.Fprintln(out, "  ✓ branch fetched")
 
 	alias := reviewName
 	if alias == "" {
@@ -247,15 +256,31 @@ func runReviewCheckout(number string) error {
 		return err
 	}
 
-	if _, err := doCreate(root, cfg, &s, branch, alias, from, false, false); err != nil {
+	result, err := doCreate(root, cfg, &s, branch, alias, from, false, reviewJSON)
+	if err != nil {
 		return err
 	}
 
 	if pr.IsCrossRepository {
-		fmt.Printf("  Note: fork PR checked out as local branch %q — push requires adding the fork as a remote\n", branch)
+		fmt.Fprintf(out, "  Note: fork PR checked out as local branch %q — push requires adding the fork as a remote\n", branch)
 	}
 
+	if reviewJSON {
+		return printJSON(struct {
+			createResult
+			PR   int  `json:"pr"`
+			Fork bool `json:"fork"`
+		}{result, pr.Number, pr.IsCrossRepository})
+	}
 	return nil
+}
+
+// reviewOut keeps progress messages off stdout when --json owns it.
+func reviewOut() io.Writer {
+	if reviewJSON {
+		return os.Stderr
+	}
+	return os.Stdout
 }
 
 // reviewBranch returns the local branch a PR is checked out into. Fork PRs get
@@ -278,7 +303,7 @@ func syncReviewBranch(branch, remoteRef string) error {
 		return fmt.Errorf("updating local branch %q: %w", branch, err)
 	}
 	if updated {
-		fmt.Printf("  ✓ fast-forwarded local branch %q to %s\n", branch, remoteRef)
+		fmt.Fprintf(reviewOut(), "  ✓ fast-forwarded local branch %q to %s\n", branch, remoteRef)
 		return nil
 	}
 	_, behind, err := git.AheadBehind(branch, remoteRef)
