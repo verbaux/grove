@@ -4,6 +4,7 @@
 
 ### Added
 
+- `grove exec <name|index> -- <command>` runs a command in a worktree with `GROVE_PATH`, `GROVE_BRANCH`, `GROVE_ALIAS`, and `GROVE_PORT` set, passing its exit code through; useful for scripts and AI agents whose shell calls don't keep `cd`
 - `grove review --json` prints open PRs as JSON; `grove review <number> --json` prints the created worktree (same fields as `grove create --json`) plus `pr` and `fork`, with progress on stderr
 
 ### Changed

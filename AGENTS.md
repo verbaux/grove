@@ -30,6 +30,7 @@
 - State writes are atomic, and mutating commands reread state while holding the inter-process lock. Do not reintroduce production `state.Load` → mutate → `state.Save` sequences; they lose unrelated concurrent updates.
 - `grove rename` preserves the assigned port and all state metadata. It moves only worktrees still at the standard path for the old alias; adopted/custom paths stay in place, and a failed state save rolls a directory move back.
 - Worktree notes are optional local state, limited by `grove note` to one line and 200 Unicode characters. Rename preserves them; `grove list --json` and `grove status --json` omit the `note` field when it is empty.
+- `grove exec` requires `--`, chdirs into the worktree before resolving the command, replaces the process via `syscall.Exec` (no shell), and replaces inherited `GROVE_PATH`/`GROVE_BRANCH`/`GROVE_ALIAS`/`GROVE_PORT`; alias and port are set only for managed worktrees.
 - `grove ps` is read-only: it scans TCP listeners once with `lsof`, falls back to `netstat`, and never changes ports or state. `netstat` results may lack PID/process details.
 - `grove doctor` and `grove doctor --json` are read-only. `grove doctor --fix` may remove revalidated stale state entries, repair an existing broken configured symlink only when its main-worktree target exists, and adopt only orphans whose branch-derived alias is valid, available, and unique. It must never remove worktrees, overwrite real destinations, modify config, run hooks, or repair port assignments; diagnostics run again after repairs.
 

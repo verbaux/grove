@@ -12,7 +12,7 @@ Worktree path formula: ` + "`<worktreeDir>/<prefix>-<alias>/`" + `.
 
 - ` + "`grove create <branch> --json`" + ` — create worktree (.env copy, symlinks, hooks); prints alias, path, port. ` + "`--name <alias>`" + `, ` + "`--from <base>`" + `, ` + "`--detach`" + ` (no shared symlinks)
 - ` + "`grove review <pr-number> --json`" + ` — check out a PR into a worktree (requires gh CLI); without a number lists open PRs
-- ` + "`cd \"$(grove cd <alias-or-index>)\" && <next command>`" + ` — run in a worktree (cd does not persist between shell calls)
+- ` + "`grove exec <alias-or-index> -- <command>`" + ` — run in a worktree with ` + "`GROVE_PORT`" + ` etc. set (cd does not persist between shell calls; use ` + "`sh -c`" + ` for pipes)
 - ` + "`grove list --json`" + ` / ` + "`grove status --json`" + ` — worktrees with path, port, status, note
 - ` + "`grove ps --json`" + ` — live listeners on assigned worktree ports (read-only)
 - ` + "`grove sync <alias> --json`" + ` — apply current config to an existing worktree
@@ -27,7 +27,7 @@ Worktree path formula: ` + "`<worktreeDir>/<prefix>-<alias>/`" + `.
 
 - NEVER use ` + "`git worktree add/remove`" + ` directly — it bypasses Grove state tracking
 - Always pass an alias or index to ` + "`grove cd`" + ` / ` + "`grove open`" + `; without one they need an interactive terminal
-- Run dev servers on the worktree's own port: ` + "`port`" + ` in ` + "`grove list --json`" + ` (` + "`$GROVE_PORT`" + ` inside hooks); it is stable per worktree
+- Run dev servers on the worktree's own port: ` + "`$GROVE_PORT`" + ` inside ` + "`grove exec`" + ` and hooks, or ` + "`port`" + ` in ` + "`grove list --json`" + `; it is stable per worktree
 - Do not pass ` + "`--force`" + `, ` + "`--include-protected`" + `, or run ` + "`grove clean`" + ` / ` + "`grove prune`" + ` without user confirmation
 - If ` + "`beforeRemove`" + ` blocks removal, treat it as intentional
 `

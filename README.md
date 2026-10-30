@@ -299,6 +299,20 @@ The `editor` config field lets different projects open in different editors. The
 
 ---
 
+### `grove exec <name-or-number> -- <command> [args...]`
+
+Run a command inside a worktree without `cd`. Handy in scripts and for AI agents, whose shell calls don't keep the working directory.
+
+```sh
+grove exec auth -- npm test
+grove exec 3 -- git status --short
+grove exec auth -- sh -c 'npm run dev -- --port "$GROVE_PORT"'
+```
+
+The command runs in the worktree directory with `GROVE_PATH` and `GROVE_BRANCH`, plus `GROVE_ALIAS` and `GROVE_PORT` for managed worktrees. It runs without a shell (use `sh -c` for pipes and `&&`) and replaces the grove process, so the exit code passes through unchanged. Not supported on Windows.
+
+---
+
 ### `grove rename <name-or-number> <new-alias>`
 
 Rename a managed worktree alias. The first argument can be an alias or a list index.

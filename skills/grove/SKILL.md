@@ -59,11 +59,14 @@ cd $(grove cd 2)           # by index from grove list
 
 Always pass an alias or index from a shell tool. Without one, `grove cd` opens an interactive picker; when stdin is not a terminal it exits with an error instead.
 
-Combine `cd` with next command in single shell call — `cd` alone has no effect across separate shell invocations:
+Prefer `grove exec` from a shell tool — `cd` alone has no effect across separate shell invocations:
 
 ```sh
-cd $(grove cd my-branch) && git status
+grove exec my-branch -- git status                               # cwd = worktree, exit code passes through
+grove exec my-branch -- sh -c 'npm run dev -- --port "$GROVE_PORT"'  # shell features need sh -c
 ```
+
+The command gets `GROVE_PATH` and `GROVE_BRANCH`, plus `GROVE_ALIAS` and `GROVE_PORT` for managed worktrees. Without `grove exec`, combine `cd` with the next command: `cd "$(grove cd my-branch)" && git status`.
 
 ### Review PR
 

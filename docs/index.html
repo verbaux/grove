@@ -376,6 +376,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
         <li><code>grove create &lt;branch&gt;</code><span>Create worktree + setup; <code>--name</code>, <code>--from</code>, <code>--detach</code></span></li>
         <li><code>grove cd [name|index]</code><span>Print path to cd into; fuzzy picker without args</span></li>
         <li><code>grove open [name|index]</code><span>Open a worktree in your editor; <code>editor</code> config / <code>$EDITOR</code> / <code>--editor</code></span></li>
+        <li><code>grove exec &lt;name|index&gt; -- &lt;cmd&gt;</code><span>Run a command in a worktree with <code>GROVE_PORT</code> and friends set; exit code passes through</span></li>
         <li><code>grove list</code><span>Table of worktrees with status, detached mode, port, note, and index; <code>--json</code>, <code>--plain</code></span></li>
         <li><code>grove status</code><span>Read-only health view: dirty state, config drift, symlinks, ports, orphans, branch freshness; <code>--json</code></span></li>
         <li><code>grove ps</code><span>Live running/stopped status for assigned worktree ports; <code>--json</code></span></li>
