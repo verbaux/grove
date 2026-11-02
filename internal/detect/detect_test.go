@@ -499,3 +499,35 @@ func TestGitignoreHasIgnoresCommentsAndPrefixes(t *testing.T) {
 		t.Errorf("did not expect gitignoreHas to match dist")
 	}
 }
+
+func TestDetectSubmodules(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, ".gitmodules", "[submodule \"vendor/lib\"]\n\tpath = vendor/lib\n\turl = https://example.com/lib.git\n")
+	sugs := Analyze(dir)
+	if !hasSuggestion(sugs, KindAfterCreate, "git submodule update --init --recursive") {
+		t.Errorf("expected submodule init suggestion, got %+v", sugs)
+	}
+}
+
+func TestDetectSubmodulesSkipsEmptyGitmodules(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, ".gitmodules", "# no submodules left\n")
+	if hasSuggestion(Analyze(dir), KindAfterCreate, "git submodule update --init --recursive") {
+		t.Error("did not expect a suggestion for .gitmodules without sections")
+	}
+}
+
+func TestDetectSubmodulesRunBeforeOtherSetup(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, ".gitmodules", "[submodule \"deps\"]\n\tpath = deps\n")
+	writeFile(t, dir, "CMakePresets.json", `{"configurePresets":[{"name":"dev"}]}`)
+	var hooks []string
+	for _, s := range Analyze(dir) {
+		if s.Kind == KindAfterCreate {
+			hooks = append(hooks, s.Value)
+		}
+	}
+	if len(hooks) != 2 || hooks[0] != "git submodule update --init --recursive" || hooks[1] != "cmake --preset dev" {
+		t.Errorf("want submodule init before cmake, got %v", hooks)
+	}
+}

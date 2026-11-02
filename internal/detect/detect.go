@@ -42,7 +42,10 @@ type Suggestion struct {
 
 type rule func(root string) []Suggestion
 
+// rules run in order, and afterCreate suggestions keep that order. Submodules
+// come first because later setup commands may need their sources.
 var rules = []rule{
+	detectSubmodules,
 	detectHusky,
 	detectNodeModules,
 	detectPackageManager,
@@ -58,6 +61,7 @@ var rules = []rule{
 	detectGoModules,
 	detectCargo,
 	detectGradle,
+	detectCMakePresets,
 	detectBundler,
 	detectComposer,
 	detectMakeSetup,
@@ -123,6 +127,19 @@ func detectHusky(root string) []Suggestion {
 		Kind:   KindAfterCreate,
 		Value:  "npx husky",
 		Reason: "husky v9 layout detected but .husky/_ runtime is missing in main repo; regenerate it inside the worktree",
+	}}
+}
+
+func detectSubmodules(root string) []Suggestion {
+	data, err := os.ReadFile(filepath.Join(root, ".gitmodules"))
+	if err != nil || !strings.Contains(string(data), "[submodule") {
+		return nil
+	}
+	return []Suggestion{{
+		Kind:  KindAfterCreate,
+		Value: "git submodule update --init --recursive",
+		Reason: ".gitmodules detected; new worktrees start with empty submodule dirs. " +
+			"Initialized submodules make grove remove, clean and prune require --force, and grove rename cannot move the worktree",
 	}}
 }
 

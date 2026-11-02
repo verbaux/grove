@@ -597,6 +597,7 @@ Detected today:
 
 | Signal | Suggestion |
 | --- | --- |
+| `.gitmodules` with a `[submodule]` section | `afterCreate: git submodule update --init --recursive`, listed first. Initialized submodules make `grove remove`, `clean`, and `prune` require `--force`, and `grove rename` cannot move the worktree |
 | `.husky/` + `.husky/_` (gitignored) | symlink `.husky/_`, or `afterCreate: npx husky` if the runtime dir is missing |
 | `package.json` + `node_modules/` | symlink `node_modules` |
 | `package.json` `packageManager` field | `afterCreate: <pnpm\|yarn\|bun\|npm> install` |
@@ -612,6 +613,7 @@ Detected today:
 | `go.mod` | `afterCreate: go mod download` |
 | `Cargo.toml` | `afterCreate: cargo fetch` |
 | `build.gradle*` + `gradlew` | `afterCreate: ./gradlew --no-daemon dependencies` |
+| `CMakePresets.json` with a visible configure preset and no `condition` | `afterCreate: cmake --preset <name>` (`default` if present, else the first) |
 | `Gemfile` / `Gemfile.lock` | `afterCreate: bundle install` |
 | `composer.json` / `composer.lock` | `afterCreate: composer install` |
 | `Makefile` with `setup:` target | `afterCreate: make setup` |
