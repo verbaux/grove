@@ -872,3 +872,32 @@ func TestDoctorDiagnosticsAreSortedByAlias(t *testing.T) {
 		t.Errorf("collisions = %v, want %v", collisions, want)
 	}
 }
+
+func TestDiagWorkspaceNodeModulesWarnsOnSharedNodeModules(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pnpm-workspace.yaml"), []byte("packages:\n  - packages/*\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{Symlink: []string{"node_modules", "packages/web-ui/node_modules", "packages/*/node_modules/", ".husky/_"}}
+
+	diags := diagWorkspaceNodeModules(root, cfg)
+	if len(diags) != 3 {
+		t.Fatalf("expected 3 warnings, got %+v", diags)
+	}
+	for _, d := range diags {
+		if d.Level != levelWarn || !strings.Contains(d.Message, "main checkout") {
+			t.Errorf("unexpected diagnostic %+v", d)
+		}
+	}
+}
+
+func TestDiagWorkspaceNodeModulesQuietOutsideWorkspace(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte(`{"name":"app"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{Symlink: []string{"node_modules"}}
+	if diags := diagWorkspaceNodeModules(root, cfg); len(diags) != 0 {
+		t.Errorf("expected no warnings for a single package, got %+v", diags)
+	}
+}

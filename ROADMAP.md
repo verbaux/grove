@@ -45,7 +45,7 @@ Latest published tag: `v0.12.0`. This release makes Grove easier for AI agents a
 
 - **`grove why <alias>`.** Explain how Grove derived a worktree's path, port, symlinks, hooks, and state entry so setup issues are debuggable without reading config internals.
 - **Branch freshness hints.** Report branches that are behind the base branch, have no unique commits, lost their upstream, or were deleted remotely.
-- **Monorepo awareness.** Handle workspaces so install and symlink suggestions are correct per package, starting with correct symlink suggestions for yarn/pnpm workspaces (multiple `package.json` files, hoisted vs. scoped `node_modules`); later, per-package `afterCreate` targeting and `.env` path resolution across workspace roots.
+- **Monorepo awareness.** JS workspaces already get a per-worktree install instead of `node_modules` symlinks. Next: per-package `afterCreate` targeting and `.env` path resolution across workspace roots.
 - **Smarter ports.** Feed live-process data back into port *assignment* — skip ports that are already bound at create-time — and add support for multiple ports per worktree. (Implement before TUI dashboard — the dashboard reads this enriched port data model.)
 - **`grove review` beyond `gh`.** Support GitLab and Bitbucket pull/merge requests.
 - **`.env` transform.** Rewrite `PORT=` in copied env files to the assigned `$GROVE_PORT`; add include/exclude patterns for the `.env` walk.

@@ -111,11 +111,11 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
 │   └── <span class="l">node_modules →</span>
 └── review-42/     <span class="g">●</span> clean
     └── <span class="l">node_modules →</span></pre></div>
-<div class="txt"><h3>Symlinked <code>node_modules</code></h3><p>No reinstall per worktree. Root-relative globs like <code>apps/*/node_modules</code> keep every workspace linked. <code>grove detach</code> breaks the links when branches diverge.</p></div></article>
+<div class="txt"><h3>Symlinked <code>node_modules</code></h3><p>No reinstall per worktree for single-package projects. JS workspaces get a per-worktree install instead, so workspace packages resolve to the branch. <code>grove detach</code> breaks the links when branches diverge.</p></div></article>
 <article class="card"><h3>Auto <code>.env</code> copy</h3><p>Walks the project recursively and copies every <code>.env*</code>, preserving directory structure.</p></article>
 <article class="card"><h3>Build cache</h3><p>Copy <code>.next</code>, <code>dist</code>, or <code>packages/*/dist</code> for a warm start. <code>copyDirsOnDetach: false</code> keeps detached branches clean.</p></article>
 <article class="card"><h3><code>afterCreate</code> hooks</h3><p>One command or an array. Fail-fast, with <code>$GROVE_ALIAS/BRANCH/PORT/PATH</code> in scope.</p></article>
-<article class="card"><h3>Project detection</h3><p><code>grove analyze</code> spots package managers, Docker Compose, Vite, Next.js, Turbo, Go, Python, Ruby, Cargo, Gradle — and proposes config.</p></article>
+<article class="card"><h3>Project detection</h3><p><code>grove analyze</code> spots package managers, JS workspaces, git submodules, CMake presets, Docker Compose, Vite, Next.js, Turbo, Go, Python, Ruby, Cargo, Gradle — and proposes config.</p></article>
 <article class="card"><h3>Templates</h3><p>Save any <code>.groverc.json</code> as a template. <code>grove init --template nextjs</code> in the next project.</p></article>
 </div>
 

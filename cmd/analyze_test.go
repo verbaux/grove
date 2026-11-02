@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/verbaux/grove/internal/config"
@@ -242,5 +244,98 @@ func TestPendingSuggestionsCoveredByGlobEntry(t *testing.T) {
 	got := pendingSuggestions(cfg, all)
 	if len(got) != 1 || got[0].Value != "apps/site/node_modules" {
 		t.Errorf("expected only apps/site/node_modules pending, got %+v", got)
+	}
+}
+
+// writeTree creates files under root, making parent directories as needed.
+// A name ending in "/" creates an empty directory.
+func writeTree(t *testing.T, root string, files map[string]string) {
+	t.Helper()
+	for name, body := range files {
+		full := filepath.Join(root, filepath.FromSlash(name))
+		if strings.HasSuffix(name, "/") {
+			if err := os.MkdirAll(full, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestAdaptedSuggestionsWorkspaceInstallsPerWorktree(t *testing.T) {
+	cases := map[string]struct {
+		files   map[string]string
+		install string
+	}{
+		"pnpm isolated": {map[string]string{
+			"package.json":        `{"name":"root","packageManager":"pnpm@10.0.0"}`,
+			"pnpm-workspace.yaml": "packages:\n  - backend\n  - frontend/apps/*\n",
+			"pnpm-lock.yaml":      "lockfileVersion: '9.0'\n",
+		}, "pnpm install"},
+		"pnpm hoisted": {map[string]string{
+			"package.json":        `{"name":"root"}`,
+			"pnpm-workspace.yaml": "packages:\n  - backend\n  - frontend/apps/*\nnodeLinker: hoisted\n",
+			"pnpm-lock.yaml":      "lockfileVersion: '9.0'\n",
+		}, "pnpm install"},
+		"npm workspaces": {map[string]string{
+			"package.json":      `{"name":"root","workspaces":["backend","frontend/apps/*"]}`,
+			"package-lock.json": "{}",
+		}, "npm install"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			writeTree(t, root, tc.files)
+			writeTree(t, root, map[string]string{
+				"node_modules/":                   "",
+				"backend/package.json":            `{"name":"backend"}`,
+				"backend/node_modules/":           "",
+				"frontend/apps/ops/package.json":  `{"name":"ops"}`,
+				"frontend/apps/ops/node_modules/": "",
+			})
+
+			sugs := adaptedSuggestions(root, config.Config{})
+			foundInstall := false
+			for _, s := range sugs {
+				if s.Kind == detect.KindSymlink && strings.HasSuffix(s.Value, "node_modules") {
+					t.Errorf("unexpected node_modules symlink in a workspace: %+v", s)
+				}
+				if s.Value == tc.install {
+					foundInstall = true
+					if s.Kind != detect.KindAfterCreate {
+						t.Errorf("%s must stay in afterCreate, got %s", tc.install, s.Kind)
+					}
+				}
+			}
+			if !foundInstall {
+				t.Errorf("expected %s suggestion, got %+v", tc.install, sugs)
+			}
+		})
+	}
+}
+
+func TestAdaptedSuggestionsSinglePackageKeepsNodeModulesSymlink(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{
+		"package.json":   `{"name":"app"}`,
+		"pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
+		"node_modules/":  "",
+	})
+	sugs := adaptedSuggestions(root, config.Config{})
+	if !slices.ContainsFunc(sugs, func(s detect.Suggestion) bool {
+		return s.Kind == detect.KindSymlink && s.Value == "node_modules"
+	}) {
+		t.Errorf("expected node_modules symlink for a single package, got %+v", sugs)
+	}
+	if !slices.ContainsFunc(sugs, func(s detect.Suggestion) bool {
+		return s.Kind == detect.KindAfterDetachedCreate && s.Value == "pnpm install"
+	}) {
+		t.Errorf("expected pnpm install routed to afterDetachedCreate, got %+v", sugs)
 	}
 }

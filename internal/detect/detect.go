@@ -147,7 +147,7 @@ func detectNodeModules(root string) []Suggestion {
 	if !fileExists(filepath.Join(root, "package.json")) {
 		return nil
 	}
-	if !dirExists(filepath.Join(root, "node_modules")) {
+	if !dirExists(filepath.Join(root, "node_modules")) || IsJSWorkspace(root) {
 		return nil
 	}
 	return []Suggestion{{

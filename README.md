@@ -599,7 +599,7 @@ Detected today:
 | --- | --- |
 | `.gitmodules` with a `[submodule]` section | `afterCreate: git submodule update --init --recursive`, listed first. Initialized submodules make `grove remove`, `clean`, and `prune` require `--force`, and `grove rename` cannot move the worktree |
 | `.husky/` + `.husky/_` (gitignored) | symlink `.husky/_`, or `afterCreate: npx husky` if the runtime dir is missing |
-| `package.json` + `node_modules/` | symlink `node_modules` |
+| `package.json` + `node_modules/`, not a JS workspace | symlink `node_modules` |
 | `package.json` `packageManager` field | `afterCreate: <pnpm\|yarn\|bun\|npm> install` |
 | `pnpm-lock.yaml` / `yarn.lock` / `bun.lockb` / `package-lock.json` | matching `<pm> install` afterCreate |
 | `next.config.*` | copyDir `.next/cache` |
@@ -618,7 +618,9 @@ Detected today:
 | `composer.json` / `composer.lock` | `afterCreate: composer install` |
 | `Makefile` with `setup:` target | `afterCreate: make setup` |
 
-Suggestions already covered by your config are filtered out automatically. `grove init` runs the same detector and offers each suggestion as a y/n prompt during the wizard.
+Suggestions already covered by your config are filtered out automatically, including paths matched by a glob entry such as `packages/*/node_modules`. `grove init` runs the same detector and offers each suggestion as a y/n prompt during the wizard.
+
+**JS workspaces install per worktree.** When `pnpm-workspace.yaml`, `package.json` `workspaces`, or `lerna.json` declares packages, the detector never suggests a `node_modules` symlink, and the install stays in `afterCreate`. Every package manager links workspace packages into `node_modules` with relative symlinks, so a shared `node_modules` resolves them to the main checkout and ignores the branch's changes. `grove doctor` warns about `node_modules` symlink entries in such a project.
 
 **Symlink-aware install routing.** When the detector finds an install command (e.g. `yarn install`) and the corresponding shared directory is already in `cfg.symlink` (e.g. `node_modules`), the suggestion is routed to `afterDetachedCreate` instead of `afterCreate`. Reason: running an install through a shared symlink would mutate the main worktree's dependencies. Routed install commands only execute when you explicitly request an independent worktree via `grove create --detach`.
 
@@ -699,7 +701,7 @@ Project config, lives in the repo root.
   "$schema": "https://raw.githubusercontent.com/verbaux/grove/v0.12.0/groverc.schema.json",
   "worktreeDir": "../",
   "prefix": "myapp",
-  "symlink": ["node_modules", "apps/*/node_modules"],
+  "symlink": ["node_modules"],
   "copyDirs": [".next", "packages/*/dist"],
   "copyDirsOnDetach": false,
   "afterCreate": "npm install",
@@ -717,7 +719,7 @@ Project config, lives in the repo root.
 | --------------------- | ------------------ | ----------------------------------------------------- |
 | `worktreeDir`         | `../`              | Where to place worktrees relative to the project root |
 | `prefix`              | folder name        | Prefix for worktree directory names                   |
-| `symlink`             | `["node_modules"]` | File/directory paths or glob patterns to symlink from the main worktree |
+| `symlink`             | `[]`               | File/directory paths or glob patterns to symlink from the main worktree |
 | `copyDirs`            | `[]`               | File/directory paths or glob patterns to copy for a warm start |
 | `copyDirsOnDetach`    | `true`             | Copy `copyDirs` during `grove create --detach`; set `false` for a clean dependency boundary |
 | `afterCreate`         | `""`               | Shell command(s) to run after setup — string or array (see below) |
@@ -771,6 +773,8 @@ Copies keep the source file permissions (a `0600` `.env` stays `0600`). Other gi
 Instead of running `npm install` in each worktree (slow), Grove creates a symlink from the new worktree's `node_modules` to the original. Both worktrees share the same `node_modules` on disk.
 
 This works well when the branches have the same dependencies. If a branch changes `package.json` significantly, use `afterCreate: "npm install"` — it will install into the symlink's target, or you can remove the symlink and install fresh.
+
+Don't symlink `node_modules` in a JS workspace (pnpm, npm, yarn, or bun workspaces, or Lerna). Package managers link workspace packages into `node_modules` with relative symlinks, so a shared `node_modules` resolves them to the main checkout, and the worktree never sees the branch's changes to those packages. Run the install in `afterCreate` instead; pnpm reuses its global store, so a per-worktree `pnpm install` is fast. `grove doctor` warns about `node_modules` entries in `symlink` for such projects.
 
 ## Lifecycle hooks
 

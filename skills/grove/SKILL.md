@@ -21,7 +21,7 @@ Config fields:
 |-------|---------|
 | `worktreeDir` | Where to place worktrees (relative to repo root) |
 | `prefix` | Prefix for worktree directory names |
-| `symlink` | Root-relative file/dir paths or Go glob patterns to symlink from main (e.g. `node_modules`, `apps/*/node_modules`) |
+| `symlink` | Root-relative file/dir paths or Go glob patterns to symlink from main (e.g. `node_modules`, `.husky/_`). Never `node_modules` in a JS workspace: workspace packages would resolve to main |
 | `copyDirs` | Root-relative file/dir paths or Go glob patterns to copy as build cache (e.g. `.next`, `packages/*/dist`) |
 | `copyDirsOnDetach` | Whether detached creates copy `copyDirs` (default `true`; set `false` when cached artifacts may be incompatible) |
 | `afterCreate` | Hook command — string OR array (fail-fast sequential) |
@@ -181,9 +181,11 @@ grove analyze --apply --dry-run        # preview resulting config without writin
 grove analyze --json                   # machine-readable output
 ```
 
-Use when adopting Grove on an existing project or after the project gains/loses tooling (e.g. switched from `npm` to `pnpm`, removed `node_modules`, added husky, Docker Compose, Go modules, Bundler, Composer, or Makefile setup). Suggestions already covered by the config are filtered out. Symlink suggestions only fire when the target actually exists in the main repo, so applying them never produces broken symlinks.
+Use when adopting Grove on an existing project or after the project gains/loses tooling (e.g. switched from `npm` to `pnpm`, removed `node_modules`, added husky, Docker Compose, Go modules, Bundler, Composer, CMake presets, git submodules, or Makefile setup). Suggestions already covered by the config are filtered out. Symlink suggestions only fire when the target actually exists in the main repo, so applying them never produces broken symlinks.
 
 Install commands (`yarn install`, `pnpm install`, `uv sync`, `go mod download`, `bundle install`, `composer install`, `cargo fetch`, `./gradlew dependencies`, …) are auto-routed to `afterDetachedCreate` when the corresponding shared directory (`node_modules`, `.venv`, `vendor`, `vendor/bundle`, `target`, `.gradle`) is already in `cfg.symlink`, so they only run with `grove create --detach`. This prevents an install from mutating the main worktree's deps through the symlink.
+
+In a JS workspace (`pnpm-workspace.yaml`, `package.json` `workspaces`, or `lerna.json`) the detector never suggests a `node_modules` symlink and keeps the install in `afterCreate`, and `grove doctor` warns about existing `node_modules` symlink entries. The submodule suggestion (`git submodule update --init --recursive`) makes `remove`, `clean`, and `prune` require `--force` for those worktrees; confirm with the user before applying it.
 
 ### Remove
 

@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- `grove analyze` and `grove init` suggest `git submodule update --init --recursive` when `.gitmodules` declares submodules, listed before other `afterCreate` suggestions so later setup sees the submodule sources. The reason notes that initialized submodules make `remove`, `clean`, and `prune` require `--force`
+- `grove analyze` and `grove init` suggest `cmake --preset <name>` for a committed `CMakePresets.json`, picking `default` or the first visible configure preset without a `condition`
+- `grove doctor` warns about `node_modules` entries in `symlink` in a JS workspace
+
+### Fixed
+
+- `grove analyze` and `grove init` no longer suggest a `node_modules` symlink in a JS workspace (`pnpm-workspace.yaml`, `package.json` `workspaces`, or `lerna.json`), and keep the package manager install in `afterCreate`. Workspace packages are linked with relative symlinks, so a shared `node_modules` resolved them to the main checkout and hid the branch's changes
+- A glob entry in `symlink` or `copyDirs`, such as `packages/*/node_modules`, now counts as covering matching suggestions, so `grove analyze` and `grove doctor` stop re-suggesting those paths
+- The README listed `["node_modules"]` as the `symlink` default; it has been `[]` since 0.12.0
+
 ## [0.12.0] — 2026-10-30
 
 ### Added

@@ -6,9 +6,11 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -176,6 +178,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	diags = append(diags, diagSymlinks(symlinkPaths, s)...)
 	diags = append(diags, diagPortCollisions(s)...)
 	diags = append(diags, pathDiags...)
+	diags = append(diags, diagWorkspaceNodeModules(root, cfg)...)
 	diags = append(diags, diagSuggestions(root, cfg)...)
 	diags = append(diags, diagGhCLI())
 
@@ -573,6 +576,27 @@ func expandDoctorPaths(root string, cfg config.Config) ([]string, []diagnostic) 
 		appendWarnings("copyDir", copyDirs.Warnings)
 	}
 	return symlinkPaths, out
+}
+
+// diagWorkspaceNodeModules warns about node_modules symlink entries in a JS
+// workspace. Workspace packages are linked into node_modules by relative
+// symlinks, so a shared node_modules resolves them to the main checkout.
+func diagWorkspaceNodeModules(root string, cfg config.Config) []diagnostic {
+	if !detect.IsJSWorkspace(root) {
+		return nil
+	}
+	var out []diagnostic
+	for _, entry := range cfg.Symlink {
+		if path.Base(strings.TrimRight(filepath.ToSlash(entry), "/")) != "node_modules" {
+			continue
+		}
+		out = append(out, diagnostic{
+			Level: levelWarn,
+			Message: fmt.Sprintf("symlink %q in a JS workspace: workspace packages resolve to the main checkout, "+
+				"so branch changes to them are not used — remove it and run the package manager install in afterCreate", entry),
+		})
+	}
+	return out
 }
 
 func diagSuggestions(root string, cfg config.Config) []diagnostic {
