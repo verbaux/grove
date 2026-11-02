@@ -4,11 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"slices"
 
 	"github.com/spf13/cobra"
 	"github.com/verbaux/grove/internal/config"
@@ -195,9 +194,9 @@ func applyDetectPrompts(root string, cfg config.Config) config.Config {
 func configCoversSuggestion(cfg config.Config, s detect.Suggestion) bool {
 	switch s.Kind {
 	case detect.KindSymlink:
-		return slices.Contains(cfg.Symlink, s.Value)
+		return pathPatternsCover(cfg.Symlink, s.Value)
 	case detect.KindCopyDir:
-		return slices.Contains(cfg.CopyDirs, s.Value)
+		return pathPatternsCover(cfg.CopyDirs, s.Value)
 	case detect.KindAfterCreate:
 		for _, c := range cfg.AfterCreate {
 			if strings.Contains(c, s.Value) {
@@ -212,6 +211,22 @@ func configCoversSuggestion(cfg config.Config, s detect.Suggestion) bool {
 			}
 		}
 		return false
+	}
+	return false
+}
+
+// pathPatternsCover reports whether value equals a configured entry or is
+// matched by a configured glob such as "packages/*/node_modules".
+func pathPatternsCover(patterns []string, value string) bool {
+	for _, p := range patterns {
+		if p == value {
+			return true
+		}
+		if config.HasGlobMeta(p) {
+			if ok, err := path.Match(p, value); err == nil && ok {
+				return true
+			}
+		}
 	}
 	return false
 }

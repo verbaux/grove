@@ -228,3 +228,19 @@ func TestAdaptedSuggestionsRoutesInstallWithSuggestedSymlink(t *testing.T) {
 		t.Errorf("pnpm install kinds = %v, want [afterDetachedCreate]; suggestions %+v", kinds, got)
 	}
 }
+
+func TestPendingSuggestionsCoveredByGlobEntry(t *testing.T) {
+	all := []detect.Suggestion{
+		{Kind: detect.KindSymlink, Value: "packages/web-ui/node_modules"},
+		{Kind: detect.KindSymlink, Value: "apps/site/node_modules"},
+		{Kind: detect.KindCopyDir, Value: "apps/site/.next/cache"},
+	}
+	cfg := config.Config{
+		Symlink:  []string{"packages/*/node_modules"},
+		CopyDirs: []string{"apps/*/.next/cache"},
+	}
+	got := pendingSuggestions(cfg, all)
+	if len(got) != 1 || got[0].Value != "apps/site/node_modules" {
+		t.Errorf("expected only apps/site/node_modules pending, got %+v", got)
+	}
+}
