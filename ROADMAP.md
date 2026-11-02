@@ -4,10 +4,12 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.12.0`. This release makes Grove easier for AI agents and scripts: `grove exec` runs commands inside a worktree, `grove review --json` returns the created worktree, the picker fails fast without a terminal, and `grove doctor --fix` repairs worktree paths that older versions stored through a symlink.
+Latest published tag: `v0.13.0`. This release makes setup detection safe for monorepos and native projects: JS workspaces get a per-worktree install instead of `node_modules` symlinks, `grove doctor` flags such symlinks, and `grove analyze` suggests submodule init and CMake preset configure.
 
 ## Recently shipped
 
+- **Workspace-safe detection.** `grove analyze` and `grove init` no longer symlink `node_modules` in pnpm, npm, yarn, bun, or Lerna workspaces, where workspace packages would resolve to the main checkout; `grove doctor` warns about existing entries, and glob entries count as covering matching suggestions.
+- **Submodules and CMake.** `.gitmodules` yields a submodule init that runs before other setup, and `CMakePresets.json` yields `cmake --preset` for an unconditional configure preset.
 - **Agent-friendly commands.** `grove exec` runs a command in a worktree with `GROVE_*` variables set, `grove review --json` adds machine-readable PR checkout, the picker exits with a hint when there is no terminal, and the AGENTS.md section from `grove init` lists the current commands.
 - **Path and init fixes.** New worktrees behind symlinked paths are tracked instead of showing as orphans, `grove doctor --fix` rewrites such paths saved earlier, and `grove init` no longer pre-fills `node_modules` for non-Node projects.
 - **Bug-fix sweep.** Install suggestions no longer target symlinked dependencies, stale worktrees no longer block `clean` and `prune`, `adopt` and `detach` resolve paths reliably, port ranges stay within 65535, and shell `gcd` helpers stay put on cancel.

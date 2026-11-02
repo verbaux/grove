@@ -698,7 +698,7 @@ Project config, lives in the repo root.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/verbaux/grove/v0.12.0/groverc.schema.json",
+  "$schema": "https://raw.githubusercontent.com/verbaux/grove/v0.13.0/groverc.schema.json",
   "worktreeDir": "../",
   "prefix": "myapp",
   "symlink": ["node_modules"],

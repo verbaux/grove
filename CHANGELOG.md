@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-11-02
+
 ### Added
 
 - `grove analyze` and `grove init` suggest `git submodule update --init --recursive` when `.gitmodules` declares submodules, listed before other `afterCreate` suggestions so later setup sees the submodule sources. The reason notes that initialized submodules make `remove`, `clean`, and `prune` require `--force`
