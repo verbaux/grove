@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-11-10
+
 ### Added
 
 - `grove prune --stale` selects managed worktrees with neither a live branch on origin nor an open PR in origin's GitHub repository, including fork PRs checked out with `grove review`. Requires authenticated `gh` and network access; failed or incomplete checks abort before deletion. Preview with `--dry-run` or `--dry-run --json`, since unpublished, unmerged local work can qualify. With `--stale --delete-branch`, unmerged local branches are kept unless `--force` is set

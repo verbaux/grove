@@ -4,14 +4,11 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.13.0`. This release makes setup detection safe for monorepos and native projects: JS workspaces get a per-worktree install instead of `node_modules` symlinks, `grove doctor` flags such symlinks, and `grove analyze` suggests submodule init and CMake preset configure.
-
-## Unreleased
-
-- **Stale-worktree cleanup.** `grove prune --stale` selects worktrees with neither a live origin branch nor an open PR in origin's GitHub repository. Requires authenticated `gh` and network access. Preview with `--dry-run`: unpublished, unmerged work can qualify, and failed remote checks abort removal.
+Latest published tag: `v0.14.0`. This release adds `grove prune --stale` to clean up managed worktrees with neither an origin branch nor an open GitHub PR, with live remote checks and a dry-run preview.
 
 ## Recently shipped
 
+- **Stale-worktree cleanup.** `grove prune --stale` selects worktrees with neither a live origin branch nor an open PR in origin's GitHub repository. Requires authenticated `gh` and network access. Preview with `--dry-run`: unpublished, unmerged work can qualify, and failed remote checks abort removal.
 - **Workspace-safe detection.** `grove analyze` and `grove init` no longer symlink `node_modules` in pnpm, npm, yarn, bun, or Lerna workspaces, where workspace packages would resolve to the main checkout; `grove doctor` warns about existing entries, and glob entries count as covering matching suggestions.
 - **Submodules and CMake.** `.gitmodules` yields a submodule init that runs before other setup, and `CMakePresets.json` yields `cmake --preset` for an unconditional configure preset.
 - **Agent-friendly commands.** `grove exec` runs a command in a worktree with `GROVE_*` variables set, `grove review --json` adds machine-readable PR checkout, the picker exits with a hint when there is no terminal, and the AGENTS.md section from `grove init` lists the current commands.
