@@ -6,6 +6,10 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 Latest published tag: `v0.13.0`. This release makes setup detection safe for monorepos and native projects: JS workspaces get a per-worktree install instead of `node_modules` symlinks, `grove doctor` flags such symlinks, and `grove analyze` suggests submodule init and CMake preset configure.
 
+## Unreleased
+
+- **Stale-worktree cleanup.** `grove prune --stale` selects worktrees with neither a live origin branch nor an open PR in origin's GitHub repository. Requires authenticated `gh` and network access. Preview with `--dry-run`: unpublished, unmerged work can qualify, and failed remote checks abort removal.
+
 ## Recently shipped
 
 - **Workspace-safe detection.** `grove analyze` and `grove init` no longer symlink `node_modules` in pnpm, npm, yarn, bun, or Lerna workspaces, where workspace packages would resolve to the main checkout; `grove doctor` warns about existing entries, and glob entries count as covering matching suggestions.

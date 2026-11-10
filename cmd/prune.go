@@ -20,6 +20,7 @@ var (
 	pruneJSON             bool
 	pruneIncludeProtected bool
 	pruneDeleteBranch     bool
+	pruneStale            bool
 )
 
 func init() {
@@ -31,6 +32,7 @@ func init() {
 	pruneCmd.Flags().BoolVar(&pruneJSON, "json", false, "print dry-run result as JSON")
 	pruneCmd.Flags().BoolVar(&pruneIncludeProtected, "include-protected", false, "include protected worktrees")
 	pruneCmd.Flags().BoolVar(&pruneDeleteBranch, "delete-branch", false, "delete local branches of removed worktrees")
+	pruneCmd.Flags().BoolVar(&pruneStale, "stale", false, "remove worktrees with neither an origin branch nor an open GitHub PR (requires gh)")
 }
 
 type pruneCandidate struct {
@@ -40,6 +42,7 @@ type pruneCandidate struct {
 	Port      int    `json:"-"`
 	Protected bool   `json:"protected,omitempty"`
 	Status    string `json:"status"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 type pruneSkipped struct {
@@ -57,12 +60,18 @@ type pruneJSONResult struct {
 
 var pruneCmd = &cobra.Command{
 	Use:   "prune",
-	Short: "Remove worktrees whose branch is already merged",
-	Long: `Remove grove-managed worktrees whose branch has already been merged into the
+	Short: "Remove merged worktrees, or stale worktrees with --stale",
+	Long: `By default, remove grove-managed worktrees whose branch has already been merged into the
 base branch (auto-detected, or set with --base).
 
 Detects both regular and squash merges. Merges are checked against the LOCAL
 base branch, so pull it first to see PRs merged on the remote.
+
+With --stale, instead select worktrees with neither a branch on origin nor an
+open PR in origin's GitHub repository, even if unmerged. Requires authenticated
+gh and network access. All remote checks must succeed before removal begins.
+This can include unpublished local work: preview with --dry-run first.
+With --stale --delete-branch, unmerged branches are kept unless --force is set.
 
 Shows what will be removed and asks for confirmation. Use --yes to skip the
 prompt and --force to remove worktrees with uncommitted changes.`,
@@ -109,6 +118,24 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	selection := fmt.Sprintf("Merged into %q", base)
+	noCandidates := fmt.Sprintf("No worktrees merged into %q.", base)
+	worktreeKind := "merged"
+	var originHeads, openPRBranches map[string]bool
+	defaultBranch := git.DefaultBranch()
+	if pruneStale {
+		if defaultBranch == "" {
+			return fmt.Errorf("stale check: could not determine default branch")
+		}
+		originHeads, openPRBranches, err = stalePruneBranches(root)
+		if err != nil {
+			return err
+		}
+		selection = "No origin branch and no open PR"
+		noCandidates = "No stale worktrees."
+		worktreeKind = "stale"
+	}
+
 	aliases := make([]string, 0, len(s.Worktrees))
 	for alias := range s.Worktrees {
 		aliases = append(aliases, alias)
@@ -121,20 +148,28 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	for _, alias := range aliases {
 		entry := s.Worktrees[alias]
-		if entry.Branch == base {
+		if entry.Branch == base || (pruneStale && entry.Branch == defaultBranch) {
 			continue
 		}
-		isMerged, err := git.IsMerged(entry.Branch, base)
-		if err != nil {
-			if pruneJSON {
-				skipped = append(skipped, pruneSkipped{Alias: alias, Branch: entry.Branch, Reason: err.Error()})
-			} else {
-				fmt.Fprintf(os.Stderr, "  warning: could not check %q: %v\n", alias, err)
+		reason := ""
+		if pruneStale {
+			if originHeads[entry.Branch] || openPRBranches[entry.Branch] {
+				continue
 			}
-			continue
-		}
-		if !isMerged {
-			continue
+			reason = "no origin branch and no open PR"
+		} else {
+			isMerged, err := git.IsMerged(entry.Branch, base)
+			if err != nil {
+				if pruneJSON {
+					skipped = append(skipped, pruneSkipped{Alias: alias, Branch: entry.Branch, Reason: err.Error()})
+				} else {
+					fmt.Fprintf(os.Stderr, "  warning: could not check %q: %v\n", alias, err)
+				}
+				continue
+			}
+			if !isMerged {
+				continue
+			}
 		}
 		if entry.Protected && !pruneIncludeProtected {
 			skipped = append(skipped, pruneSkipped{Alias: alias, Branch: entry.Branch, Reason: "protected"})
@@ -144,7 +179,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		status := worktreeStatus(entry.Path)
-		merged = append(merged, pruneCandidate{Alias: alias, Branch: entry.Branch, Path: entry.Path, Port: entry.Port, Protected: entry.Protected, Status: status})
+		merged = append(merged, pruneCandidate{Alias: alias, Branch: entry.Branch, Path: entry.Path, Port: entry.Port, Protected: entry.Protected, Status: status, Reason: reason})
 		if hasUncommittedWork(status) {
 			dirty = append(dirty, fmt.Sprintf("  %s (%s)", alias, status))
 		}
@@ -156,13 +191,17 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	if pruneDryRun {
 		if len(merged) == 0 {
-			fmt.Printf("No worktrees merged into %q.\n", base)
+			fmt.Println(noCandidates)
 			return nil
 		}
-		fmt.Printf("Merged into %q — would remove:\n", base)
+		fmt.Printf("%s — would remove:\n", selection)
 		for _, wt := range merged {
 			if pruneDeleteBranch {
-				fmt.Printf("  %s → %s (branch %s will be deleted)\n", wt.Alias, wt.Path, wt.Branch)
+				if pruneStale && !pruneForce {
+					fmt.Printf("  %s → %s (branch %s will be deleted only if merged)\n", wt.Alias, wt.Path, wt.Branch)
+				} else {
+					fmt.Printf("  %s → %s (branch %s will be deleted)\n", wt.Alias, wt.Path, wt.Branch)
+				}
 			} else {
 				fmt.Printf("  %s → %s\n", wt.Alias, wt.Path)
 			}
@@ -171,7 +210,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(merged) == 0 {
-		fmt.Printf("No worktrees merged into %q.\n", base)
+		fmt.Println(noCandidates)
 		return nil
 	}
 
@@ -194,7 +233,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Printf("Merged into %q — will remove:\n", base)
+	fmt.Printf("%s — will remove:\n", selection)
 	for _, wt := range merged {
 		fmt.Printf("  %s → %s\n", wt.Alias, wt.Path)
 	}
@@ -223,10 +262,6 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	var removed int
 	var removalFailures []error
-	defaultBranch := ""
-	if pruneDeleteBranch {
-		defaultBranch = git.DefaultBranch()
-	}
 	for _, wt := range merged {
 		force, err := forceForRemoval(wt.Path, wt.Status, pruneForce, dirtyConfirmed)
 		if err != nil {
@@ -242,7 +277,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			IncludeProtected: pruneIncludeProtected,
 		}, force)
 		if ok && pruneDeleteBranch {
-			deleteBranchAfterRemoval(wt.Branch, defaultBranch, true)
+			deleteBranchAfterRemoval(wt.Branch, defaultBranch, !pruneStale || pruneForce)
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  failed to remove %q: %v\n", wt.Alias, err)
@@ -258,6 +293,6 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "  warning: git worktree prune failed: %v\n", err)
 	}
 
-	fmt.Printf("\nRemoved %d of %d merged worktree(s).\n", removed, len(merged))
+	fmt.Printf("\nRemoved %d of %d %s worktree(s).\n", removed, len(merged), worktreeKind)
 	return newBatchRemovalError(removalFailures)
 }

@@ -409,7 +409,7 @@ grove clean --include-protected
 
 ### `grove prune`
 
-Removes grove-managed worktrees whose branch has already been merged into the base branch. Detects both regular and squash merges (the GitHub PR default). Merges are checked against the **local** base branch, so pull it first to catch PRs merged on the remote.
+By default, removes grove-managed worktrees whose branch has already been merged into the base branch. Use `--stale` to select worktrees with neither an origin branch nor an open GitHub PR instead. Merge detection supports both regular and squash merges (the GitHub PR default). Merges are checked against the **local** base branch, so pull it first to catch PRs merged on the remote.
 Worktrees with initialized or retained submodule data require an explicit `--force`.
 
 ```sh
@@ -427,6 +427,9 @@ grove prune --force
 # Preview removals as JSON without deleting anything
 grove prune --dry-run --json
 
+# Preview worktrees with neither an origin branch nor an open GitHub PR
+grove prune --stale --dry-run
+
 # Include protected merged worktrees
 grove prune --include-protected
 
@@ -436,17 +439,22 @@ grove prune --delete-branch
 
 The base branch is auto-detected from the remote's default (`origin/HEAD`), falling back to the main working tree's branch. Without `--force`, a non-interactive run (`--yes`) skips worktrees with uncommitted changes rather than discarding them.
 
+`--stale` replaces the merge check with two conditions: the branch is absent from **live origin** and has no **open PR in origin's GitHub repository**. It also recognizes the `pr-<number>` branches created for fork PRs by `grove review`. This requires network access and an installed, authenticated `gh`; any failed or incomplete remote check aborts before removing anything. Even `--dry-run` checks the network, without updating local refs. Protected worktrees are skipped unless `--include-protected` is passed; the base and default branches are always excluded.
+
+Stale candidates can include **unpublished, unmerged local work**. Inspect `grove prune --stale --dry-run` before running `grove prune --stale`. The selection reason is shown in the text heading and each JSON candidate's `reason`. With `--stale --delete-branch`, branch deletion uses `git branch -d`, keeping unmerged branches with a warning; `--force` permits `-D`. The ordinary merged-only mode retains its existing branch deletion behavior.
+
 **Flags:**
 
 | Flag             | Description                                                |
 | ---------------- | ---------------------------------------------------------- |
 | `--base <branch>`| Branch to check merges against (default: auto-detected)    |
+| `--stale`       | Select worktrees with neither an origin branch nor an open GitHub PR instead of checking merges |
 | `--yes`, `-y`    | Skip the confirmation prompt                               |
 | `--force`        | Remove despite changes or initialized submodule data        |
 | `--dry-run`      | Show what would be removed without removing worktrees      |
 | `--json`         | Print dry-run result as JSON (requires `--dry-run`)        |
 | `--include-protected` | Include protected worktrees in prune candidates       |
-| `--delete-branch` | Force-delete local branches for removed worktrees       |
+| `--delete-branch` | Delete local branches after removal; stale mode keeps unmerged branches unless `--force` is set |
 
 ---
 

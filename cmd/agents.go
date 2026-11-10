@@ -23,6 +23,7 @@ Worktree path formula: ` + "`<worktreeDir>/<prefix>-<alias>/`" + `.
 - ` + "`grove remove <alias>`" + ` — remove worktree; ` + "`--delete-branch`" + ` also deletes a merged branch
 - ` + "`grove protect <alias>`" + ` / ` + "`grove unprotect <alias>`" + ` — keep a worktree out of remove, clean, and prune
 - ` + "`grove prune --dry-run --json`" + ` — preview merged worktrees that prune would remove
+- ` + "`grove prune --stale --dry-run --json`" + ` — instead preview worktrees with neither an origin branch nor an open PR in origin's GitHub repository; requires authenticated gh and network access
 
 ### Rules
 
@@ -31,4 +32,5 @@ Worktree path formula: ` + "`<worktreeDir>/<prefix>-<alias>/`" + `.
 - Run dev servers on the worktree's own port: ` + "`$GROVE_PORT`" + ` inside ` + "`grove exec`" + ` and hooks, or ` + "`port`" + ` in ` + "`grove list --json`" + `; it is stable per worktree
 - Do not pass ` + "`--force`" + `, ` + "`--include-protected`" + `, or run ` + "`grove clean`" + ` / ` + "`grove prune`" + ` without user confirmation
 - If ` + "`beforeRemove`" + ` blocks removal, treat it as intentional
+- Stale candidates may contain unpublished, unmerged work; preview them before asking for removal approval. With ` + "`--stale --delete-branch`" + `, unmerged branches are kept unless ` + "`--force`" + ` is set
 `

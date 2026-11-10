@@ -27,6 +27,24 @@ func run(args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// runStdout keeps successful stderr diagnostics out of machine-readable output.
+func runStdout(args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	out, err := cmd.Output()
+	if err != nil {
+		detail := err.Error()
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			if stderr := strings.TrimSpace(string(exitErr.Stderr)); stderr != "" {
+				detail = stderr
+			}
+		}
+		return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), detail)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // Worktree holds info about a single worktree from `git worktree list`.
 type Worktree struct {
 	Path   string
@@ -345,6 +363,30 @@ func Status(worktreePath string) (string, error) {
 func Fetch(remote, refspec string) error {
 	_, err := run("fetch", remote, refspec)
 	return err
+}
+
+// OriginHeads reads the live origin branch names without changing local refs.
+// The URL is returned so GitHub checks can target that exact repository.
+func OriginHeads(root string) (string, map[string]bool, error) {
+	remoteURL, err := runStdout("-C", root, "remote", "get-url", "origin")
+	if err != nil {
+		return "", nil, err
+	}
+	out, err := runStdout("-C", root, "ls-remote", "--heads", "origin")
+	if err != nil {
+		return "", nil, err
+	}
+	heads := make(map[string]bool)
+	if out != "" {
+		for _, line := range strings.Split(out, "\n") {
+			fields := strings.Fields(line)
+			if len(fields) != 2 || !strings.HasPrefix(fields[1], "refs/heads/") {
+				return "", nil, fmt.Errorf("unexpected origin branch response")
+			}
+			heads[strings.TrimPrefix(fields[1], "refs/heads/")] = true
+		}
+	}
+	return remoteURL, heads, nil
 }
 
 // DefaultBranch returns the repository's default branch (e.g. "main").
