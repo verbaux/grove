@@ -109,7 +109,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
 │   └── <span class="l">node_modules →</span>
 ├── payments/      <span class="o">●</span> dirty
 │   └── <span class="l">node_modules →</span>
-└── review-42/     <span class="g">●</span> clean
+└── pr-42/         <span class="g">●</span> clean
     └── <span class="l">node_modules →</span></pre></div>
 <div class="txt"><h3>Symlinked <code>node_modules</code></h3><p>No reinstall per worktree for single-package projects. JS workspaces get a per-worktree install instead, so workspace packages resolve to the branch. <code>grove detach</code> breaks the links when branches diverge.</p></div></article>
 <article class="card"><h3>Auto <code>.env</code> copy</h3><p>Walks the project recursively and copies every <code>.env*</code>, preserving directory structure.</p></article>
