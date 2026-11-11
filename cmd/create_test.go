@@ -596,7 +596,7 @@ func TestCreatePreservesStateAddedAfterInitialLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := doCreate(dir, cfg, &stale, "feature/auth", "auth", "", false, true)
+	result, err := doCreate(dir, cfg, &stale, "feature/auth", "auth", "", false, true, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

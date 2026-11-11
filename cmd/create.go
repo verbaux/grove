@@ -93,7 +93,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		alias = branchAlias(branch)
 	}
 
-	result, err := doCreate(root, cfg, &s, branch, alias, createFrom, createDetach, createJSON)
+	result, err := doCreate(root, cfg, &s, branch, alias, createFrom, createDetach, createJSON, 0)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,8 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 // doCreate is the shared worktree creation logic used by both `grove create` and `grove review`.
 // When detach is true, symlinks are skipped and afterDetachedCreate runs before afterCreate.
-func doCreate(root string, cfg config.Config, s *state.State, branch, alias, from string, detach bool, quiet bool) (createResult, error) {
+// A positive pr is saved in state as the pull request the worktree reviews.
+func doCreate(root string, cfg config.Config, s *state.State, branch, alias, from string, detach bool, quiet bool, pr int) (createResult, error) {
 	result := createResult{
 		Alias:           alias,
 		Branch:          branch,
@@ -314,7 +315,13 @@ func doCreate(root string, cfg config.Config, s *state.State, branch, alias, fro
 				return fmt.Errorf("port %d was assigned to worktree %q by another Grove process — retry create", port, otherAlias)
 			}
 		}
-		return latest.AddWithConfigHash(alias, branch, worktreePath, port, configHash, detach)
+		if err := latest.AddWithConfigHash(alias, branch, worktreePath, port, configHash, detach); err != nil {
+			return err
+		}
+		if pr > 0 {
+			return latest.SetPR(alias, pr)
+		}
+		return nil
 	}); err != nil {
 		setupErr = err
 		return result, setupErr

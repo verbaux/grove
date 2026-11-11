@@ -206,6 +206,7 @@ func TestRenamePreservesEntryMetadata(t *testing.T) {
 		Protected:  true,
 		Detached:   true,
 		Note:       "keep until launch",
+		PR:         42,
 		ConfigHash: "sha256:abc123",
 		Created:    created,
 	}

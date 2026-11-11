@@ -409,7 +409,7 @@ grove clean --include-protected
 
 ### `grove prune`
 
-By default, removes grove-managed worktrees whose branch has already been merged into the base branch. Use `--stale` to select worktrees with neither an origin branch nor an open GitHub PR instead. Merge detection supports both regular and squash merges (the GitHub PR default). Merges are checked against the **local** base branch, so pull it first to catch PRs merged on the remote.
+By default, removes grove-managed worktrees whose branch has already been merged into the base branch. Use `--stale` to select worktrees with neither an origin branch nor an open GitHub PR instead, or `--reviews` to select every worktree created by `grove review`. Merge detection supports both regular and squash merges (the GitHub PR default). Merges are checked against the **local** base branch, so pull it first to catch PRs merged on the remote.
 Worktrees with initialized or retained submodule data require an explicit `--force`.
 
 ```sh
@@ -430,6 +430,9 @@ grove prune --dry-run --json
 # Preview worktrees with neither an origin branch nor an open GitHub PR
 grove prune --stale --dry-run
 
+# Remove every worktree created by grove review
+grove prune --reviews
+
 # Include protected merged worktrees
 grove prune --include-protected
 
@@ -443,18 +446,21 @@ The base branch is auto-detected from the remote's default (`origin/HEAD`), fall
 
 Stale candidates can include **unpublished, unmerged local work**. Inspect `grove prune --stale --dry-run` before running `grove prune --stale`. The selection reason is shown in the text heading and each JSON candidate's `reason`. With `--stale --delete-branch`, branch deletion uses `git branch -d`, keeping unmerged branches with a warning; `--force` permits `-D`. The ordinary merged-only mode retains its existing branch deletion behavior.
 
+`--reviews` replaces the merge check with one condition: `grove review` created the worktree. It selects those worktrees whether or not the PR is merged, and needs neither `gh` nor network access. A worktree counts when `grove review` saved its PR number in state, which also covers a custom `--name`. Any other worktree counts only when its alias is `pr-<number>`; this covers review worktrees created by earlier Grove versions, which have no saved PR number. A worktree on the base branch is never selected. The reason is shown in each JSON candidate's `reason`. `--reviews` cannot be combined with `--stale` or `--base`. With `--reviews --delete-branch`, branch deletion uses `git branch -d`, keeping unmerged branches with a warning; `--force` permits `-D`.
+
 **Flags:**
 
 | Flag             | Description                                                |
 | ---------------- | ---------------------------------------------------------- |
 | `--base <branch>`| Branch to check merges against (default: auto-detected)    |
 | `--stale`       | Select worktrees with neither an origin branch nor an open GitHub PR instead of checking merges |
+| `--reviews`     | Select worktrees created by `grove review` instead of checking merges |
 | `--yes`, `-y`    | Skip the confirmation prompt                               |
 | `--force`        | Remove despite changes or initialized submodule data        |
 | `--dry-run`      | Show what would be removed without removing worktrees      |
 | `--json`         | Print dry-run result as JSON (requires `--dry-run`)        |
 | `--include-protected` | Include protected worktrees in prune candidates       |
-| `--delete-branch` | Delete local branches after removal; stale mode keeps unmerged branches unless `--force` is set |
+| `--delete-branch` | Delete local branches after removal; `--stale` and `--reviews` keep unmerged branches unless `--force` is set |
 
 ---
 
@@ -657,6 +663,8 @@ Grove fetches the PR branch, creates the worktree, and runs the usual setup (`.e
 
 Fork PRs are checked out into a dedicated local branch `pr-<number>`, so a fork's `main` never touches your local `main`. For same-repo PRs, an existing local branch is fast-forwarded to the fetched head; a diverged branch is kept as is, with a warning.
 
+To remove every review worktree at once, run `grove prune --reviews`.
+
 ---
 
 ## Shell integration
@@ -748,7 +756,7 @@ Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`
 
 ### `.grove/state.json` — don't commit this
 
-Local state that maps aliases to paths, ports, protection flags, optional notes, and the `.groverc.json` setup hash used when each worktree was created. Add `.grove/` to your `.gitignore`.
+Local state that maps aliases to paths, ports, protection flags, optional notes, the PR number of worktrees created by `grove review`, and the `.groverc.json` setup hash used when each worktree was created. Add `.grove/` to your `.gitignore`.
 
 Grove writes this file atomically. Mutating commands also coordinate through `.grove/state.lock`, wait up to 10 seconds for another Grove process, and reread the latest state before applying a change. The lock file may remain on disk; the operating system releases the actual lock when the process exits.
 

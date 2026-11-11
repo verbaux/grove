@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -21,7 +22,10 @@ var (
 	pruneIncludeProtected bool
 	pruneDeleteBranch     bool
 	pruneStale            bool
+	pruneReviews          bool
 )
+
+var reviewAliasPattern = regexp.MustCompile(`^pr-[0-9]+$`)
 
 func init() {
 	rootCmd.AddCommand(pruneCmd)
@@ -33,6 +37,7 @@ func init() {
 	pruneCmd.Flags().BoolVar(&pruneIncludeProtected, "include-protected", false, "include protected worktrees")
 	pruneCmd.Flags().BoolVar(&pruneDeleteBranch, "delete-branch", false, "delete local branches of removed worktrees")
 	pruneCmd.Flags().BoolVar(&pruneStale, "stale", false, "remove worktrees with neither an origin branch nor an open GitHub PR (requires gh)")
+	pruneCmd.Flags().BoolVar(&pruneReviews, "reviews", false, "remove worktrees created by grove review, merged or not")
 }
 
 type pruneCandidate struct {
@@ -60,7 +65,7 @@ type pruneJSONResult struct {
 
 var pruneCmd = &cobra.Command{
 	Use:   "prune",
-	Short: "Remove merged worktrees, or stale worktrees with --stale",
+	Short: "Remove merged worktrees, or stale or review worktrees with --stale or --reviews",
 	Long: `By default, remove grove-managed worktrees whose branch has already been merged into the
 base branch (auto-detected, or set with --base).
 
@@ -73,6 +78,12 @@ gh and network access. All remote checks must succeed before removal begins.
 This can include unpublished local work: preview with --dry-run first.
 With --stale --delete-branch, unmerged branches are kept unless --force is set.
 
+With --reviews, instead select every worktree created by grove review, whether
+or not its PR is merged. A worktree counts when grove review saved its PR
+number, or when its alias is pr-<number>. No network access is needed.
+--reviews cannot be combined with --stale or --base.
+With --reviews --delete-branch, unmerged branches are kept unless --force is set.
+
 Shows what will be removed and asks for confirmation. Use --yes to skip the
 prompt and --force to remove worktrees with uncommitted changes.`,
 	RunE: runPrune,
@@ -81,6 +92,9 @@ prompt and --force to remove worktrees with uncommitted changes.`,
 func runPrune(cmd *cobra.Command, args []string) error {
 	if pruneJSON && !pruneDryRun {
 		return fmt.Errorf("--json currently requires --dry-run")
+	}
+	if pruneReviews && (pruneStale || pruneBase != "") {
+		return fmt.Errorf("--reviews cannot be combined with --stale or --base")
 	}
 
 	cwd, err := os.Getwd()
@@ -106,7 +120,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	if base == "" {
 		base = git.DefaultBranch()
 	}
-	if base == "" {
+	if base == "" && !pruneReviews {
 		return fmt.Errorf("could not determine base branch — pass --base <branch>")
 	}
 
@@ -135,6 +149,14 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		noCandidates = "No stale worktrees."
 		worktreeKind = "stale"
 	}
+	if pruneReviews {
+		selection = "Review worktrees"
+		noCandidates = "No review worktrees."
+		worktreeKind = "review"
+	}
+	// The merge check already proved merged branches safe to delete. The other
+	// modes select unmerged work too, so only --force discards those commits.
+	keepUnmergedBranches := (pruneStale || pruneReviews) && !pruneForce
 
 	aliases := make([]string, 0, len(s.Worktrees))
 	for alias := range s.Worktrees {
@@ -152,7 +174,12 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		reason := ""
-		if pruneStale {
+		if pruneReviews {
+			reason = reviewReason(alias, entry)
+			if reason == "" {
+				continue
+			}
+		} else if pruneStale {
 			if originHeads[entry.Branch] || openPRBranches[entry.Branch] {
 				continue
 			}
@@ -197,7 +224,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%s — would remove:\n", selection)
 		for _, wt := range merged {
 			if pruneDeleteBranch {
-				if pruneStale && !pruneForce {
+				if keepUnmergedBranches {
 					fmt.Printf("  %s → %s (branch %s will be deleted only if merged)\n", wt.Alias, wt.Path, wt.Branch)
 				} else {
 					fmt.Printf("  %s → %s (branch %s will be deleted)\n", wt.Alias, wt.Path, wt.Branch)
@@ -277,7 +304,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			IncludeProtected: pruneIncludeProtected,
 		}, force)
 		if ok && pruneDeleteBranch {
-			deleteBranchAfterRemoval(wt.Branch, defaultBranch, !pruneStale || pruneForce)
+			deleteBranchAfterRemoval(wt.Branch, defaultBranch, !keepUnmergedBranches)
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  failed to remove %q: %v\n", wt.Alias, err)
@@ -295,4 +322,17 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\nRemoved %d of %d %s worktree(s).\n", removed, len(merged), worktreeKind)
 	return newBatchRemovalError(removalFailures)
+}
+
+// reviewReason explains why a worktree counts as created by grove review, or
+// returns "" when it does not. An entry without a PR number still counts when
+// its alias is pr-<number>, the alias grove review assigns by default.
+func reviewReason(alias string, entry state.WorktreeEntry) string {
+	if entry.PR > 0 {
+		return fmt.Sprintf("review of PR #%d", entry.PR)
+	}
+	if reviewAliasPattern.MatchString(alias) {
+		return "alias matches pr-<number>"
+	}
+	return ""
 }

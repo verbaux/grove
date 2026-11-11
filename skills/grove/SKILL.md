@@ -231,15 +231,18 @@ initialized or retained submodule data.
 grove prune                         # remove merged managed worktrees, prompts first
 grove prune --yes                   # non-interactive removal of clean merged worktrees
 grove prune --force                 # allow discarding changes or local-only submodule commits
-grove prune --delete-branch         # delete removed worktrees' branches; --stale keeps unmerged branches without --force
+grove prune --delete-branch         # delete removed worktrees' branches; --stale and --reviews keep unmerged branches without --force
 grove prune --dry-run --json        # machine-readable preview, removes nothing
 grove prune --stale --dry-run       # preview worktrees with no origin branch AND no open PR
+grove prune --reviews --dry-run     # preview every worktree created by grove review, merged or not
 grove prune --include-protected     # include protected merged worktrees too
 ```
 
 Use `--dry-run --json` when an agent or script needs to inspect prune candidates before asking the user to approve removal.
 
 `--stale` replaces the merge check: it reads live origin branches and open PRs in origin's GitHub repository, including fork PRs checked out as `pr-<number>`. Requires authenticated `gh` and network access; failed or incomplete checks abort before removal. Candidates may contain unpublished, unmerged work. Preview first and obtain approval for the listed removals. Existing protection and dirty-worktree checks apply. With `--stale --delete-branch`, unmerged branches are kept unless `--force` explicitly permits deletion.
+
+`--reviews` replaces the merge check: it selects every worktree created by `grove review`, whether or not the PR is merged, without `gh` or network access. A worktree counts when state holds its PR number, or when its alias is `pr-<number>`; a worktree on the base branch is never selected. It cannot be combined with `--stale` or `--base`. Candidates may contain unmerged work. Preview first and obtain approval for the listed removals. Existing protection and dirty-worktree checks apply. With `--reviews --delete-branch`, unmerged branches are kept unless `--force` explicitly permits deletion.
 
 ## Rules
 

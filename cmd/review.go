@@ -256,7 +256,7 @@ func runReviewCheckout(number string) error {
 		return err
 	}
 
-	result, err := doCreate(root, cfg, &s, branch, alias, from, false, reviewJSON)
+	result, err := doCreate(root, cfg, &s, branch, alias, from, false, reviewJSON, pr.Number)
 	if err != nil {
 		return err
 	}

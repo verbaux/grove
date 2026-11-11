@@ -135,7 +135,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
 
 <div class="fpanel" data-fp="safety">
 <article class="card"><h3>Protected worktrees</h3><p><code>grove protect</code> keeps a worktree out of <code>remove</code>, <code>clean</code> and <code>prune</code> until you opt in.</p></article>
-<article class="card"><h3>Worktree cleanup</h3><p><code>grove prune</code> removes merged worktrees, including squash merges. Use <code>--stale</code> for worktrees with neither a branch on origin nor an open PR in origin’s GitHub repository. Requires authenticated <code>gh</code> and network access; failed checks stop removal.</p><p>Preview with <code>grove prune --stale --dry-run</code>: unpublished work can qualify. With <code>--delete-branch</code>, stale mode keeps unmerged branches unless <code>--force</code> is set.</p></article>
+<article class="card"><h3>Worktree cleanup</h3><p><code>grove prune</code> removes merged worktrees, including squash merges. Use <code>--stale</code> for worktrees with neither a branch on origin nor an open PR in origin’s GitHub repository. Requires authenticated <code>gh</code> and network access; failed checks stop removal.</p><p>Preview with <code>grove prune --stale --dry-run</code>: unpublished work can qualify. With <code>--delete-branch</code>, stale mode keeps unmerged branches unless <code>--force</code> is set.</p><p>Use <code>--reviews</code> to remove every worktree created by <code>grove review</code>, merged or not.</p></article>
 <article class="card"><h3>Orphan handling</h3><p><code>grove adopt</code> registers outside worktrees. <code>grove doctor --fix</code> repairs only unambiguous issues.</p></article>
 <article class="card"><h3>Detached worktrees</h3><p><code>grove create --detach</code> skips symlinks and runs <code>afterDetachedCreate</code>. <code>sync --reattach</code> reverses it.</p></article>
 </div>
@@ -212,7 +212,7 @@ Worktree <span class="s">"pr-42"</span> ready (port <span class="n">3721</span>)
 <ul class="rows">
 <li><code>grove remove &lt;name&gt;</code><span>Remove safely; <code>--force</code> <code>--delete-branch</code> <code>--include-protected</code></span></li>
 <li><code>grove clean</code><span>Remove managed worktrees + orphans; protected ones skipped</span></li>
-<li><code>grove prune</code><span>Remove merged worktrees, or select worktrees with neither an origin branch nor an open PR using <code>--stale</code> (requires <code>gh</code>); <code>--base</code> <code>--dry-run</code> <code>--yes</code></span></li>
+<li><code>grove prune</code><span>Remove merged worktrees, or select worktrees with neither an origin branch nor an open PR using <code>--stale</code> (requires <code>gh</code>), or every <code>grove review</code> worktree using <code>--reviews</code>; <code>--base</code> <code>--dry-run</code> <code>--yes</code></span></li>
 <li><code>grove sync &lt;name&gt;</code><span>Apply current config to a worktree; <code>--hooks</code> <code>--reattach</code></span></li>
 <li><code>grove protect &lt;name&gt;</code><span>Keep out of remove/clean/prune; <code>grove unprotect</code> reverses</span></li>
 <li><code>grove adopt</code><span>Register an orphan worktree</span></li>

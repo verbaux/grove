@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `grove prune --reviews` selects every managed worktree created by `grove review`, whether or not its PR is merged, without `gh` or network access. `grove review` now saves the PR number in state, so worktrees created with `--name` qualify; worktrees from earlier versions qualify when their alias is `pr-<number>`. Cannot be combined with `--stale` or `--base`. With `--reviews --delete-branch`, unmerged local branches are kept unless `--force` is set
+
 ## [0.14.0] — 2026-11-10
 
 ### Added

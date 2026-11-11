@@ -21,6 +21,7 @@ type WorktreeEntry struct {
 	Protected  bool      `json:"protected,omitempty"`
 	Detached   bool      `json:"detached,omitempty"`
 	Note       string    `json:"note,omitempty"`
+	PR         int       `json:"pr,omitempty"`
 	ConfigHash string    `json:"configHash,omitempty"`
 	Created    time.Time `json:"created"`
 }
@@ -213,6 +214,18 @@ func (s *State) SetNote(alias, note string) error {
 		return errors.New("alias \"" + alias + "\" not found")
 	}
 	entry.Note = note
+	s.Worktrees[alias] = entry
+	return nil
+}
+
+// SetPR records the pull request number that grove review checked out into
+// the worktree.
+func (s *State) SetPR(alias string, pr int) error {
+	entry, exists := s.Worktrees[alias]
+	if !exists {
+		return errors.New("alias \"" + alias + "\" not found")
+	}
+	entry.PR = pr
 	s.Worktrees[alias] = entry
 	return nil
 }

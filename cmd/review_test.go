@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/verbaux/grove/internal/config"
+	"github.com/verbaux/grove/internal/state"
 )
 
 func TestReviewBranchIsolatesForkPRs(t *testing.T) {
@@ -79,6 +80,13 @@ func TestReviewCheckoutJSON(t *testing.T) {
 	}
 	if result.Alias != "pr-7" || result.Branch != "feature/pr" || result.PR != 7 || result.Fork || result.Path == "" {
 		t.Fatalf("unexpected review JSON: %+v", result)
+	}
+	s, err := state.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry, _ := s.Get("pr-7"); entry.PR != 7 {
+		t.Fatalf("state entry PR = %d, want 7", entry.PR)
 	}
 }
 
