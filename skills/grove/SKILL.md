@@ -29,6 +29,7 @@ Config fields:
 | `beforeRemove` | Hook run before managed worktree removal; failure stops removal |
 | `afterRemove` | Hook run after managed worktree removal and state update |
 | `portRange` | `{min, max}` for per-worktree port assignment (default 3001–3999) |
+| `baseBranch` | Branch that `grove prune` checks merges against and `grove status` measures freshness against (default: the remote's default branch). Set it when PRs merge into another branch, such as `develop` |
 
 Worktree path: `<worktreeDir>/<prefix>-<alias>/`. State in `.grove/state.json` (gitignored); mutating Grove commands coordinate concurrent updates through `.grove/state.lock`.
 
@@ -229,6 +230,7 @@ initialized or retained submodule data.
 
 ```sh
 grove prune                         # remove merged managed worktrees, prompts first
+grove prune --base develop          # check merges against another branch; overrides baseBranch from config
 grove prune --yes                   # non-interactive removal of clean merged worktrees
 grove prune --force                 # allow discarding changes or local-only submodule commits
 grove prune --delete-branch         # delete removed worktrees' branches; --stale and --reviews keep unmerged branches without --force

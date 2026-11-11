@@ -28,8 +28,9 @@ var statusCmd = &cobra.Command{
 	Long: `Show a read-only daily status view for managed worktrees.
 
 Includes dirty state, stale state paths, config drift, symlink health,
-port assignment issues, orphan count, branch freshness against the local
-default branch, detached mode, and local worktree notes.`,
+port assignment issues, orphan count, branch freshness against baseBranch from
+.groverc.json (the local default branch when it is unset), detached mode, and
+local worktree notes.`,
 	RunE: runStatus,
 }
 
@@ -101,7 +102,7 @@ func buildStatus(root string, cfg config.Config, s state.State) (statusJSONResul
 		return statusJSONResult{}, err
 	}
 	symlinkPaths := inspectionPaths(symlinks)
-	base := git.DefaultBranch()
+	base := resolvedBaseBranch(cfg)
 	orphans, err := findOrphans(s)
 	if err != nil {
 		return statusJSONResult{}, err

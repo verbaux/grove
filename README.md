@@ -171,7 +171,7 @@ Checks:
 - symlink health
 - port assignment collisions
 - orphan worktree count
-- branch freshness against the local default branch
+- branch freshness against `baseBranch` from `.groverc.json`, or the local default branch when it is unset
 - detached mode
 
 ```sh
@@ -440,7 +440,7 @@ grove prune --include-protected
 grove prune --delete-branch
 ```
 
-The base branch is auto-detected from the remote's default (`origin/HEAD`), falling back to the main working tree's branch. Without `--force`, a non-interactive run (`--yes`) skips worktrees with uncommitted changes rather than discarding them.
+The base branch is `--base`, else `baseBranch` from `.groverc.json`, else auto-detected from the remote's default (`origin/HEAD`), falling back to the main working tree's branch. If PRs merge into a branch other than the remote's default, set `baseBranch` (for example `develop`) so `grove prune` finds them without `--base`. To compare against the last fetched remote branch instead of the local one, use a remote-tracking name such as `origin/develop`. Without `--force`, a non-interactive run (`--yes`) skips worktrees with uncommitted changes rather than discarding them.
 
 `--stale` replaces the merge check with two conditions: the branch is absent from **live origin** and has no **open PR in origin's GitHub repository**. It also recognizes the `pr-<number>` branches created for fork PRs by `grove review`. This requires network access and an installed, authenticated `gh`; any failed or incomplete remote check aborts before removing anything. Even `--dry-run` checks the network, without updating local refs. Protected worktrees are skipped unless `--include-protected` is passed; the base and default branches are always excluded.
 
@@ -452,7 +452,7 @@ Stale candidates can include **unpublished, unmerged local work**. Inspect `grov
 
 | Flag             | Description                                                |
 | ---------------- | ---------------------------------------------------------- |
-| `--base <branch>`| Branch to check merges against (default: auto-detected)    |
+| `--base <branch>`| Branch to check merges against (default: `baseBranch` from config, else auto-detected) |
 | `--stale`       | Select worktrees with neither an origin branch nor an open GitHub PR instead of checking merges |
 | `--reviews`     | Select worktrees created by `grove review` instead of checking merges |
 | `--yes`, `-y`    | Skip the confirmation prompt                               |
@@ -725,7 +725,8 @@ Project config, lives in the repo root.
   "beforeRemove": "docker compose -p myapp-$GROVE_ALIAS down",
   "afterRemove": "rm -f .grove/runtime/$GROVE_ALIAS.pid",
   "portRange": { "min": 3001, "max": 3999 },
-  "editor": "code -w"
+  "editor": "code -w",
+  "baseBranch": "develop"
 }
 ```
 
@@ -744,6 +745,7 @@ Project config, lives in the repo root.
 | `afterRemove`         | `""`               | Shell command(s) to run after removing a managed worktree (string or array) |
 | `portRange`           | `3001–3999`        | Port range assigned to each worktree (see Ports below) |
 | `editor`              | `""`               | Editor command for `grove open` (overrides `$VISUAL`/`$EDITOR`) |
+| `baseBranch`          | remote's default   | Branch that `grove prune` checks merges against and `grove status` measures freshness against; `grove prune --base` overrides it |
 
 Worktree path formula: `worktreeDir` + `prefix` + `-` + alias
 Example: `../` + `myapp` + `-` + `auth` → `../myapp-auth`

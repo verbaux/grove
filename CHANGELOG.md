@@ -4,6 +4,7 @@
 
 ### Added
 
+- `baseBranch` in `.groverc.json` sets the branch that `grove prune` checks merges against and `grove status` measures freshness against, for projects whose PRs merge into a branch other than the remote's default, such as `develop`. `grove prune --base` still overrides it
 - `grove prune --reviews` selects every managed worktree created by `grove review`, whether or not its PR is merged, without `gh` or network access. `grove review` now saves the PR number in state, so worktrees created with `--name` qualify; worktrees from earlier versions qualify when their alias is `pr-<number>`. Cannot be combined with `--stale` or `--base`. With `--reviews --delete-branch`, unmerged local branches are kept unless `--force` is set
 
 ## [0.14.0] — 2026-11-10

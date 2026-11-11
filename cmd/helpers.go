@@ -113,6 +113,13 @@ func validateAlias(alias string) error {
 	return nil
 }
 
+func resolvedBaseBranch(cfg config.Config) string {
+	if cfg.BaseBranch != "" {
+		return cfg.BaseBranch
+	}
+	return git.DefaultBranch()
+}
+
 // updateManagedState applies a mutation to the latest on-disk state and, after
 // a successful save, refreshes the caller's snapshot. Callers can perform slow
 // setup work before this short transaction without overwriting other commands.

@@ -85,6 +85,7 @@ type Config struct {
 	AfterRemove         HookCommands `json:"afterRemove,omitempty"`
 	PortRange           *PortRange   `json:"portRange,omitempty"`
 	Editor              string       `json:"editor,omitempty"`
+	BaseBranch          string       `json:"baseBranch,omitempty"`
 }
 
 // PathExpansionWarningReason describes why a configured path was skipped.

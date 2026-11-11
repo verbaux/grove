@@ -386,6 +386,7 @@ func TestSetupHashStableAcrossNonSetupFields(t *testing.T) {
 	changedNonSetup := base
 	changedNonSetup.Schema = "https://example.com/other-schema.json"
 	changedNonSetup.Editor = "vim"
+	changedNonSetup.BaseBranch = "develop"
 
 	baseHash, err := SetupHash(base)
 	if err != nil {

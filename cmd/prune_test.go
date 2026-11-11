@@ -362,3 +362,55 @@ func TestPruneYesRemovesStaleMergedEntry(t *testing.T) {
 		t.Error("stale merged entry was skipped as dirty instead of cleaned")
 	}
 }
+
+func TestPruneUsesConfiguredBaseBranch(t *testing.T) {
+	repo := setupIntegrationRepo(t, config.Config{Prefix: "testproject", BaseBranch: "develop"})
+	gitInRepo(t, repo, "branch", "develop")
+	featurePath := filepath.Join(t.TempDir(), "feature")
+	addWorktreeWithCommit(t, repo, "feature", featurePath)
+	// Merge feature into develop only; main never receives it.
+	gitInRepo(t, repo, "checkout", "develop")
+	gitInRepo(t, repo, "merge", "--no-ff", "feature", "-m", "merge feature")
+	gitInRepo(t, repo, "checkout", "main")
+
+	s, err := state.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add("feature", "feature", featurePath, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(repo, s); err != nil {
+		t.Fatal(err)
+	}
+
+	pruneBase, pruneYes, pruneForce = "", false, false
+	pruneDryRun, pruneJSON = true, true
+	t.Cleanup(func() {
+		pruneBase = ""
+		pruneDryRun, pruneJSON = false, false
+	})
+	preview := func() pruneJSONResult {
+		t.Helper()
+		out, err := captureStdout(t, func() error { return runPrune(pruneCmd, nil) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		var result pruneJSONResult
+		if err := json.Unmarshal([]byte(out), &result); err != nil {
+			t.Fatalf("prune --json stdout is not JSON: %v\n%s", err, out)
+		}
+		return result
+	}
+
+	result := preview()
+	if result.Base != "develop" || len(result.Candidates) != 1 || result.Candidates[0].Alias != "feature" {
+		t.Fatalf("config baseBranch should select feature against develop: %+v", result)
+	}
+
+	pruneBase = "main"
+	result = preview()
+	if result.Base != "main" || len(result.Candidates) != 0 {
+		t.Fatalf("--base should override config baseBranch: %+v", result)
+	}
+}

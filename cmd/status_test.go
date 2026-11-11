@@ -181,3 +181,22 @@ func TestStatusHelpersReportSymlinkAndPortIssues(t *testing.T) {
 		t.Fatal("stale state should not count as dirty worktree changes")
 	}
 }
+
+func TestStatusUsesConfiguredBaseBranch(t *testing.T) {
+	repo := setupIntegrationRepo(t, config.Config{WorktreeDir: "../", Prefix: "testproject", BaseBranch: "develop"})
+	gitInRepo(t, repo, "branch", "develop")
+
+	statusJSON = true
+	t.Cleanup(func() { statusJSON = false })
+	out, err := captureStdout(t, func() error { return runStatus(statusCmd, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result statusJSONResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("status --json output is not valid JSON: %v\n%s", err, out)
+	}
+	if result.Base != "develop" {
+		t.Fatalf("Base = %q, want develop", result.Base)
+	}
+}

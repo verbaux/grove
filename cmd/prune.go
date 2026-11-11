@@ -30,7 +30,7 @@ var reviewAliasPattern = regexp.MustCompile(`^pr-[0-9]+$`)
 func init() {
 	rootCmd.AddCommand(pruneCmd)
 	pruneCmd.Flags().BoolVar(&pruneForce, "force", false, "remove despite uncommitted changes or initialized submodules")
-	pruneCmd.Flags().StringVar(&pruneBase, "base", "", "branch to check merges against (default: auto-detected default branch)")
+	pruneCmd.Flags().StringVar(&pruneBase, "base", "", "branch to check merges against (default: baseBranch from .groverc.json, else the auto-detected default branch)")
 	pruneCmd.Flags().BoolVarP(&pruneYes, "yes", "y", false, "skip the confirmation prompt")
 	pruneCmd.Flags().BoolVar(&pruneDryRun, "dry-run", false, "show what would be removed without removing worktrees")
 	pruneCmd.Flags().BoolVar(&pruneJSON, "json", false, "print dry-run result as JSON")
@@ -67,7 +67,8 @@ var pruneCmd = &cobra.Command{
 	Use:   "prune",
 	Short: "Remove merged worktrees, or stale or review worktrees with --stale or --reviews",
 	Long: `By default, remove grove-managed worktrees whose branch has already been merged into the
-base branch (auto-detected, or set with --base).
+base branch: --base, else baseBranch from .groverc.json, else the auto-detected
+default branch.
 
 Detects both regular and squash merges. Merges are checked against the LOCAL
 base branch, so pull it first to see PRs merged on the remote.
@@ -118,7 +119,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	base := pruneBase
 	if base == "" {
-		base = git.DefaultBranch()
+		base = resolvedBaseBranch(cfg)
 	}
 	if base == "" && !pruneReviews {
 		return fmt.Errorf("could not determine base branch — pass --base <branch>")

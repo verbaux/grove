@@ -73,6 +73,10 @@
     "editor": {
       "type": "string",
       "description": "Editor command for 'grove open'. Overrides $VISUAL and $EDITOR."
+    },
+    "baseBranch": {
+      "type": "string",
+      "description": "Branch that 'grove prune' checks merges against and 'grove status' measures freshness against (e.g. develop, or origin/develop to compare against the last fetched remote branch instead of the local one). Defaults to the remote's default branch. 'grove prune --base' overrides it."
     }
   }
 }
