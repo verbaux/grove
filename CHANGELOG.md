@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-11-11
+
 ### Added
 
 - `baseBranch` in `.groverc.json` sets the branch that `grove prune` checks merges against and `grove status` measures freshness against, for projects whose PRs merge into a branch other than the remote's default, such as `develop`. `grove prune --base` still overrides it

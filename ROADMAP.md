@@ -4,10 +4,12 @@ Planned direction for Grove. Horizons are priority buckets, not hard dates — i
 
 ## Current status
 
-Latest published tag: `v0.14.0`. This release adds `grove prune --stale` to clean up managed worktrees with neither an origin branch nor an open GitHub PR, with live remote checks and a dry-run preview.
+Latest published tag: `v0.15.0`. This release adds `grove prune --reviews` to remove every worktree created by `grove review`, and a `baseBranch` config key for projects whose PRs merge into a branch other than the remote's default.
 
 ## Recently shipped
 
+- **Review-worktree cleanup.** `grove prune --reviews` selects every worktree created by `grove review`, merged or not, without `gh` or network access. `grove review` saves the PR number in state, so a custom `--name` still qualifies; unmerged branches are kept unless `--force` is set.
+- **Configurable base branch.** `baseBranch` in `.groverc.json` sets the branch that `grove prune` checks merges against and `grove status` measures freshness against, such as `develop`; `grove prune --base` still overrides it.
 - **Stale-worktree cleanup.** `grove prune --stale` selects worktrees with neither a live origin branch nor an open PR in origin's GitHub repository. Requires authenticated `gh` and network access. Preview with `--dry-run`: unpublished, unmerged work can qualify, and failed remote checks abort removal.
 - **Workspace-safe detection.** `grove analyze` and `grove init` no longer symlink `node_modules` in pnpm, npm, yarn, bun, or Lerna workspaces, where workspace packages would resolve to the main checkout; `grove doctor` warns about existing entries, and glob entries count as covering matching suggestions.
 - **Submodules and CMake.** `.gitmodules` yields a submodule init that runs before other setup, and `CMakePresets.json` yields `cmake --preset` for an unconditional configure preset.
